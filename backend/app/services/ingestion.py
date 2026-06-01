@@ -12,22 +12,22 @@ def pipeline_process_and_embed_law(
     db = SessionLocal()
     try:
         update_document_status(db, document_id, "processing")
-        logger.info(f"[Pipeline] Started — document_id={document_id}.")
+        logger.info(f"[Pipeline] Started - document_id={document_id}.")
 
         chunks = split_legal_document(raw_text)
         logger.info(
-            f"[Pipeline] Chunking complete — "
+            f"[Pipeline] Chunking complete - "
             f"{len(chunks)} chunk(s) extracted for document_id={document_id}."
         )
 
         upsert_document_chunks(chunks, document_id)
-        logger.info(f"[Pipeline] Qdrant upsert complete — document_id={document_id}.")
+        logger.info(f"[Pipeline] Qdrant upsert complete - document_id={document_id}.")
 
         build_document_graph(document_id, title, chunks)
-        logger.info(f"[Pipeline] Neo4j graph built — document_id={document_id}.")
+        logger.info(f"[Pipeline] Neo4j graph built - document_id={document_id}.")
 
         update_document_status(db, document_id, "completed")
-        logger.info(f"[Pipeline] Finished successfully — document_id={document_id}.")
+        logger.info(f"[Pipeline] Finished successfully - document_id={document_id}.")
 
     except Exception as exc:
         logger.error(
