@@ -1,0 +1,66 @@
+services:
+  app:
+    build: .
+    container_name: regwatch_app
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    environment:
+      MYSQL_SERVER: mysql
+      QDRANT_HOST: qdrant
+      NEO4J_URI: bolt://neo4j:7687
+    depends_on:
+      mysql:
+        condition: service_healthy
+      qdrant:
+        condition: service_started
+      neo4j:
+        condition: service_healthy
+    restart: on-failure
+  mysql:
+    image: mysql:8.4
+    container_name: regwatch_mysql
+    ports:
+      - "3307:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: password
+      MYSQL_DATABASE: law_db
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-ppassword"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+  qdrant:
+    image: qdrant/qdrant:v1.12.1
+    container_name: regwatch_qdrant
+    ports:
+      - "6336:6333"
+      - "6334:6334"
+    volumes:
+      - qdrant_data:/qdrant/storage
+    restart: unless-stopped
+  neo4j:
+    image: neo4j:5
+    container_name: regwatch_neo4j
+    ports:
+      - "7474:7474"
+      - "7687:7687"
+    environment:
+      NEO4J_AUTH: neo4j/password
+    volumes:
+      - neo4j_data:/data
+    healthcheck:
+      test: ["CMD", "neo4j", "status"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+    restart: unless-stopped
+
+volumes:
+  mysql_data:
+  qdrant_data:
+  neo4j_data:
