@@ -234,7 +234,7 @@ export default function TestHealth() {
         </div>
 
         {/* ── Quick links ── */}
-        <div style={{ display: 'flex', gap: 10, marginTop: 20, flexWrap: 'wrap' }}>
+        <div className="th-quick-links">
           <a href="http://localhost:8000/docs" target="_blank" rel="noreferrer" className="btn btn-outline btn-sm">
             <ExternalLinkIcon size={13} />
             Swagger UI

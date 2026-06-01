@@ -115,7 +115,9 @@ export default function Home() {
                 className="btn btn-primary search-btn"
                 disabled={searching}
               >
-                {searching ? 'Searching...' : 'Ask RegWatch'}
+                <span className="search-btn-text">
+                  {searching ? 'Searching...' : 'Ask RegWatch'}
+                </span>
                 {!searching && <ArrowRightIcon size={15} />}
               </button>
             </div>
@@ -233,7 +235,7 @@ export default function Home() {
                 href="http://localhost:7474"
                 target="_blank"
                 rel="noreferrer"
-                className="btn btn-ghost"
+                className="btn btn-outline"
               >
                 Neo4j Browser
               </a>
@@ -321,7 +323,7 @@ export default function Home() {
               href="https://github.com/nguyenmarch/RegWatch"
               target="_blank"
               rel="noreferrer"
-              className="btn btn-ghost"
+              className="btn btn-outline"
             >
               <GithubIcon size={15} />
               GitHub

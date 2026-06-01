@@ -123,7 +123,10 @@
 /* ── Reset ───────────────────────────────────────────────── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-html { font-size: 16px; scroll-behavior: smooth; }
+html { font-size: 16px; }
+
+/* Smooth scroll chỉ khi user click anchor link (#), không ảnh hưởng navigation */
+html:focus-within { scroll-behavior: smooth; }
 
 body {
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
@@ -1101,6 +1104,13 @@ code {
 .th-info-content strong { display: block; color: var(--text-1); margin-bottom: 4px; font-size: 0.9375rem; }
 .th-info-content p { margin-bottom: 8px; line-height: 1.6; }
 
+.th-quick-links {
+  display: flex;
+  gap: 10px;
+  margin-top: 20px;
+  flex-wrap: wrap;
+}
+
 /* ══════════════════════════════════════════════════════════
    404
    ══════════════════════════════════════════════════════════ */
@@ -1178,71 +1188,127 @@ code {
 /* ══════════════════════════════════════════════════════════
    HAMBURGER + MOBILE MENU
    ══════════════════════════════════════════════════════════ */
+@keyframes menu-slide {
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
 .hamburger {
   display: none;
-  width: 40px; height: 40px;
+  width: 38px; height: 38px;
   border-radius: var(--radius-xs);
   align-items: center;
   justify-content: center;
   color: var(--text-2);
   flex-shrink: 0;
+  border: 1px solid transparent;
   transition: all var(--t-fast);
 }
-.hamburger:hover { background: var(--bg-glass-h); color: var(--text-1); }
+.hamburger:hover      { background: var(--bg-glass-h); color: var(--text-1); border-color: var(--border); }
+.hamburger--open      { background: var(--bg-glass-h); color: var(--text-1); border-color: var(--border); }
 
+/* ── Mobile menu container ── */
 .mobile-menu {
   border-top: 1px solid var(--border);
-  padding: 12px 24px 20px;
+  padding: 8px 0 16px;
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  animation: fade-up 0.18s var(--ease) both;
+  gap: 0;
+  animation: menu-slide 0.2s var(--ease) both;
+}
+
+/* Nav links group */
+.mobile-nav-group {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 4px 0;
 }
 
 .mobile-nav-link {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 12px 14px;
+  gap: 12px;
+  padding: 12px 16px;
   border-radius: var(--radius-sm);
   font-size: 0.9375rem;
   font-weight: 500;
   color: var(--text-2);
+  position: relative;
+  transition: all var(--t-fast);
+  border-left: 2px solid transparent;
+}
+.mobile-nav-link:hover {
+  color: var(--text-1);
+  background: var(--bg-glass-h);
+}
+.mobile-nav-link.active {
+  color: var(--indigo);
+  background: rgba(99,102,241,0.07);
+  border-left-color: var(--indigo);
+  font-weight: 600;
+}
+
+.mobile-nav-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px; height: 28px;
+  border-radius: 8px;
+  background: var(--bg-3);
+  flex-shrink: 0;
+  transition: background var(--t-fast);
+}
+.mobile-nav-link.active .mobile-nav-icon {
+  background: rgba(99,102,241,0.15);
+  color: var(--indigo);
+}
+
+/* Footer actions */
+.mobile-nav-footer {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 0 4px;
+  margin-top: 4px;
+  border-top: 1px solid var(--border);
+}
+
+.mobile-theme-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--bg-glass);
+  color: var(--text-2);
+  font-size: 0.875rem;
   transition: all var(--t-fast);
 }
-.mobile-nav-link:hover,
-.mobile-nav-link.active {
-  color: var(--text-1);
-  background: var(--bg-glass-h);
-}
+.mobile-theme-row:hover { background: var(--bg-glass-h); color: var(--text-1); border-color: var(--border-h); }
 
-.mobile-nav-divider {
-  height: 1px;
-  background: var(--border);
-  margin: 8px 0;
-}
-
-.mobile-nav-actions {
+.mobile-theme-label {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 9px;
+  font-weight: 500;
 }
-.mobile-nav-actions .theme-toggle {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 0 14px;
-  border-radius: var(--radius-sm);
-  height: 40px;
-  font-size: 0.875rem;
-  color: var(--text-2);
+
+.mobile-theme-pill {
+  font-size: 0.75rem;
+  padding: 2px 9px;
+  border-radius: 100px;
+  background: var(--bg-3);
   border: 1px solid var(--border);
-  flex: 1;
-  width: auto;
+  color: var(--text-3);
 }
-.mobile-nav-actions .theme-toggle:hover {
-  background: var(--bg-glass-h);
-  color: var(--text-1);
+
+.mobile-cta {
+  width: 100%;
+  justify-content: center;
+  padding: 12px;
+  font-size: 0.9375rem;
 }
 
 /* ══════════════════════════════════════════════════════════
@@ -1269,28 +1335,51 @@ code {
   .hero-title { font-size: 2.125rem; letter-spacing: -0.025em; }
   .hero-subtitle { font-size: 0.9375rem; margin-bottom: 32px; }
 
-  .search-box {
-    flex-wrap: wrap;
-    padding: 12px 14px;
+  /* Search — keep row layout, compact button */
+  .search-box   { padding: 6px 6px 6px 14px; gap: 8px; }
+  .search-icon  { display: none; }
+  .search-input { font-size: 0.875rem; min-width: 0; }
+  .search-btn   { padding: 9px 14px; font-size: 0.8125rem; flex-shrink: 0; }
+
+  /* Sample chips — vertical stack on mobile */
+  .sample-queries {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 6px;
+    overflow-x: unset;
+    flex-wrap: unset;
+    width: 100%;
+    max-width: 100%;
+  }
+  .sample-label {
+    font-size: 0.75rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    margin-bottom: 2px;
+  }
+  .sample-chip {
+    text-align: left;
+    white-space: normal;
+    border-radius: var(--radius-sm);
+    padding: 11px 14px;
+    font-size: 0.875rem;
+    line-height: 1.45;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
     gap: 10px;
   }
-  .search-icon { display: none; }
-  .search-input { width: 100%; order: 1; font-size: 0.875rem; }
-  .search-btn   { width: 100%; order: 2; justify-content: center; }
-
-  .sample-queries {
-    gap: 6px;
-    justify-content: flex-start;
-    overflow-x: auto;
-    flex-wrap: nowrap;
-    padding-bottom: 4px;
-    /* hide scrollbar but keep scrollable */
-    -ms-overflow-style: none;
-    scrollbar-width: none;
+  .sample-chip::after {
+    content: '→';
+    flex-shrink: 0;
+    font-size: 0.875rem;
+    color: var(--text-3);
+    transition: color var(--t-fast), transform var(--t-fast);
   }
-  .sample-queries::-webkit-scrollbar { display: none; }
-  .sample-label { flex-shrink: 0; }
-  .sample-chip  { flex-shrink: 0; }
+  .sample-chip:hover::after {
+    color: var(--indigo);
+    transform: translateX(3px);
+  }
 
   /* ── Stats ── */
   .stats-grid { grid-template-columns: repeat(2, 1fr); }
@@ -1320,12 +1409,18 @@ code {
   .cta-actions .btn { justify-content: center; }
 
   /* ── TestHealth ── */
-  .th-page     { padding: 40px 0 64px; }
-  .th-header   { flex-direction: column; gap: 20px; }
-  .th-actions  { padding-top: 0; width: 100%; justify-content: flex-end; }
-  .th-card-top { flex-direction: column; align-items: flex-start; gap: 10px; }
-  .th-card-meta { width: 100%; justify-content: flex-end; }
-  .th-score    { width: 100%; }
+  .th-page       { padding: 40px 0 64px; }
+  .th-header     { flex-direction: column; gap: 16px; }
+  .th-actions    { padding-top: 0; width: 100%; flex-wrap: wrap; }
+  .th-actions .btn { flex: 1; justify-content: center; min-width: 120px; }
+  .th-score      { width: 100%; justify-content: center; }
+  .th-card-body  { padding: 16px; }
+  .th-card-top   { flex-direction: column; align-items: flex-start; gap: 10px; }
+  .th-card-meta  { width: 100%; }
+  .th-card-meta .btn { flex: 1; justify-content: center; }
+  .th-info-box   { flex-direction: column; gap: 12px; }
+  .th-json       { font-size: 0.75rem; }
+  .th-error-msg  { font-size: 0.75rem; }
 
   /* ── 404 ── */
   .nf-code { font-size: 6rem; }
@@ -1356,8 +1451,14 @@ code {
   .section-title { font-size: 1.625rem; }
   .feature-card  { padding: 20px; }
 
-  /* TestHealth endpoint URL truncate */
-  .th-url { max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  /* Search — icon-only button on very small screens */
+  .search-btn-text { display: none; }
+  .search-btn      { padding: 10px 12px; }
+
+  /* TestHealth */
+  .th-url        { max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .th-endpoint-info { flex-wrap: wrap; gap: 6px; }
+  .th-title      { font-size: 1.5rem; }
 
   /* 404 */
   .nf-code  { font-size: 5rem; }

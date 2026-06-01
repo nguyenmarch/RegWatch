@@ -4,7 +4,7 @@ import { useTheme } from '../context/ThemeContext'
 import { useAuth } from '../context/AuthContext'
 import {
   RegWatchLogoIcon, SunIcon, MoonIcon,
-  ActivityIcon, MenuIcon, XIcon,
+  ActivityIcon, HomeIcon, MenuIcon, XIcon,
 } from './Icons'
 
 export default function Header() {
@@ -17,6 +17,7 @@ export default function Header() {
 
   return (
     <header className="header">
+
       {/* ── Main bar ── */}
       <div className="header-inner container">
 
@@ -29,89 +30,89 @@ export default function Header() {
 
         {/* Desktop nav */}
         <nav className="nav">
-          <Link to="/" className={`nav-link ${pathname === '/' ? 'active' : ''}`}>
-            Home
-          </Link>
-          <Link to="/test" className={`nav-link ${pathname === '/test' ? 'active' : ''}`}>
-            API Test
-          </Link>
+          <Link to="/" className={`nav-link ${pathname === '/' ? 'active' : ''}`}>Home</Link>
+          <Link to="/test" className={`nav-link ${pathname === '/test' ? 'active' : ''}`}>API Test</Link>
         </nav>
 
         {/* Desktop actions */}
         <div className="header-actions">
-          <button
-            className="theme-toggle"
-            onClick={toggleTheme}
-            aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
-          >
+          <button className="theme-toggle" onClick={toggleTheme} aria-label="Toggle theme">
             {theme === 'dark' ? <SunIcon size={17} /> : <MoonIcon size={17} />}
           </button>
 
-          {isAuthenticated ? (
-            <div className="auth-buttons">
-              <span className="user-name">{user?.username}</span>
-              <button className="btn btn-outline btn-sm" onClick={logout}>Sign out</button>
-            </div>
-          ) : (
-            <div className="auth-buttons">
-              <Link to="/test" className="btn btn-outline btn-sm">
-                <ActivityIcon size={14} />
-                Health check
-              </Link>
-              <button className="btn btn-primary btn-sm">Get started</button>
-            </div>
-          )}
+          <div className="auth-buttons">
+            {isAuthenticated ? (
+              <>
+                <span className="user-name">{user?.username}</span>
+                <button className="btn btn-outline btn-sm" onClick={logout}>Sign out</button>
+              </>
+            ) : (
+              <>
+                <Link to="/test" className="btn btn-outline btn-sm">
+                  <ActivityIcon size={14} />
+                  Health check
+                </Link>
+                <button className="btn btn-primary btn-sm">Get started</button>
+              </>
+            )}
+          </div>
 
           {/* Hamburger — mobile only */}
           <button
-            className="hamburger"
+            className={`hamburger ${menuOpen ? 'hamburger--open' : ''}`}
             onClick={() => setMenuOpen(o => !o)}
             aria-label="Toggle menu"
-            aria-expanded={menuOpen}
           >
-            {menuOpen ? <XIcon size={20} /> : <MenuIcon size={20} />}
+            {menuOpen ? <XIcon size={19} /> : <MenuIcon size={19} />}
           </button>
         </div>
+
       </div>
 
       {/* ── Mobile menu ── */}
       {menuOpen && (
-        <div className="mobile-menu container">
-          <Link
-            to="/"
-            className={`mobile-nav-link ${pathname === '/' ? 'active' : ''}`}
-            onClick={closeMenu}
-          >
-            Home
-          </Link>
-          <Link
-            to="/test"
-            className={`mobile-nav-link ${pathname === '/test' ? 'active' : ''}`}
-            onClick={closeMenu}
-          >
-            <ActivityIcon size={16} />
-            API Test
-          </Link>
+        <nav className="mobile-menu container" aria-label="Mobile navigation">
 
-          <div className="mobile-nav-divider" />
-
-          <div className="mobile-nav-actions">
-            <button
-              className="theme-toggle"
-              onClick={() => { toggleTheme(); closeMenu() }}
-              aria-label="Toggle theme"
+          {/* Nav links */}
+          <div className="mobile-nav-group">
+            <Link
+              to="/"
+              className={`mobile-nav-link ${pathname === '/' ? 'active' : ''}`}
+              onClick={closeMenu}
             >
-              {theme === 'dark' ? <SunIcon size={17} /> : <MoonIcon size={17} />}
-              {theme === 'dark' ? 'Light mode' : 'Dark mode'}
+              <span className="mobile-nav-icon"><HomeIcon size={17} /></span>
+              Home
+            </Link>
+            <Link
+              to="/test"
+              className={`mobile-nav-link ${pathname === '/test' ? 'active' : ''}`}
+              onClick={closeMenu}
+            >
+              <span className="mobile-nav-icon"><ActivityIcon size={17} /></span>
+              API Test
+            </Link>
+          </div>
+
+          {/* Bottom actions */}
+          <div className="mobile-nav-footer">
+            <button className="mobile-theme-row" onClick={() => { toggleTheme(); closeMenu() }}>
+              <span className="mobile-theme-label">
+                {theme === 'dark' ? <SunIcon size={16} /> : <MoonIcon size={16} />}
+                {theme === 'dark' ? 'Switch to Light' : 'Switch to Dark'}
+              </span>
+              <span className="mobile-theme-pill">
+                {theme === 'dark' ? 'Dark' : 'Light'}
+              </span>
             </button>
+
             {!isAuthenticated && (
-              <button className="btn btn-primary" style={{ flex: 1 }}>
-                Get started
-              </button>
+              <button className="btn btn-primary mobile-cta">Get started</button>
             )}
           </div>
-        </div>
+
+        </nav>
       )}
+
     </header>
   )
 }
