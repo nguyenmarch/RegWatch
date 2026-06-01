@@ -40,7 +40,7 @@ services:
     image: mysql:8.4
     container_name: regwatch_mysql
     ports:
-      - "3307:3306"
+      - "3306:3306"
     environment:
       MYSQL_ROOT_PASSWORD: password
       MYSQL_DATABASE: law_db
@@ -58,7 +58,7 @@ services:
     image: qdrant/qdrant:v1.12.1
     container_name: regwatch_qdrant
     ports:
-      - "6336:6333"
+      - "6333:6333"
       - "6334:6334"
     volumes:
       - qdrant_data:/qdrant/storage
