@@ -1,8 +1,10 @@
 import { Link, useLocation } from 'react-router-dom'
+import { useTranslation, Trans } from 'react-i18next'
 import { HomeIcon, ActivityIcon, ArrowRightIcon } from '../components/Icons'
 
 export default function NotFound() {
   const { pathname } = useLocation()
+  const { t } = useTranslation()
 
   return (
     <div className="nf-page">
@@ -12,21 +14,24 @@ export default function NotFound() {
           <div className="nf-code">404</div>
         </div>
 
-        <h1 className="nf-title">Page not found</h1>
+        <h1 className="nf-title">{t('notFound.title')}</h1>
         <p className="nf-desc">
-          No route matches <code>{pathname}</code>.<br />
-          The page may have been moved or never existed.
+          <Trans
+            i18nKey="notFound.desc"
+            values={{ path: pathname }}
+            components={{ code: <code /> }}
+          />
         </p>
 
         <div className="nf-actions">
           <Link to="/" className="btn btn-primary">
             <HomeIcon size={15} />
-            Go home
+            {t('notFound.goHome')}
             <ArrowRightIcon size={14} />
           </Link>
           <Link to="/test" className="btn btn-outline">
             <ActivityIcon size={15} />
-            Health test
+            {t('notFound.healthTest')}
           </Link>
         </div>
 

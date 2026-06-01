@@ -1,0 +1,108 @@
+const vi = {
+  header: {
+    home: 'Trang chủ',
+    apiTest: 'Kiểm tra API',
+    healthCheck: 'Kiểm tra Health',
+    getStarted: 'Bắt đầu',
+    signOut: 'Đăng xuất',
+    lightMode: 'Chuyển sang sáng',
+    darkMode: 'Chuyển sang tối',
+  },
+  home: {
+    badge: 'Hybrid Graph-RAG · Tài chính & Ngân hàng',
+    title1: 'Trí tuệ Pháp lý',
+    title2: 'cho Đội Tuân thủ',
+    subtitle:
+      'RegWatch kết hợp tìm kiếm vector ngữ nghĩa, đồ thị tri thức Neo4j và Gemini AI để cung cấp câu trả lời chính xác, có trích dẫn từ các quy định ngân hàng và fintech Việt Nam.',
+    searchPlaceholder: 'Đặt câu hỏi pháp lý - yêu cầu vốn, chống rửa tiền, bảo vệ dữ liệu...',
+    searchBtn: 'Hỏi RegWatch',
+    searching: 'Đang tìm...',
+    tryLabel: 'Thử:',
+    samples: [
+      'Yêu cầu đảm bảo vốn theo Thông tư 41/2016/TT-NHNN?',
+      'Nghị định 13/2023 sửa đổi nghĩa vụ bảo vệ dữ liệu ngân hàng như thế nào?',
+      'Các quy định phòng chống rửa tiền trong fintech Việt Nam?',
+    ],
+    stats: {
+      db: { label: 'Tầng cơ sở dữ liệu', sub: 'MySQL · Qdrant · Neo4j' },
+      gemini: { label: 'Mô hình Gemini', sub: 'Flash - nhanh & chính xác' },
+      api: { label: 'Chuẩn API', sub: 'FastAPI + OpenAPI docs' },
+      graph: { label: 'Quan hệ đồ thị', sub: 'Tham chiếu chéo pháp lý' },
+    },
+    features: {
+      eyebrow: 'Cách hoạt động',
+      title: 'Bốn tầng trí tuệ pháp lý',
+      subtitle: 'RegWatch vượt xa tìm kiếm từ khóa - hệ thống hiểu cấu trúc và mối quan hệ trong văn bản quy phạm pháp luật.',
+      items: [
+        {
+          title: 'Tìm kiếm Vector Ngữ nghĩa',
+          desc: 'Tìm kiếm vector dày bằng Qdrant với text-embedding-004 của Google (768 chiều). Truy xuất điều khoản pháp lý liên quan nhất trong toàn bộ kho dữ liệu chỉ trong vài mili giây.',
+        },
+        {
+          title: 'Đồ thị Tri thức',
+          desc: 'Neo4j ánh xạ quan hệ giữa các văn bản luật - REFERENCES, AMENDS, SUPERSEDES, IMPLEMENTS. Duyệt đa bước phát hiện phụ thuộc gián tiếp mà con người dễ bỏ sót.',
+        },
+        {
+          title: 'Tổng hợp Câu trả lời AI',
+          desc: 'Gemini 2.5 Flash nhận ngữ cảnh từ vector và đồ thị, tổng hợp câu trả lời chính xác có trích dẫn inline đến điều luật nguồn.',
+        },
+        {
+          title: 'Pipeline RAG Có trạng thái',
+          desc: 'Máy trạng thái LangGraph xác định điều phối từng bước truy vấn. Mỗi node có thể quan sát, thử lại và kiểm thử độc lập.',
+        },
+      ],
+    },
+    arch: {
+      eyebrow: 'Pipeline',
+      title: 'Điều phối RAG xác định',
+      subtitle: 'Mọi truy vấn đều đi qua máy trạng thái LangGraph có kiểu dữ liệu. Mỗi node nhận <code>GraphState</code> dict và chỉ trả về các key mà nó sở hữu - giúp cô lập lỗi dễ dàng.',
+      steps: [
+        { title: 'Câu hỏi người dùng vào GraphState', desc: 'Dict có kiểu với câu hỏi, ngữ cảnh và slot final_answer' },
+        { title: 'retrieve_vector_node', desc: 'Nhúng câu hỏi với text-embedding-004, top-k từ Qdrant' },
+        { title: 'retrieve_graph_node', desc: 'Duyệt Neo4j cho điều khoản được tham chiếu, sửa đổi và liên quan' },
+        { title: 'generate_answer_node', desc: 'Gemini 2.5 Flash tổng hợp cả hai ngữ cảnh thành câu trả lời có trích dẫn' },
+      ],
+      swaggerBtn: 'Swagger UI',
+      neo4jBtn: 'Trình duyệt Neo4j',
+    },
+    cta: {
+      eyebrow: 'Triển khai',
+      title1: 'Một lệnh để khởi động',
+      title2: 'toàn bộ hệ thống',
+      subtitle: 'Docker Compose khởi động MySQL, Qdrant, Neo4j, backend FastAPI và frontend React cùng một lúc.',
+      openApiBtn: 'Mở API Docs',
+      testHealthBtn: 'Kiểm tra Health',
+      githubBtn: 'GitHub',
+    },
+  },
+  testHealth: {
+    back: 'Về trang chủ',
+    title: 'Kiểm tra API',
+    subtitle: 'Ping các endpoint backend RegWatch và xem phản hồi trực tiếp. Vite dev server proxy /api/* đến localhost:8000.',
+    reset: 'Đặt lại',
+    runAll: 'Chạy tất cả',
+    running: 'Đang chạy...',
+    passing: 'đạt',
+    test: 'Test',
+    open: 'Mở',
+    testing: 'Đang test...',
+    endpoints: {
+      health: { label: '/health', desc: 'Kiểm tra liveness - trả về {"status":"ok","service":"RegWatch"}' },
+      swagger: { label: '/docs', desc: 'Swagger UI - tài liệu OpenAPI tương tác cho tất cả endpoint' },
+    },
+    infoTitle: 'Backend không phản hồi?',
+    infoDesc1: 'Khởi động FastAPI server từ thư mục backend/:',
+    infoDesc2: 'Hoặc khởi động toàn bộ stack với Docker:',
+    quickSwagger: 'Swagger UI',
+    quickNeo4j: 'Trình duyệt Neo4j',
+    quickQdrant: 'Qdrant Dashboard',
+  },
+  notFound: {
+    title: 'Không tìm thấy trang',
+    desc: 'Không có route nào khớp với <code>{{path}}</code>. Trang này có thể đã được chuyển đi hoặc chưa từng tồn tại.',
+    goHome: 'Về trang chủ',
+    healthTest: 'Kiểm tra API',
+  },
+} as const
+
+export default vi

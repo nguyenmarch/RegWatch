@@ -1,7 +1,7 @@
 # Normalize line endings to LF for all text files
 * text=auto eol=lf
 
-# Explicitly declare binary files — never convert
+# Explicitly declare binary files - never convert
 *.png  binary
 *.jpg  binary
 *.jpeg binary

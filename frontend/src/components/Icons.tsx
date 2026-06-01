@@ -217,6 +217,16 @@ export function LayersIcon(p: IconProps) {
   )
 }
 
+export function GlobeIcon(p: IconProps) {
+  return (
+    <Icon {...p}>
+      <circle cx="12" cy="12" r="10" />
+      <line x1="2" y1="12" x2="22" y2="12" />
+      <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+    </Icon>
+  )
+}
+
 export function MenuIcon(p: IconProps) {
   return <Icon {...p}><line x1="4" y1="6" x2="20" y2="6" /><line x1="4" y1="12" x2="20" y2="12" /><line x1="4" y1="18" x2="20" y2="18" /></Icon>
 }

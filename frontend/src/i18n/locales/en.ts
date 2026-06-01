@@ -1,0 +1,108 @@
+const en = {
+  header: {
+    home: 'Home',
+    apiTest: 'API Test',
+    healthCheck: 'Health check',
+    getStarted: 'Get started',
+    signOut: 'Sign out',
+    lightMode: 'Switch to Light',
+    darkMode: 'Switch to Dark',
+  },
+  home: {
+    badge: 'Hybrid Graph-RAG · Fintech & Banking',
+    title1: 'Legal Intelligence',
+    title2: 'for Compliance Teams',
+    subtitle:
+      'RegWatch combines dense vector search, a Neo4j knowledge graph, and Gemini AI to surface precise, cited answers from Vietnamese banking and fintech regulations.',
+    searchPlaceholder: 'Ask a legal question - capital requirements, AML, data protection...',
+    searchBtn: 'Ask RegWatch',
+    searching: 'Searching...',
+    tryLabel: 'Try:',
+    samples: [
+      'Capital adequacy requirements under Circular 41/2016/TT-NHNN?',
+      'How does Decree 13/2023 amend data protection for banks?',
+      'AML regulations in Vietnamese fintech?',
+    ],
+    stats: {
+      db: { label: 'Database layers', sub: 'MySQL · Qdrant · Neo4j' },
+      gemini: { label: 'Gemini model', sub: 'Flash - fast & accurate' },
+      api: { label: 'API standard', sub: 'FastAPI + OpenAPI docs' },
+      graph: { label: 'Graph relations', sub: 'Legal cross-references' },
+    },
+    features: {
+      eyebrow: 'How it works',
+      title: 'Four layers of legal intelligence',
+      subtitle: 'RegWatch goes beyond keyword search - it understands the structure and relationships within regulatory text.',
+      items: [
+        {
+          title: 'Vector Semantic Search',
+          desc: 'Qdrant-powered dense vector search using Google text-embedding-004 (768-dim). Retrieve the most relevant legal clauses across your entire corpus in milliseconds.',
+        },
+        {
+          title: 'Knowledge Graph',
+          desc: 'Neo4j maps relationships between laws - REFERENCES, AMENDS, SUPERSEDES, IMPLEMENTS. Multi-hop traversal surfaces indirect dependencies humans miss.',
+        },
+        {
+          title: 'AI Answer Synthesis',
+          desc: 'Gemini 2.5 Flash receives both vector context and graph context, then synthesises a precise, grounded answer with inline citations to the source regulations.',
+        },
+        {
+          title: 'Stateful RAG Pipeline',
+          desc: 'A deterministic LangGraph state machine orchestrates every query step. Each node is observable, retryable, and independently testable.',
+        },
+      ],
+    },
+    arch: {
+      eyebrow: 'Pipeline',
+      title: 'Deterministic RAG orchestration',
+      subtitle: 'Every query flows through a typed LangGraph state machine. Each node receives a <code>GraphState</code> dict and returns only the keys it owns - making failures easy to isolate.',
+      steps: [
+        { title: 'User question enters GraphState', desc: 'Typed dict with question, contexts, and final_answer slots' },
+        { title: 'retrieve_vector_node', desc: 'Embeds question with text-embedding-004, top-k from Qdrant' },
+        { title: 'retrieve_graph_node', desc: 'Traverses Neo4j for referenced, amending, and related articles' },
+        { title: 'generate_answer_node', desc: 'Gemini 2.5 Flash synthesises both contexts into a cited answer' },
+      ],
+      swaggerBtn: 'Swagger UI',
+      neo4jBtn: 'Neo4j Browser',
+    },
+    cta: {
+      eyebrow: 'Deploy',
+      title1: 'One command to start',
+      title2: 'the entire stack',
+      subtitle: 'Docker Compose brings up MySQL, Qdrant, Neo4j, the FastAPI backend, and the React frontend simultaneously.',
+      openApiBtn: 'Open API Docs',
+      testHealthBtn: 'Test Health',
+      githubBtn: 'GitHub',
+    },
+  },
+  testHealth: {
+    back: 'Back to Home',
+    title: 'API Health Test',
+    subtitle: 'Ping RegWatch backend endpoints and inspect live responses. The Vite dev server proxies /api/* to localhost:8000.',
+    reset: 'Reset',
+    runAll: 'Run all tests',
+    running: 'Running...',
+    passing: 'passing',
+    test: 'Test',
+    open: 'Open',
+    testing: 'Testing...',
+    endpoints: {
+      health: { label: '/health', desc: 'Service liveness check - returns {"status":"ok","service":"RegWatch"}' },
+      swagger: { label: '/docs', desc: 'Swagger UI - interactive OpenAPI documentation for all endpoints' },
+    },
+    infoTitle: 'Backend not responding?',
+    infoDesc1: 'Start the FastAPI server from the backend/ directory:',
+    infoDesc2: 'Or spin up the full stack with Docker:',
+    quickSwagger: 'Swagger UI',
+    quickNeo4j: 'Neo4j Browser',
+    quickQdrant: 'Qdrant Dashboard',
+  },
+  notFound: {
+    title: 'Page not found',
+    desc: 'No route matches <code>{{path}}</code>. The page may have been moved or never existed.',
+    goHome: 'Go home',
+    healthTest: 'Health test',
+  },
+} as const
+
+export default en

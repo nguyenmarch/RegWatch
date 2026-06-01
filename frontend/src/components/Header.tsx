@@ -1,9 +1,10 @@
 import { useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { useTheme } from '../context/ThemeContext'
 import { useAuth } from '../context/AuthContext'
 import {
-  RegWatchLogoIcon, SunIcon, MoonIcon,
+  RegWatchLogoIcon, SunIcon, MoonIcon, GlobeIcon,
   ActivityIcon, HomeIcon, MenuIcon, XIcon,
 } from './Icons'
 
@@ -11,9 +12,18 @@ export default function Header() {
   const { theme, toggleTheme } = useTheme()
   const { isAuthenticated, user, logout } = useAuth()
   const { pathname } = useLocation()
+  const { t, i18n } = useTranslation()
   const [menuOpen, setMenuOpen] = useState(false)
 
   function closeMenu() { setMenuOpen(false) }
+
+  function toggleLang() {
+    const next = i18n.language === 'vi' ? 'en' : 'vi'
+    i18n.changeLanguage(next)
+    localStorage.setItem('lang', next)
+  }
+
+  const isVI = i18n.language === 'vi'
 
   return (
     <header className="header">
@@ -30,12 +40,21 @@ export default function Header() {
 
         {/* Desktop nav */}
         <nav className="nav">
-          <Link to="/" className={`nav-link ${pathname === '/' ? 'active' : ''}`}>Home</Link>
-          <Link to="/test" className={`nav-link ${pathname === '/test' ? 'active' : ''}`}>API Test</Link>
+          <Link to="/" className={`nav-link ${pathname === '/' ? 'active' : ''}`}>
+            {t('header.home')}
+          </Link>
+          <Link to="/test" className={`nav-link ${pathname === '/test' ? 'active' : ''}`}>
+            {t('header.apiTest')}
+          </Link>
         </nav>
 
         {/* Desktop actions */}
         <div className="header-actions">
+          <button className="lang-toggle" onClick={toggleLang} title={isVI ? 'Switch to English' : 'Chuyển sang Tiếng Việt'}>
+            <GlobeIcon size={14} />
+            {isVI ? 'VI' : 'EN'}
+          </button>
+
           <button className="theme-toggle" onClick={toggleTheme} aria-label="Toggle theme">
             {theme === 'dark' ? <SunIcon size={17} /> : <MoonIcon size={17} />}
           </button>
@@ -44,20 +63,20 @@ export default function Header() {
             {isAuthenticated ? (
               <>
                 <span className="user-name">{user?.username}</span>
-                <button className="btn btn-outline btn-sm" onClick={logout}>Sign out</button>
+                <button className="btn btn-outline btn-sm" onClick={logout}>{t('header.signOut')}</button>
               </>
             ) : (
               <>
                 <Link to="/test" className="btn btn-outline btn-sm">
                   <ActivityIcon size={14} />
-                  Health check
+                  {t('header.healthCheck')}
                 </Link>
-                <button className="btn btn-primary btn-sm">Get started</button>
+                <button className="btn btn-primary btn-sm">{t('header.getStarted')}</button>
               </>
             )}
           </div>
 
-          {/* Hamburger — mobile only */}
+          {/* Hamburger - mobile only */}
           <button
             className={`hamburger ${menuOpen ? 'hamburger--open' : ''}`}
             onClick={() => setMenuOpen(o => !o)}
@@ -73,7 +92,6 @@ export default function Header() {
       {menuOpen && (
         <nav className="mobile-menu container" aria-label="Mobile navigation">
 
-          {/* Nav links */}
           <div className="mobile-nav-group">
             <Link
               to="/"
@@ -81,7 +99,7 @@ export default function Header() {
               onClick={closeMenu}
             >
               <span className="mobile-nav-icon"><HomeIcon size={17} /></span>
-              Home
+              {t('header.home')}
             </Link>
             <Link
               to="/test"
@@ -89,16 +107,25 @@ export default function Header() {
               onClick={closeMenu}
             >
               <span className="mobile-nav-icon"><ActivityIcon size={17} /></span>
-              API Test
+              {t('header.apiTest')}
             </Link>
           </div>
 
-          {/* Bottom actions */}
           <div className="mobile-nav-footer">
+            {/* Language toggle row */}
+            <button className="mobile-theme-row" onClick={toggleLang}>
+              <span className="mobile-theme-label">
+                <GlobeIcon size={16} />
+                {isVI ? 'Switch to English' : 'Chuyển sang Tiếng Việt'}
+              </span>
+              <span className="mobile-theme-pill">{isVI ? 'VI' : 'EN'}</span>
+            </button>
+
+            {/* Theme toggle row */}
             <button className="mobile-theme-row" onClick={() => { toggleTheme(); closeMenu() }}>
               <span className="mobile-theme-label">
                 {theme === 'dark' ? <SunIcon size={16} /> : <MoonIcon size={16} />}
-                {theme === 'dark' ? 'Switch to Light' : 'Switch to Dark'}
+                {t(`header.${theme === 'dark' ? 'lightMode' : 'darkMode'}`)}
               </span>
               <span className="mobile-theme-pill">
                 {theme === 'dark' ? 'Dark' : 'Light'}
@@ -106,7 +133,7 @@ export default function Header() {
             </button>
 
             {!isAuthenticated && (
-              <button className="btn btn-primary mobile-cta">Get started</button>
+              <button className="btn btn-primary mobile-cta">{t('header.getStarted')}</button>
             )}
           </div>
 

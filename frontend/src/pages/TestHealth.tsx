@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react'
 import { Link } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import {
   ArrowLeftIcon, PlayIcon, RefreshIcon, CheckCircleIcon,
   XCircleIcon, LoaderIcon, ExternalLinkIcon, InfoIcon,
@@ -16,42 +17,17 @@ interface EndpointResult {
   error?: string
 }
 
-interface Endpoint {
-  key: string
-  method: string
-  label: string
-  url: string
-  description: string
-  external?: boolean
+const ENDPOINT_KEYS = ['health', 'swagger'] as const
+type EndpointKey = typeof ENDPOINT_KEYS[number]
+
+const ENDPOINT_CONFIG: Record<EndpointKey, { method: string; url: string; external?: boolean }> = {
+  health:  { method: 'GET', url: '/api/health' },
+  swagger: { method: 'GET', url: 'http://localhost:8000/docs', external: true },
 }
 
-const ENDPOINTS: Endpoint[] = [
-  {
-    key: 'health',
-    method: 'GET',
-    label: '/health',
-    url: '/api/health',
-    description: 'Service liveness check — returns {"status":"ok","service":"RegWatch"}',
-  },
-  {
-    key: 'swagger',
-    method: 'GET',
-    label: '/docs',
-    url: 'http://localhost:8000/docs',
-    description: 'Swagger UI — interactive OpenAPI documentation for all endpoints',
-    external: true,
-  },
-]
-
-const initialResults: Record<string, EndpointResult> = Object.fromEntries(
-  ENDPOINTS.map(e => [e.key, { status: 'idle' }]),
-)
-
-function StatusIndicator({ status }: { status: Status }) {
-  if (status === 'loading') return <LoaderIcon size={16} className="icon-spin" />
-  if (status === 'ok')      return <CheckCircleIcon size={16} />
-  if (status === 'error')   return <XCircleIcon size={16} />
-  return null
+const initialResults: Record<EndpointKey, EndpointResult> = {
+  health:  { status: 'idle' },
+  swagger: { status: 'idle' },
 }
 
 function statusColor(s: Status) {
@@ -61,11 +37,20 @@ function statusColor(s: Status) {
   return 'var(--text-3)'
 }
 
+function StatusIndicator({ status }: { status: Status }) {
+  if (status === 'loading') return <LoaderIcon size={15} className="icon-spin" />
+  if (status === 'ok')      return <CheckCircleIcon size={15} />
+  if (status === 'error')   return <XCircleIcon size={15} />
+  return null
+}
+
 export default function TestHealth() {
-  const [results, setResults] = useState<Record<string, EndpointResult>>(initialResults)
+  const { t } = useTranslation()
+  const [results, setResults] = useState<Record<EndpointKey, EndpointResult>>(initialResults)
   const [runningAll, setRunningAll] = useState(false)
 
-  const runEndpoint = useCallback(async (key: string, url: string, external?: boolean) => {
+  const runEndpoint = useCallback(async (key: EndpointKey) => {
+    const { url, external } = ENDPOINT_CONFIG[key]
     if (external) { window.open(url, '_blank'); return }
 
     setResults(prev => ({ ...prev, [key]: { status: 'loading' } }))
@@ -81,10 +66,7 @@ export default function TestHealth() {
     } catch (err) {
       setResults(prev => ({
         ...prev,
-        [key]: {
-          status: 'error',
-          error: err instanceof Error ? err.message : 'Network error - is the backend running?',
-        },
+        [key]: { status: 'error', error: err instanceof Error ? err.message : 'Network error' },
       }))
     }
   }, [])
@@ -92,16 +74,14 @@ export default function TestHealth() {
   const runAll = useCallback(async () => {
     setRunningAll(true)
     await Promise.all(
-      ENDPOINTS.filter(e => !e.external).map(e => runEndpoint(e.key, e.url)),
+      ENDPOINT_KEYS.filter(k => !ENDPOINT_CONFIG[k].external).map(k => runEndpoint(k)),
     )
     setRunningAll(false)
   }, [runEndpoint])
 
-  const resetAll = () => setResults(initialResults)
-
-  const passCount = ENDPOINTS.filter(e => !e.external && results[e.key].status === 'ok').length
-  const totalTestable = ENDPOINTS.filter(e => !e.external).length
-  const hasRun = ENDPOINTS.some(e => !e.external && results[e.key].status !== 'idle')
+  const passCount = ENDPOINT_KEYS.filter(k => !ENDPOINT_CONFIG[k].external && results[k].status === 'ok').length
+  const totalTestable = ENDPOINT_KEYS.filter(k => !ENDPOINT_CONFIG[k].external).length
+  const hasRun = ENDPOINT_KEYS.some(k => !ENDPOINT_CONFIG[k].external && results[k].status !== 'idle')
 
   return (
     <div className="th-page">
@@ -112,35 +92,27 @@ export default function TestHealth() {
           <div>
             <Link to="/" className="th-back">
               <ArrowLeftIcon size={14} />
-              Back to Home
+              {t('testHealth.back')}
             </Link>
-            <h1 className="th-title">API Health Test</h1>
-            <p className="th-subtitle">
-              Ping RegWatch backend endpoints and inspect live responses.
-              The Vite dev server proxies <code>/api/*</code> to{' '}
-              <code>localhost:8000</code>.
-            </p>
+            <h1 className="th-title">{t('testHealth.title')}</h1>
+            <p className="th-subtitle">{t('testHealth.subtitle')}</p>
           </div>
 
           <div className="th-actions">
             {hasRun && (
               <div className="th-score" style={{ color: passCount === totalTestable ? 'var(--emerald)' : 'var(--rose)' }}>
                 <ActivityIcon size={15} />
-                {passCount}/{totalTestable} passing
+                {passCount}/{totalTestable} {t('testHealth.passing')}
               </div>
             )}
-            <button className="btn btn-outline btn-sm" onClick={resetAll} disabled={runningAll}>
+            <button className="btn btn-outline btn-sm" onClick={() => setResults(initialResults)} disabled={runningAll}>
               <RefreshIcon size={14} />
-              Reset
+              {t('testHealth.reset')}
             </button>
-            <button
-              className="btn btn-primary"
-              onClick={runAll}
-              disabled={runningAll}
-            >
+            <button className="btn btn-primary" onClick={runAll} disabled={runningAll}>
               {runningAll
-                ? <><LoaderIcon size={15} className="icon-spin" /> Running...</>
-                : <><PlayIcon size={15} /> Run all tests</>
+                ? <><LoaderIcon size={15} className="icon-spin" />{t('testHealth.running')}</>
+                : <><PlayIcon size={15} />{t('testHealth.runAll')}</>
               }
             </button>
           </div>
@@ -148,17 +120,22 @@ export default function TestHealth() {
 
         {/* ── Endpoint list ── */}
         <div className="th-list">
-          {ENDPOINTS.map(ep => {
-            const r = results[ep.key]
-            const statusCls = r.status === 'ok' ? 'th-card--ok' : r.status === 'error' ? 'th-card--error' : r.status === 'loading' ? 'th-card--loading' : ''
+          {ENDPOINT_KEYS.map(key => {
+            const r = results[key]
+            const cfg = ENDPOINT_CONFIG[key]
+            const statusCls =
+              r.status === 'ok'      ? 'th-card--ok' :
+              r.status === 'error'   ? 'th-card--error' :
+              r.status === 'loading' ? 'th-card--loading' : ''
+
             return (
-              <div key={ep.key} className={`th-card ${statusCls}`}>
+              <div key={key} className={`th-card ${statusCls}`}>
                 <div className="th-card-strip" />
                 <div className="th-card-body">
                   <div className="th-card-top">
                     <div className="th-endpoint-info">
-                      <span className="th-method">{ep.method}</span>
-                      <span className="th-url">{ep.label}</span>
+                      <span className="th-method">{cfg.method}</span>
+                      <span className="th-url">{t(`testHealth.endpoints.${key}.label`)}</span>
                       {r.status !== 'idle' && (
                         <span
                           className={`th-badge badge-${r.status}`}
@@ -181,28 +158,27 @@ export default function TestHealth() {
                       )}
                       <button
                         className="btn btn-outline btn-sm"
-                        onClick={() => runEndpoint(ep.key, ep.url, ep.external)}
+                        onClick={() => runEndpoint(key)}
                         disabled={r.status === 'loading'}
                       >
-                        {ep.external
-                          ? <><ExternalLinkIcon size={13} />Open</>
+                        {cfg.external
+                          ? <><ExternalLinkIcon size={13} />{t('testHealth.open')}</>
                           : r.status === 'loading'
-                            ? <><LoaderIcon size={13} className="icon-spin" />Testing...</>
-                            : <><PlayIcon size={13} />Test</>
+                            ? <><LoaderIcon size={13} className="icon-spin" />{t('testHealth.testing')}</>
+                            : <><PlayIcon size={13} />{t('testHealth.test')}</>
                         }
                       </button>
                     </div>
                   </div>
 
-                  <p className="th-desc">{ep.description}</p>
+                  <p className="th-desc">{t(`testHealth.endpoints.${key}.desc`)}</p>
 
                   {r.data !== undefined && (
                     <pre className="th-json">
-                      <span style={{ color: 'var(--text-3)' }}>// response body{'\n'}</span>
+                      <span style={{ color: 'var(--text-3)' }}>{'// response body\n'}</span>
                       {JSON.stringify(r.data, null, 2)}
                     </pre>
                   )}
-
                   {r.error && (
                     <div className="th-error-msg">
                       <XCircleIcon size={14} style={{ flexShrink: 0, marginTop: 1 }} />
@@ -217,16 +193,14 @@ export default function TestHealth() {
 
         {/* ── Info panel ── */}
         <div className="th-info-box">
-          <div className="th-info-icon">
-            <InfoIcon size={18} />
-          </div>
+          <div className="th-info-icon"><InfoIcon size={18} /></div>
           <div className="th-info-content">
-            <strong>Backend not responding?</strong>
-            <p>Start the FastAPI server from the <code>backend/</code> directory:</p>
+            <strong>{t('testHealth.infoTitle')}</strong>
+            <p>{t('testHealth.infoDesc1')}</p>
             <pre className="th-json th-json--cmd">
               <span style={{ color: 'var(--emerald)' }}>$ </span>uvicorn app.main:app --reload --port 8000
             </pre>
-            <p style={{ marginTop: 8 }}>Or spin up the full stack with Docker:</p>
+            <p style={{ marginTop: 8 }}>{t('testHealth.infoDesc2')}</p>
             <pre className="th-json th-json--cmd">
               <span style={{ color: 'var(--emerald)' }}>$ </span>docker compose up -d --build
             </pre>
@@ -236,16 +210,13 @@ export default function TestHealth() {
         {/* ── Quick links ── */}
         <div className="th-quick-links">
           <a href="http://localhost:8000/docs" target="_blank" rel="noreferrer" className="btn btn-outline btn-sm">
-            <ExternalLinkIcon size={13} />
-            Swagger UI
+            <ExternalLinkIcon size={13} />{t('testHealth.quickSwagger')}
           </a>
-          <a href="http://localhost:7474" target="_blank" rel="noreferrer" className="btn btn-ghost btn-sm">
-            <ServerIcon size={13} />
-            Neo4j Browser
+          <a href="http://localhost:7474" target="_blank" rel="noreferrer" className="btn btn-outline btn-sm">
+            <ServerIcon size={13} />{t('testHealth.quickNeo4j')}
           </a>
-          <a href="http://localhost:6336/dashboard" target="_blank" rel="noreferrer" className="btn btn-ghost btn-sm">
-            <TerminalIcon size={13} />
-            Qdrant Dashboard
+          <a href="http://localhost:6336/dashboard" target="_blank" rel="noreferrer" className="btn btn-outline btn-sm">
+            <TerminalIcon size={13} />{t('testHealth.quickQdrant')}
           </a>
         </div>
 
