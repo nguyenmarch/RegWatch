@@ -26,3 +26,4 @@
 # FUNCTION: format_sources(scored_points) -> list[dict]
 #   - Extract document_id, chunk_id, score from each ScoredPoint
 #   - Return as structured list for API response citation
+

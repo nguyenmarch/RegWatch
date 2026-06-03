@@ -54,7 +54,6 @@ def create_cross_document_reference(
             f"Allowed values: {sorted(_ALLOWED_REFERENCE_TYPES)}"
         )
 
-    # Cypher does not support parameterized relationship types; whitelist guards injection.
     query = (
         f"MATCH (src:Clause {{chunk_id: $source_chunk_id, document_id: $source_doc_id}}) "
         f"MATCH (tgt:Clause {{chunk_id: $target_chunk_id, document_id: $target_doc_id}}) "

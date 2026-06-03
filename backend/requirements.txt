@@ -10,3 +10,7 @@ pydantic-settings==2.6.1
 google-genai~=1.66.0
 langgraph~=0.2.0
 email-validator~=2.0.0
+pymupdf==1.25.5
+python-docx==1.1.2
+python-multipart==0.0.20
+asyncmy==0.2.10

@@ -27,14 +27,15 @@ class Settings(BaseSettings):
 
     CHUNK_SIZE: int = Field(default=1000, description="Size of each chunk for processing")
     CHUNK_OVERLAP: int = Field(default=100, description="Overlap between chunks")
-    EMBEDDING_DIMENSION: int = Field(default=1536, description="Dimension of the embedding vector")
+    EMBEDDING_DIMENSION: int = Field(default=768, description="Dimension of the embedding vector")
 
     NEO4J_URI: str = "bolt://localhost:7687"
     NEO4J_USER: str = "neo4j"
     NEO4J_PASSWORD: str = "password"
 
-    GEMINI_API_KEY: str = "" 
+    GEMINI_API_KEY: str = ""
     GEMINI_MODEL: str = "gemini-2.5-flash"
+    GEMINI_EMBEDDING_MODEL: str = "gemini-embedding-001"
 
     @property
     def DATABASE_URL(self) -> str:

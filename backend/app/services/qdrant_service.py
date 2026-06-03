@@ -1,10 +1,9 @@
-import hashlib
-import random
 import uuid
 
 from qdrant_client.models import Distance, PointStruct, VectorParams
 
 from app.core.config import settings
+from app.core.gemini_client import embed_texts
 from app.core.qdrant_client import qdrant_client
 from app.utils.logger import logger
 
@@ -22,14 +21,6 @@ def _ensure_collection_exists() -> None:
         logger.info(f"Qdrant collection '{settings.QDRANT_COLLECTION_NAME}' created.")
 
 
-def _generate_mock_embedding(text: str) -> list[float]:
-    # Deterministic mock: MD5 gives stable output across processes.
-    digest = hashlib.md5(text.encode("utf-8")).hexdigest()
-    seed = int(digest, 16) % (2**31)
-    rng = random.Random(seed)
-    return [rng.uniform(-1.0, 1.0) for _ in range(settings.EMBEDDING_DIMENSION)]
-
-
 def _build_point_id(document_id: int, chunk_id: str) -> str:
     return str(uuid.uuid5(uuid.NAMESPACE_DNS, f"doc:{document_id}:chunk:{chunk_id}"))
 
@@ -37,18 +28,28 @@ def _build_point_id(document_id: int, chunk_id: str) -> str:
 def upsert_document_chunks(chunks: list[dict], document_id: int) -> None:
     _ensure_collection_exists()
 
-    points: list[PointStruct] = [
-        PointStruct(
-            id=_build_point_id(document_id, chunk["chunk_id"]),
-            vector=_generate_mock_embedding(chunk["text_content"]),
-            payload={
-                "document_id": document_id,
-                "chunk_id": chunk["chunk_id"],
-                "text": chunk["text_content"],
-            },
+    texts = [chunk["text_content"] for chunk in chunks]
+    vectors = embed_texts(texts)
+
+    points: list[PointStruct] = []
+    for chunk, vector in zip(chunks, vectors):
+        payload = {
+            "document_id": document_id,
+            "chunk_id": chunk["chunk_id"],
+            "text": chunk["text_content"],
+        }
+        if "header" in chunk:
+            payload["header"] = chunk["header"]
+        if "article_number" in chunk:
+            payload["article_number"] = chunk["article_number"]
+
+        points.append(
+            PointStruct(
+                id=_build_point_id(document_id, chunk["chunk_id"]),
+                vector=vector,
+                payload=payload,
+            )
         )
-        for chunk in chunks
-    ]
 
     if points:
         qdrant_client.upsert(
