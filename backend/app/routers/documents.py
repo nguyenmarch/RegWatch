@@ -8,7 +8,7 @@ from app.core.db import get_db
 from app.schemas.document import DocumentResponse
 from app.services.document import document_service
 
-router = APIRouter(prefix="/api/v1/documents", tags=["Documents"])
+router = APIRouter(prefix="/v1/documents", tags=["Documents"])
 
 _ALLOWED_EXTENSIONS = {".pdf", ".docx", ".doc"}
 

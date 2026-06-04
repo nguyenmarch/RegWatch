@@ -1,6 +1,7 @@
 const en = {
   header: {
     home: 'Home',
+    documents: 'Documents',
     apiTest: 'API Test',
     healthCheck: 'Health check',
     getStarted: 'Get started',
@@ -102,6 +103,40 @@ const en = {
     desc: 'No route matches <code>{{path}}</code>. The page may have been moved or never existed.',
     goHome: 'Go home',
     healthTest: 'Health test',
+  },
+  documents: {
+    title: 'Knowledge Base',
+    subtitle: 'Upload and manage legal documents for the RAG pipeline',
+    uploadBtn: 'Upload',
+    refresh: 'Refresh',
+    count_one: '{{count}} document',
+    count_other: '{{count}} documents',
+    count: '{{count}} documents',
+    processing: '{{count}} processing...',
+    empty: 'No documents yet',
+    emptyHint: 'Upload a PDF or DOCX to start building the legal knowledge base.',
+    uploading: 'Uploading...',
+    dropzone: 'Drop PDF or DOCX here',
+    dropzoneOr: 'or click to browse',
+    dropzoneHint: 'Supports PDF, DOCX · Max 50 MB',
+    errorType: 'Only PDF and DOCX files are supported.',
+    errorSize: 'File exceeds {{mb}} MB limit.',
+    delete: 'Delete',
+    deleteConfirm: 'Are you sure?',
+    deleteCancel: 'Cancel',
+    deleteYes: 'Delete',
+    status: {
+      pending: 'Pending',
+      processing: 'Processing',
+      completed: 'Completed',
+      failed: 'Failed',
+    },
+    toast: {
+      uploadSuccess: 'Document queued for processing',
+      uploadError: 'Upload failed',
+      deleteSuccess: 'Document deleted',
+      fetchError: 'Failed to load documents',
+    },
   },
 } as const
 

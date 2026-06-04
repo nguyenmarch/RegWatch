@@ -1,6 +1,7 @@
 const vi = {
   header: {
     home: 'Trang chủ',
+    documents: 'Tài liệu',
     apiTest: 'Kiểm tra API',
     healthCheck: 'Kiểm tra Health',
     getStarted: 'Bắt đầu',
@@ -102,6 +103,38 @@ const vi = {
     desc: 'Không có route nào khớp với <code>{{path}}</code>. Trang này có thể đã được chuyển đi hoặc chưa từng tồn tại.',
     goHome: 'Về trang chủ',
     healthTest: 'Kiểm tra API',
+  },
+  documents: {
+    title: 'Kho Tri thức',
+    subtitle: 'Tải lên và quản lý tài liệu pháp lý cho pipeline RAG',
+    uploadBtn: 'Tải lên',
+    refresh: 'Làm mới',
+    count: '{{count}} tài liệu',
+    processing: '{{count}} đang xử lý...',
+    empty: 'Chưa có tài liệu nào',
+    emptyHint: 'Tải lên PDF hoặc DOCX để bắt đầu xây dựng kho tri thức pháp lý.',
+    uploading: 'Đang tải lên...',
+    dropzone: 'Thả PDF hoặc DOCX vào đây',
+    dropzoneOr: 'hoặc click để chọn file',
+    dropzoneHint: 'Hỗ trợ PDF, DOCX · Tối đa 50 MB',
+    errorType: 'Chỉ hỗ trợ file PDF và DOCX.',
+    errorSize: 'File vượt quá giới hạn {{mb}} MB.',
+    delete: 'Xóa',
+    deleteConfirm: 'Bạn chắc chắn?',
+    deleteCancel: 'Hủy',
+    deleteYes: 'Xóa',
+    status: {
+      pending: 'Chờ xử lý',
+      processing: 'Đang xử lý',
+      completed: 'Hoàn thành',
+      failed: 'Thất bại',
+    },
+    toast: {
+      uploadSuccess: 'Tài liệu đã được đưa vào hàng xử lý',
+      uploadError: 'Tải lên thất bại',
+      deleteSuccess: 'Đã xóa tài liệu',
+      fetchError: 'Không thể tải danh sách tài liệu',
+    },
   },
 } as const
 

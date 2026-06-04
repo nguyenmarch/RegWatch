@@ -5,7 +5,7 @@ import { useTheme } from '../context/ThemeContext'
 import { useAuth } from '../context/AuthContext'
 import {
   RegWatchLogoIcon, SunIcon, MoonIcon, GlobeIcon,
-  ActivityIcon, HomeIcon, MenuIcon, XIcon,
+  ActivityIcon, HomeIcon, FileTextIcon, MenuIcon, XIcon,
 } from './Icons'
 
 export default function Header() {
@@ -43,6 +43,9 @@ export default function Header() {
           <Link to="/" className={`nav-link ${pathname === '/' ? 'active' : ''}`}>
             {t('header.home')}
           </Link>
+          <Link to="/documents" className={`nav-link ${pathname === '/documents' ? 'active' : ''}`}>
+            {t('header.documents')}
+          </Link>
           <Link to="/test" className={`nav-link ${pathname === '/test' ? 'active' : ''}`}>
             {t('header.apiTest')}
           </Link>
@@ -58,7 +61,7 @@ export default function Header() {
           <button className="theme-toggle" onClick={toggleTheme} aria-label="Toggle theme">
             {theme === 'dark' ? <SunIcon size={17} /> : <MoonIcon size={17} />}
           </button>
-
+          {/* 
           <div className="auth-buttons">
             {isAuthenticated ? (
               <>
@@ -74,7 +77,7 @@ export default function Header() {
                 <button className="btn btn-primary btn-sm">{t('header.getStarted')}</button>
               </>
             )}
-          </div>
+          </div> */}
 
           {/* Hamburger - mobile only */}
           <button
@@ -100,6 +103,14 @@ export default function Header() {
             >
               <span className="mobile-nav-icon"><HomeIcon size={17} /></span>
               {t('header.home')}
+            </Link>
+            <Link
+              to="/documents"
+              className={`mobile-nav-link ${pathname === '/documents' ? 'active' : ''}`}
+              onClick={closeMenu}
+            >
+              <span className="mobile-nav-icon"><FileTextIcon size={17} /></span>
+              {t('header.documents')}
             </Link>
             <Link
               to="/test"

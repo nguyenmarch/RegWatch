@@ -8,25 +8,25 @@ import {
 } from '../components/Icons'
 
 const FEATURE_META = [
-  { iconClass: 'fi-emerald', badge: 'Qdrant',    icon: <VectorIcon size={24} /> },
-  { iconClass: 'fi-violet',  badge: 'Neo4j',     icon: <GraphNetworkIcon size={24} /> },
-  { iconClass: 'fi-indigo',  badge: 'Gemini 2.5F', icon: <SparklesIcon size={24} /> },
-  { iconClass: 'fi-cyan',    badge: 'LangGraph', icon: <WorkflowIcon size={24} /> },
+  { iconClass: 'fi-emerald', badge: 'Qdrant', icon: <VectorIcon size={24} /> },
+  { iconClass: 'fi-violet', badge: 'Neo4j', icon: <GraphNetworkIcon size={24} /> },
+  { iconClass: 'fi-indigo', badge: 'Gemini 2.5F', icon: <SparklesIcon size={24} /> },
+  { iconClass: 'fi-cyan', badge: 'LangGraph', icon: <WorkflowIcon size={24} /> },
 ]
 
 const STAT_META = [
-  { value: '3',    icon: <DatabaseIcon size={18} />,     key: 'db'     },
-  { value: '2.5F', icon: <SparklesIcon size={18} />,     key: 'gemini' },
-  { value: 'REST', icon: <LayersIcon size={18} />,       key: 'api'    },
-  { value: '4',    icon: <GraphNetworkIcon size={18} />, key: 'graph'  },
+  { value: '3', icon: <DatabaseIcon size={18} />, key: 'db' },
+  { value: '2.5F', icon: <SparklesIcon size={18} />, key: 'gemini' },
+  { value: 'REST', icon: <LayersIcon size={18} />, key: 'api' },
+  { value: '4', icon: <GraphNetworkIcon size={18} />, key: 'graph' },
 ]
 
 const PIPE_NODES = [
-  { cls: 'pipe-node--start',  label: 'START',                 sub: '' },
-  { cls: 'pipe-node--vector', label: 'retrieve_vector_node',  sub: 'Qdrant' },
-  { cls: 'pipe-node--graph',  label: 'retrieve_graph_node',   sub: 'Neo4j' },
-  { cls: 'pipe-node--gen',    label: 'generate_answer_node',  sub: 'Gemini 2.5F' },
-  { cls: 'pipe-node--end',    label: 'END',                   sub: '' },
+  { cls: 'pipe-node--start', label: 'START', sub: '' },
+  { cls: 'pipe-node--vector', label: 'retrieve_vector_node', sub: 'Qdrant' },
+  { cls: 'pipe-node--graph', label: 'retrieve_graph_node', sub: 'Neo4j' },
+  { cls: 'pipe-node--gen', label: 'generate_answer_node', sub: 'Gemini 2.5F' },
+  { cls: 'pipe-node--end', label: 'END', sub: '' },
 ]
 
 export default function Home() {
@@ -34,9 +34,9 @@ export default function Home() {
   const [query, setQuery] = useState('')
   const [searching, setSearching] = useState(false)
 
-  const samples  = t('home.samples',          { returnObjects: true }) as string[]
-  const features = t('home.features.items',   { returnObjects: true }) as { title: string; desc: string }[]
-  const steps    = t('home.arch.steps',        { returnObjects: true }) as { title: string; desc: string }[]
+  const samples = t('home.samples', { returnObjects: true }) as string[]
+  const features = t('home.features.items', { returnObjects: true }) as { title: string; desc: string }[]
+  const steps = t('home.arch.steps', { returnObjects: true }) as { title: string; desc: string }[]
 
   function handleSearch(e: React.FormEvent) {
     e.preventDefault()
@@ -229,7 +229,7 @@ export default function Home() {
               <ActivityIcon size={15} />
               {t('home.cta.testHealthBtn')}
             </Link>
-            <a href="https://github.com/NPNLong/RegWatch" target="_blank" rel="noreferrer" className="btn btn-outline">
+            <a href="https://github.com/nguyenmarch/RegWatch" target="_blank" rel="noreferrer" className="btn btn-outline">
               <GithubIcon size={15} />
               {t('home.cta.githubBtn')}
             </a>

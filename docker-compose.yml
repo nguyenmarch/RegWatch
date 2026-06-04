@@ -60,7 +60,7 @@ services:
     image: qdrant/qdrant:v1.12.1
     container_name: regwatch_qdrant
     ports:
-      - "6336:6333"
+      - "6333:6333"
       - "6334:6334"
     volumes:
       - qdrant_data:/qdrant/storage
