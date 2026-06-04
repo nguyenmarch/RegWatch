@@ -1,5 +1,6 @@
 import { useTranslation } from 'react-i18next'
 import type { ChatConversation } from '../../lib/api'
+import { formatGmt7DateTime } from '../../lib/datetime'
 import { PlusIcon, TrashIcon, RegWatchLogoIcon, MenuIcon, XIcon } from '../Icons'
 
 interface Props {
@@ -11,16 +12,6 @@ interface Props {
   onNewChat: () => void
   onSelect: (id: number) => void
   onDelete: (id: number) => void
-}
-
-function formatDate(value: string) {
-  return new Intl.DateTimeFormat(undefined, {
-    month: 'short',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    timeZone: 'Asia/Ho_Chi_Minh',
-  }).format(new Date(value))
 }
 
 export default function ConversationSidebar({
@@ -75,7 +66,7 @@ export default function ConversationSidebar({
               onClick={() => onSelect(conversation.id)}
             >
               <span className="chat-conv-title">{conversation.title}</span>
-              <span className="chat-conv-time">{formatDate(conversation.updated_at)}</span>
+              <span className="chat-conv-time">{formatGmt7DateTime(conversation.updated_at)}</span>
               <span
                 className="chat-conv-delete"
                 role="button"

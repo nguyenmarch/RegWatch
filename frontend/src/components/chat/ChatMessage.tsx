@@ -1,4 +1,5 @@
 import { RegWatchLogoIcon, UserIcon } from '../Icons'
+import { formatGmt7Time } from '../../lib/datetime'
 
 export interface Message {
   id: string
@@ -13,14 +14,6 @@ interface Props {
   isLatest: boolean
 }
 
-function formatTime(d: Date) {
-  return d.toLocaleTimeString([], {
-    hour: '2-digit',
-    minute: '2-digit',
-    timeZone: 'Asia/Ho_Chi_Minh',
-  })
-}
-
 export default function ChatMessage({ message, isLatest }: Props) {
   const isUser = message.role === 'user'
 
@@ -28,7 +21,7 @@ export default function ChatMessage({ message, isLatest }: Props) {
     <div className={`chat-message ${isUser ? 'chat-message--user' : 'chat-message--bot'} ${isLatest ? 'chat-message--latest' : ''}`}>
       {!isUser && (
         <div className="chat-avatar chat-avatar--bot">
-          <RegWatchLogoIcon size={18} />
+          <RegWatchLogoIcon size={22} />
         </div>
       )}
 
@@ -36,7 +29,7 @@ export default function ChatMessage({ message, isLatest }: Props) {
         <div className={`chat-bubble ${isUser ? 'chat-bubble--user' : 'chat-bubble--bot'} ${message.error ? 'chat-bubble--error' : ''}`}>
           <p className="chat-bubble-text">{message.content}</p>
         </div>
-        <span className="chat-timestamp">{formatTime(message.timestamp)}</span>
+        <span className="chat-timestamp">{formatGmt7Time(message.timestamp)}</span>
       </div>
 
       {isUser && (

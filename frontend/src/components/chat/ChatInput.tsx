@@ -1,6 +1,6 @@
 import { useRef, useEffect, type FormEvent, type KeyboardEvent } from 'react'
 import { useTranslation } from 'react-i18next'
-import { ArrowRightIcon, LoaderIcon } from '../Icons'
+import { LoaderIcon, PaperPlaneIcon } from '../Icons'
 
 interface Props {
   value: string
@@ -57,7 +57,7 @@ export default function ChatInput({ value, onChange, onSubmit, disabled, thinkin
         >
           {thinking
             ? <LoaderIcon size={18} className="icon-spin" />
-            : <ArrowRightIcon size={18} />
+            : <PaperPlaneIcon size={18} />
           }
         </button>
       </div>

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { api, type ChatConversation } from '../lib/api'
+import { parseBackendDate } from '../lib/datetime'
 import { useAuth } from '../context/AuthContext'
 import ConversationSidebar from '../components/chat/ConversationSidebar'
 import ChatMessage, { type Message } from '../components/chat/ChatMessage'
@@ -18,7 +19,7 @@ function toUiMessage(message: {
     id: String(message.id),
     role: message.role,
     content: message.content,
-    timestamp: new Date(message.created_at),
+    timestamp: parseBackendDate(message.created_at),
   }
 }
 

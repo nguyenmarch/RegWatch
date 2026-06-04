@@ -139,6 +139,15 @@ export function ArrowLeftIcon(p: IconProps) {
   return <Icon {...p}><path d="M19 12H5M12 19l-7-7 7-7" /></Icon>
 }
 
+export function PaperPlaneIcon(p: IconProps) {
+  return (
+    <Icon {...p}>
+      <path d="M21.5 2.5 10.8 13.2" />
+      <path d="m21.5 2.5-6.8 19-3.9-8.3-8.3-3.9 19-6.8Z" />
+    </Icon>
+  )
+}
+
 export function ExternalLinkIcon(p: IconProps) {
   return (
     <Icon {...p}>

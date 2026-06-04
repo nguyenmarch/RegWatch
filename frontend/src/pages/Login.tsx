@@ -2,14 +2,14 @@ import { useState, type FormEvent } from 'react'
 import { useNavigate, useLocation, Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '../context/AuthContext'
-import { RegWatchLogoIcon, LoaderIcon, ArrowRightIcon, EyeIcon, EyeOffIcon } from '../components/Icons'
+import { RegWatchLogoIcon, LoaderIcon, ArrowRightIcon, EyeIcon, EyeOffIcon, LogInIcon } from '../components/Icons'
 
 export default function Login() {
   const { t } = useTranslation()
   const { login, isAuthenticated } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
-  const from = (location.state as { from?: { pathname: string } })?.from?.pathname ?? '/chat'
+  const from = (location.state as { from?: { pathname: string } })?.from?.pathname ?? '/'
 
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
@@ -114,7 +114,7 @@ export default function Login() {
           >
             {loading
               ? <><LoaderIcon size={16} className="icon-spin" />{t('login.submitting')}</>
-              : <>{t('login.submit')}<ArrowRightIcon size={15} /></>
+              : <>{t('login.submit')}<LogInIcon size={15} /></>
             }
           </button>
         </form>

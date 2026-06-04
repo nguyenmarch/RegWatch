@@ -1,9 +1,15 @@
+@import url('https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&family=Playfair+Display:wght@600;700;800&display=swap');
+
 /* ══════════════════════════════════════════════════════════
    REGWATCH DESIGN SYSTEM
    ══════════════════════════════════════════════════════════ */
 
 /* ── Tokens ─────────────────────────────────────────────── */
 :root {
+  --font-ui: 'Be Vietnam Pro', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-display: 'Playfair Display', 'Be Vietnam Pro', Georgia, serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', Consolas, monospace;
+
   --bg: #061a2f;
   --bg-2: #08233f;
   --bg-3: #0b3158;
@@ -39,6 +45,7 @@
   --t-base: 0.25s var(--ease);
   --t-slow: 0.4s var(--ease);
 }
+
 
 [data-theme="light"] {
   --bg: #ffffff;
@@ -229,7 +236,7 @@ html:focus-within {
 }
 
 body {
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-family: var(--font-ui);
   background: var(--bg);
   color: var(--text-1);
   line-height: 1.6;
@@ -250,7 +257,7 @@ button {
 }
 
 code {
-  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  font-family: var(--font-mono);
   font-size: 0.875em;
   background: var(--bg-3);
   padding: 2px 7px;
@@ -400,9 +407,10 @@ code {
 }
 
 .logo-text {
+  font-family: var(--font-display);
   font-size: 1.125rem;
-  font-weight: 700;
-  letter-spacing: -0.02em;
+  font-weight: 800;
+  letter-spacing: 0;
 }
 
 .logo-accent {
@@ -628,10 +636,11 @@ code {
 }
 
 .hero-title {
+  font-family: var(--font-display);
   font-size: clamp(2.5rem, 5.5vw, 4rem);
   font-weight: 800;
   line-height: 1.1;
-  letter-spacing: -0.03em;
+  letter-spacing: 0;
   margin-bottom: 20px;
   animation: fade-up 0.5s var(--ease) 0.1s both;
 }
@@ -1118,9 +1127,10 @@ code {
 }
 
 .section-title {
+  font-family: var(--font-display);
   font-size: clamp(1.875rem, 3.5vw, 2.5rem);
-  font-weight: 700;
-  letter-spacing: -0.025em;
+  font-weight: 800;
+  letter-spacing: 0;
   line-height: 1.2;
 }
 
@@ -2649,7 +2659,16 @@ code {
   display: flex; align-items: center; justify-content: center;
   flex-shrink: 0;
 }
-.chat-avatar--bot  { background: var(--grad-primary); color: #fff; }
+.chat-avatar--bot  {
+  background: rgba(255,255,255,0.72);
+  border: 1.5px solid rgba(243,112,33,0.72);
+  color: var(--indigo);
+  box-shadow: 0 8px 20px rgba(243,112,33,0.14);
+}
+.chat-avatar--bot svg {
+  display: block;
+  filter: drop-shadow(0 4px 8px rgba(243,112,33,0.22));
+}
 .chat-avatar--user {
   background: var(--bg-3);
   border: 1px solid var(--border-h);
@@ -2735,12 +2754,12 @@ code {
 
 .chat-input-box {
   display: flex;
-  align-items: flex-end;
+  align-items: center;
   gap: 10px;
   background: var(--bg-2);
   border: 1px solid var(--border-h);
-  border-radius: var(--radius);
-  padding: 10px 10px 10px 16px;
+  border-radius: 18px;
+  padding: 10px 10px 10px 18px;
   transition: border-color var(--t-base), box-shadow var(--t-base);
 }
 .chat-input-box--active,
@@ -2751,30 +2770,37 @@ code {
 
 .chat-input {
   flex: 1;
+  display: block;
   background: none;
   border: none;
   outline: none;
   resize: none;
   font-size: 0.9375rem;
   color: var(--text-1);
-  line-height: 1.5;
+  line-height: 1.45;
   font-family: inherit;
-  min-height: 24px;
+  min-height: 25px;
   max-height: 160px;
+  padding: 2px 0 0;
+  margin: 0;
   overflow-y: auto;
 }
 .chat-input::placeholder { color: var(--text-3); }
 .chat-input:disabled { opacity: 0.6; }
 
 .chat-send-btn {
-  width: 38px; height: 38px;
-  border-radius: 10px;
+  width: 40px; height: 40px;
+  border-radius: 13px;
   display: flex; align-items: center; justify-content: center;
   flex-shrink: 0;
+  align-self: center;
   background: var(--bg-3);
   color: var(--text-3);
   border: 1px solid var(--border);
   transition: all var(--t-fast);
+}
+.chat-send-btn svg {
+  transform: translateX(-1px) rotate(2deg);
 }
 .chat-send-btn--ready {
   background: var(--grad-primary);
@@ -3505,4 +3531,24 @@ code {
   .btn-outline {
     padding: 10px 18px;
   }
+}
+
+/* Elegant Vietnamese typography */
+.logo-text,
+.hero-title,
+.section-title,
+.cta-title,
+.docs-title,
+.th-title,
+.nf-title,
+.login-title,
+.chat-empty-title {
+  font-family: var(--font-display);
+  font-weight: 800;
+  letter-spacing: 0;
+}
+
+.feature-title,
+.docs-empty-title {
+  letter-spacing: 0;
 }
