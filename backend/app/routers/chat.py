@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.db import get_db
@@ -77,6 +78,26 @@ async def send_message(
     return SendMessageResponse(
         user_message=user_message,
         assistant_message=assistant_message,
+    )
+
+
+@router.post(
+    "/conversations/{conversation_id}/messages/stream",
+    status_code=status.HTTP_200_OK,
+)
+async def stream_message(
+    conversation_id: int,
+    body: ChatMessageCreate,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> StreamingResponse:
+    return StreamingResponse(
+        chat_service.stream_message(db, user.id, conversation_id, body.content),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+        },
     )
 
 

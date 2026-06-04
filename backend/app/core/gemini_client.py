@@ -1,10 +1,11 @@
+from typing import AsyncIterator
+
 from google import genai
 from google.genai import types
 
 from app.core.config import settings
 
 _client: genai.Client | None = None
-_embed_client: genai.Client | None = None
 
 
 def get_gemini_client() -> genai.Client:
@@ -14,15 +15,10 @@ def get_gemini_client() -> genai.Client:
     return _client
 
 
-def _get_embed_client() -> genai.Client:
-    global _embed_client
-    if _embed_client is None:
-        _embed_client = genai.Client(api_key=settings.GEMINI_API_KEY)
-    return _embed_client
-
+# ── Sync helpers (used by ingestion pipeline) ────────────────────────────────
 
 def embed_texts(texts: list[str]) -> list[list[float]]:
-    result = _get_embed_client().models.embed_content(
+    result = get_gemini_client().models.embed_content(
         model=settings.GEMINI_EMBEDDING_MODEL,
         config=types.EmbedContentConfig(output_dimensionality=settings.EMBEDDING_DIMENSION),
         contents=texts,
@@ -46,3 +42,57 @@ def generate_text(prompt: str, system_instruction: str | None = None) -> str:
         config=config,
     )
     return response.text
+
+
+# ── Async helpers (used by LangGraph nodes and streaming) ────────────────────
+
+async def aembed_text(text: str) -> list[float]:
+    result = await get_gemini_client().aio.models.embed_content(
+        model=settings.GEMINI_EMBEDDING_MODEL,
+        config=types.EmbedContentConfig(output_dimensionality=settings.EMBEDDING_DIMENSION),
+        contents=[text],
+    )
+    return result.embeddings[0].values
+
+
+async def agenerate_text(
+    question: str,
+    system_instruction: str,
+    history: list[dict],
+) -> str:
+    """Generate a response using conversation history + a new user question."""
+    contents = _build_contents(question, history)
+    response = await get_gemini_client().aio.models.generate_content(
+        model=settings.GEMINI_MODEL,
+        contents=contents,
+        config=types.GenerateContentConfig(system_instruction=system_instruction),
+    )
+    return response.text
+
+
+async def agenerate_text_stream(
+    question: str,
+    system_instruction: str,
+    history: list[dict],
+) -> AsyncIterator[str]:
+    """Stream response tokens using conversation history + a new user question."""
+    contents = _build_contents(question, history)
+    async for chunk in await get_gemini_client().aio.models.generate_content_stream(
+        model=settings.GEMINI_MODEL,
+        contents=contents,
+        config=types.GenerateContentConfig(system_instruction=system_instruction),
+    ):
+        if chunk.text:
+            yield chunk.text
+
+
+def _build_contents(question: str, history: list[dict]) -> list[dict]:
+    """Convert stored history + new question into Gemini contents format."""
+    contents = []
+    for msg in history:
+        contents.append({
+            "role": msg["role"],
+            "parts": msg["parts"],
+        })
+    contents.append({"role": "user", "parts": [{"text": question}]})
+    return contents
