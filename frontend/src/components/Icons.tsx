@@ -24,15 +24,41 @@ function Icon({ size = 20, className, strokeWidth = 1.75, children }: IconProps 
 
 export function RegWatchLogoIcon({ size = 28, className }: IconProps) {
   return (
-    <svg width={size} height={size} viewBox="0 0 32 32" fill="none" className={className}>
-      <rect x="2" y="2" width="28" height="28" rx="8" fill="url(#logo-grad)" />
-      <circle cx="16" cy="16" r="5" stroke="white" strokeWidth="2" />
-      <path d="M16 7v2M16 23v2M7 16h2M23 16h2" stroke="white" strokeWidth="2" strokeLinecap="round" />
-      <path d="M10 10l1.4 1.4M20.6 20.6L22 22M10 22l1.4-1.4M20.6 11.4L22 10" stroke="white" strokeWidth="1.5" strokeLinecap="round" />
+    <svg width={size} height={size} viewBox="0 0 36 36" fill="none" className={className}>
+      <path
+        d="M18 2.6 31 7.7v9.6c0 7.5-5.1 13.9-13 16.1C10.1 31.2 5 24.8 5 17.3V7.7L18 2.6Z"
+        fill="url(#regwatch-logo-shield)"
+      />
+      <path
+        d="M18 5.4 28.2 9.4v7.8c0 5.9-3.9 11.1-10.2 13.1-6.3-2-10.2-7.2-10.2-13.1V9.4L18 5.4Z"
+        fill="url(#regwatch-logo-inner)"
+        opacity="0.94"
+      />
+      <path
+        d="M12.3 22.7V12.4h4.1c2.4 0 3.9 1.1 3.9 3 0 1.2-.6 2.1-1.8 2.6l3.2 4.7h-2.9l-2.7-4.1h-1.3v4.1h-2.5Z"
+        fill="white"
+      />
+      <path
+        d="M14.8 16.8h1.4c1 0 1.6-.5 1.6-1.3s-.6-1.3-1.6-1.3h-1.4v2.6Z"
+        fill="#F37021"
+      />
+      <path
+        d="M21.6 12.4h2.1l1.2 6.1 1.4-4h1.6l-2.4 8.2h-2l-1.2-5.9-1.3 2.1-.8-1.7 1.4-4.8Z"
+        fill="#FFB16A"
+      />
+      <circle cx="10.6" cy="10.7" r="1.35" fill="#FFB16A" />
+      <circle cx="25.6" cy="24.1" r="1.35" fill="#FFB16A" />
+      <circle cx="26.1" cy="10.9" r="1.1" fill="white" opacity="0.9" />
+      <path d="M11.7 11.6 17 17.1l8.1-5.6M19.3 18.5l5.4 4.7" stroke="white" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round" opacity="0.7" />
       <defs>
-        <linearGradient id="logo-grad" x1="0" y1="0" x2="32" y2="32" gradientUnits="userSpaceOnUse">
-          <stop offset="0%" stopColor="#6366f1" />
-          <stop offset="100%" stopColor="#8b5cf6" />
+        <linearGradient id="regwatch-logo-shield" x1="5" y1="2.6" x2="31" y2="33.4" gradientUnits="userSpaceOnUse">
+          <stop offset="0%" stopColor="#F37021" />
+          <stop offset="46%" stopColor="#FF9A3D" />
+          <stop offset="100%" stopColor="#003B71" />
+        </linearGradient>
+        <linearGradient id="regwatch-logo-inner" x1="7.8" y1="5.4" x2="28.2" y2="30.3" gradientUnits="userSpaceOnUse">
+          <stop offset="0%" stopColor="#0D4F86" />
+          <stop offset="100%" stopColor="#002B52" />
         </linearGradient>
       </defs>
     </svg>

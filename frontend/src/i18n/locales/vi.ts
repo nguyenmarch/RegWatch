@@ -12,6 +12,11 @@ const vi = {
     darkMode: 'Chuyển sang tối',
   },
   chat: {
+    sidebarTitle: 'Đoạn chat',
+    newChat: 'Chat mới',
+    noConversations: 'Chưa có đoạn chat nào',
+    deleteChat: 'Xóa chat',
+    emptyTitle: 'RegWatch có thể giúp gì?',
     placeholder: 'Hỏi về quy định pháp lý, yêu cầu tuân thủ...',
     hint: 'Enter để gửi · Shift+Enter xuống dòng',
     welcome: 'Xin chào! Tôi là RegWatch AI. Hãy hỏi tôi bất kỳ điều gì về quy định ngân hàng và fintech Việt Nam.',

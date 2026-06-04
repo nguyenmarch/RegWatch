@@ -14,7 +14,11 @@ interface Props {
 }
 
 function formatTime(d: Date) {
-  return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+  return d.toLocaleTimeString([], {
+    hour: '2-digit',
+    minute: '2-digit',
+    timeZone: 'Asia/Ho_Chi_Minh',
+  })
 }
 
 export default function ChatMessage({ message, isLatest }: Props) {

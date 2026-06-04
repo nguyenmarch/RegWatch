@@ -9,7 +9,7 @@ export default function Login() {
   const { login, isAuthenticated } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
-  const from = (location.state as { from?: { pathname: string } })?.from?.pathname ?? '/documents'
+  const from = (location.state as { from?: { pathname: string } })?.from?.pathname ?? '/chat'
 
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')

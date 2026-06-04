@@ -12,6 +12,10 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
     const error = await res.json().catch(() => ({ detail: res.statusText }))
     throw new Error(error.detail ?? 'Request failed')
   }
+  if (res.status === 204) {
+    return undefined as T
+  }
+
   return res.json() as Promise<T>
 }
 
@@ -35,6 +39,30 @@ export interface Document {
 export interface UploadResponse {
   document_id: number
   message: string
+}
+
+export interface ChatConversation {
+  id: number
+  title: string
+  created_at: string
+  updated_at: string
+}
+
+export interface ChatMessage {
+  id: number
+  conversation_id: number
+  role: 'user' | 'assistant'
+  content: string
+  created_at: string
+}
+
+export interface ChatConversationDetail extends ChatConversation {
+  messages: ChatMessage[]
+}
+
+export interface SendMessageResponse {
+  user_message: ChatMessage
+  assistant_message: ChatMessage
 }
 
 export const api = {
@@ -61,11 +89,26 @@ export const api = {
   },
 
   chat: {
-    send: (message: string, history: { role: string; content: string }[]) =>
-      request<{ reply: string }>('/chat/message', {
+    listConversations: () =>
+      request<ChatConversation[]>('/chat/conversations'),
+
+    createConversation: (title?: string) =>
+      request<ChatConversation>('/chat/conversations', {
         method: 'POST',
-        body: JSON.stringify({ message, history }),
+        body: JSON.stringify({ title }),
       }),
+
+    getConversation: (id: number) =>
+      request<ChatConversationDetail>(`/chat/conversations/${id}`),
+
+    sendMessage: (conversationId: number, content: string) =>
+      request<SendMessageResponse>(`/chat/conversations/${conversationId}/messages`, {
+        method: 'POST',
+        body: JSON.stringify({ content }),
+      }),
+
+    deleteConversation: (id: number) =>
+      request<void>(`/chat/conversations/${id}`, { method: 'DELETE' }),
   },
 
   documents: {

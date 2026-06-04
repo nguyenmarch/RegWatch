@@ -7,6 +7,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.core.db import async_engine, async_session_factory
 from app.core.mysql_client import Base
 from app.core.neo4j_client import close_neo4j_driver, get_neo4j_driver
+from app.models import conversation as _conversation_model
+from app.models import document as _document_model
+from app.models import user as _user_model
 from app.routers import auth, chat, documents, users
 
 logger = logging.getLogger(__name__)

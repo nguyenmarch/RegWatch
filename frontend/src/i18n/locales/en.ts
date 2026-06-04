@@ -12,6 +12,11 @@ const en = {
     darkMode: 'Switch to Dark',
   },
   chat: {
+    sidebarTitle: 'Conversations',
+    newChat: 'New chat',
+    noConversations: 'No conversations yet',
+    deleteChat: 'Delete chat',
+    emptyTitle: 'How can RegWatch help?',
     placeholder: 'Ask about legal regulations, compliance requirements...',
     hint: 'Enter to send · Shift+Enter for new line',
     welcome: 'Hello! I am RegWatch AI. Ask me anything about Vietnamese banking and fintech regulations.',
