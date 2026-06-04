@@ -14,5 +14,6 @@ class DocumentResponse(BaseModel):
     file_path: Optional[str] = None
     status: str
     created_at: datetime
+    processing_log: Optional[str] = None
 
     model_config = {"from_attributes": True}

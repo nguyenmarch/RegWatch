@@ -144,5 +144,8 @@ export const api = {
 
     downloadUrl: (id: number) =>
       `${BASE_URL}/v1/documents/${id}/download`,
+
+    getLog: (id: number) =>
+      request<{ level: string; message: string; ts: string }[]>(`/v1/documents/${id}/log`),
   },
 }

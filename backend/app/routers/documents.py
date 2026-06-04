@@ -94,6 +94,14 @@ async def list_documents(db: AsyncSession = Depends(get_db)) -> List[DocumentRes
     return await document_service.get_all_documents(db=db)
 
 
+@router.get("/{doc_id}/log")
+async def get_document_log(doc_id: int, db: AsyncSession = Depends(get_db)) -> list[dict]:
+    entries = await document_service.get_log(db=db, doc_id=doc_id)
+    if entries is None:
+        raise HTTPException(status_code=404, detail=f"Document {doc_id} not found.")
+    return entries
+
+
 @router.delete("/{doc_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_document(doc_id: int, db: AsyncSession = Depends(get_db)) -> None:
     success = await document_service.delete_document_pipeline(db=db, doc_id=doc_id)

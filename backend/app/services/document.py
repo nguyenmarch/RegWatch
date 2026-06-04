@@ -1,5 +1,7 @@
 import asyncio
+import json
 import logging
+from datetime import datetime, timezone
 from io import BytesIO
 from pathlib import Path
 from uuid import uuid4
@@ -20,12 +22,22 @@ from app.utils.text_processor import clean_legal_text
 logger = logging.getLogger(__name__)
 
 
+def _now_iso() -> str:
+    return datetime.now(timezone.utc).isoformat()
+
+
 class DocumentService:
+
+    # ── Lifecycle ────────────────────────────────────────────
+
     async def create_pending_document(self, db: AsyncSession, filename: str) -> Document:
         doc = Document(
             title=Path(filename).stem,
             file_path=None,
             status=DocumentStatus.PENDING,
+            processing_log=json.dumps([
+                {"level": "info", "message": f"Document '{filename}' received.", "ts": _now_iso()}
+            ]),
         )
         db.add(doc)
         await db.commit()
@@ -42,6 +54,8 @@ class DocumentService:
         result = await db.execute(select(Document).where(Document.id == doc_id))
         return result.scalar_one_or_none()
 
+    # ── Pipeline ─────────────────────────────────────────────
+
     async def pipeline_process_and_embed_law(
         self, doc_id: int, filename: str, file_content: bytes
     ) -> None:
@@ -50,38 +64,51 @@ class DocumentService:
         async with async_session_factory() as db:
             try:
                 await self._update_status(db, doc_id, DocumentStatus.PROCESSING)
-                logger.info("[Pipeline] Started - doc_id=%s, file=%s", doc_id, filename)
+                await self._append_log(db, doc_id, "info", "Pipeline started — parsing document.")
+                logger.info("[Pipeline] Started — doc_id=%s, file=%s", doc_id, filename)
 
                 raw_text = parse_document(filename, file_content)
                 clean_text = clean_legal_text(raw_text)
                 chunks = split_legal_document(clean_text)
-                logger.info("[Pipeline] %s chunk(s) extracted - doc_id=%s", len(chunks), doc_id)
+                msg = f"Parsed {len(chunks)} chunk(s) from document."
+                await self._append_log(db, doc_id, "info", msg)
+                logger.info("[Pipeline] %s — doc_id=%s", msg, doc_id)
 
                 title = Path(filename).stem
                 await asyncio.to_thread(upsert_document_chunks, chunks, doc_id)
-                logger.info("[Pipeline] Qdrant upsert done - doc_id=%s", doc_id)
+                await self._append_log(db, doc_id, "info", "Vectors upserted to Qdrant.")
+                logger.info("[Pipeline] Qdrant upsert done — doc_id=%s", doc_id)
 
                 await asyncio.to_thread(build_document_graph, doc_id, title, chunks)
-                logger.info("[Pipeline] Neo4j graph built - doc_id=%s", doc_id)
+                await self._append_log(db, doc_id, "info", "Knowledge graph built in Neo4j.")
+                logger.info("[Pipeline] Neo4j graph built — doc_id=%s", doc_id)
 
                 await self._update_status(db, doc_id, DocumentStatus.COMPLETED)
-                logger.info("[Pipeline] Completed successfully - doc_id=%s", doc_id)
+                await self._append_log(db, doc_id, "success", "Pipeline completed successfully.")
+                logger.info("[Pipeline] Completed — doc_id=%s", doc_id)
 
             except Exception as exc:
-                logger.error("[Pipeline] Failed - doc_id=%s: %s", doc_id, exc, exc_info=True)
+                err = str(exc)
+                await self._append_log(db, doc_id, "error", f"Pipeline failed: {err}")
+                logger.error("[Pipeline] Failed — doc_id=%s: %s", doc_id, exc, exc_info=True)
                 await self._update_status(db, doc_id, DocumentStatus.FAILED)
 
-    async def _update_status(
-        self, db: AsyncSession, doc_id: int, status: DocumentStatus
-    ) -> None:
-        await db.execute(
-            update(Document).where(Document.id == doc_id).values(status=status.value)
-        )
-        await db.commit()
+    # ── Queries ──────────────────────────────────────────────
 
     async def get_all_documents(self, db: AsyncSession) -> list[Document]:
         result = await db.execute(select(Document).order_by(Document.created_at.desc()))
         return list(result.scalars().all())
+
+    async def get_log(self, db: AsyncSession, doc_id: int) -> list[dict] | None:
+        doc = await self.get_document(db, doc_id)
+        if doc is None:
+            return None
+        try:
+            return json.loads(doc.processing_log or "[]")
+        except Exception:
+            return []
+
+    # ── Delete ───────────────────────────────────────────────
 
     async def delete_document_pipeline(self, db: AsyncSession, doc_id: int) -> bool:
         try:
@@ -102,6 +129,8 @@ class DocumentService:
             await db.rollback()
             return False
 
+    # ── Storage ──────────────────────────────────────────────
+
     def store_original_file(self, doc_id: int, filename: str, file_content: bytes) -> str:
         client = get_minio_client()
         ext = Path(filename).suffix.lower()
@@ -114,62 +143,74 @@ class DocumentService:
             content_type=self._content_type_for(filename),
             metadata={"original-filename": filename},
         )
-        logger.info("[Storage] Original file stored - doc_id=%s, key=%s", doc_id, object_key)
+        logger.info("[Storage] Stored — doc_id=%s, key=%s", doc_id, object_key)
         return object_key
 
     def open_original_file(self, object_key: str):
-        client = get_minio_client()
-        return client.get_object(settings.MINIO_BUCKET, object_key)
+        return get_minio_client().get_object(settings.MINIO_BUCKET, object_key)
 
     def stat_original_file(self, object_key: str):
-        client = get_minio_client()
-        return client.stat_object(settings.MINIO_BUCKET, object_key)
+        return get_minio_client().stat_object(settings.MINIO_BUCKET, object_key)
+
+    # ── Helpers ──────────────────────────────────────────────
+
+    async def _update_status(self, db: AsyncSession, doc_id: int, status: DocumentStatus) -> None:
+        await db.execute(
+            update(Document).where(Document.id == doc_id).values(status=status.value)
+        )
+        await db.commit()
+
+    async def _append_log(self, db: AsyncSession, doc_id: int, level: str, message: str) -> None:
+        doc = await self.get_document(db, doc_id)
+        if doc is None:
+            return
+        try:
+            entries = json.loads(doc.processing_log or "[]")
+        except Exception:
+            entries = []
+        entries.append({"level": level, "message": message, "ts": _now_iso()})
+        await db.execute(
+            update(Document).where(Document.id == doc_id).values(
+                processing_log=json.dumps(entries)
+            )
+        )
+        await db.commit()
 
     def _delete_from_qdrant(self, doc_id: int) -> None:
         from qdrant_client.models import FieldCondition, Filter, FilterSelector, MatchValue
-
         from app.core.qdrant_client import qdrant_client
-
         qdrant_client.delete(
             collection_name=settings.QDRANT_COLLECTION_NAME,
             points_selector=FilterSelector(
-                filter=Filter(
-                    must=[FieldCondition(key="document_id", match=MatchValue(value=doc_id))]
-                )
+                filter=Filter(must=[FieldCondition(key="document_id", match=MatchValue(value=doc_id))])
             ),
         )
-        logger.info("[Delete] Qdrant chunks removed - doc_id=%s", doc_id)
+        logger.info("[Delete] Qdrant chunks removed — doc_id=%s", doc_id)
 
     def _delete_from_neo4j(self, doc_id: int) -> None:
         from app.core.neo4j_client import get_neo4j_driver
-
-        driver = get_neo4j_driver()
-        with driver.session() as session:
+        with get_neo4j_driver().session() as session:
             session.run(
                 "MATCH (d:Document {document_id: $doc_id}) "
                 "OPTIONAL MATCH (d)-[:HAS_CLAUSE]->(c:Clause) "
                 "DETACH DELETE d, c",
                 doc_id=doc_id,
             )
-        logger.info("[Delete] Neo4j nodes removed - doc_id=%s", doc_id)
+        logger.info("[Delete] Neo4j nodes removed — doc_id=%s", doc_id)
 
     def _delete_from_minio(self, object_key: str) -> None:
-        client = get_minio_client()
         try:
-            client.remove_object(settings.MINIO_BUCKET, object_key)
-            logger.info("[Delete] MinIO object removed - key=%s", object_key)
+            get_minio_client().remove_object(settings.MINIO_BUCKET, object_key)
+            logger.info("[Delete] MinIO object removed — key=%s", object_key)
         except Exception as exc:
-            logger.warning("[Delete] MinIO object skip - key=%s, error=%s", object_key, exc)
+            logger.warning("[Delete] MinIO skip — key=%s, error=%s", object_key, exc)
 
     @staticmethod
     def _content_type_for(filename: str) -> str:
         suffix = Path(filename).suffix.lower()
-        if suffix == ".pdf":
-            return "application/pdf"
-        if suffix == ".docx":
-            return "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-        if suffix == ".doc":
-            return "application/msword"
+        if suffix == ".pdf":   return "application/pdf"
+        if suffix == ".docx":  return "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        if suffix == ".doc":   return "application/msword"
         return "application/octet-stream"
 
 

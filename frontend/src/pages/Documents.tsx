@@ -1,37 +1,27 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import { api, type Document } from '../lib/api'
-import UploadZone from '../components/UploadZone'
-import DocumentCard from '../components/DocumentCard'
-import { FolderOpenIcon, PlusIcon, RefreshIcon, LoaderIcon } from '../components/Icons'
+import ManageTab from '../components/documents/ManageTab'
+import UploadTab from '../components/documents/UploadTab'
+import HistoryTab from '../components/documents/HistoryTab'
+import { FileTextIcon, UploadCloudIcon, ScrollTextIcon, LoaderIcon, RefreshIcon } from '../components/Icons'
+
+type Tab = 'manage' | 'upload' | 'history'
 
 type Toast = { id: number; type: 'success' | 'error'; msg: string }
-
-let toastId = 0
-
-function SkeletonCard() {
-  return (
-    <div className="doc-card doc-card--skeleton">
-      <div className="doc-card-strip" style={{ background: 'var(--bg-3)' }} />
-      <div className="doc-card-body">
-        <div className="sk sk-sm" />
-        <div className="sk sk-title" />
-        <div className="sk sk-xs" />
-      </div>
-    </div>
-  )
-}
+let toastSeq = 0
 
 export default function Documents() {
   const { t } = useTranslation()
+  const [tab, setTab] = useState<Tab>('manage')
   const [docs, setDocs] = useState<Document[]>([])
   const [loading, setLoading] = useState(true)
-  const [uploading, setUploading] = useState(false)
-  const [uploadProgress, setUploadProgress] = useState(0)
   const [toasts, setToasts] = useState<Toast[]>([])
+  const [openLogId, setOpenLogId] = useState<number | null>(null)
+  const processingCount = docs.filter(d => d.status === 'pending' || d.status === 'processing').length
 
   function addToast(type: Toast['type'], msg: string) {
-    const id = ++toastId
+    const id = ++toastSeq
     setToasts(prev => [...prev, { id, type, msg }])
     setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 3500)
   }
@@ -39,8 +29,7 @@ export default function Documents() {
   const fetchDocs = useCallback(async (silent = false) => {
     if (!silent) setLoading(true)
     try {
-      const data = await api.documents.list()
-      setDocs(data)
+      setDocs(await api.documents.list())
     } catch {
       if (!silent) addToast('error', t('documents.toast.fetchError'))
     } finally {
@@ -50,36 +39,31 @@ export default function Documents() {
 
   useEffect(() => { fetchDocs() }, [fetchDocs])
 
-  // Poll while any doc is processing
   useEffect(() => {
-    const active = docs.some(d => d.status === 'pending' || d.status === 'processing')
-    if (!active) return
+    if (!processingCount) return
     const timer = setInterval(() => fetchDocs(true), 3000)
     return () => clearInterval(timer)
-  }, [docs, fetchDocs])
+  }, [processingCount, fetchDocs])
 
-  async function handleUpload(file: File) {
-    setUploading(true)
-    setUploadProgress(0)
-    try {
-      await api.documents.upload(file, setUploadProgress)
-      addToast('success', t('documents.toast.uploadSuccess'))
-      await fetchDocs(true)
-    } catch (e) {
-      addToast('error', e instanceof Error ? e.message : t('documents.toast.uploadError'))
-    } finally {
-      setUploading(false)
-      setUploadProgress(0)
-    }
-  }
-
-  async function handleDelete(id: number) {
-    await api.documents.delete(id)
+  function handleDeleted(id: number) {
     setDocs(prev => prev.filter(d => d.id !== id))
     addToast('success', t('documents.toast.deleteSuccess'))
   }
 
-  const processingCount = docs.filter(d => d.status === 'pending' || d.status === 'processing').length
+  function handleUploaded(docIds: number[]) {
+    fetchDocs(true)
+    addToast('success', t('documents.toast.uploadSuccess'))
+    // Forward to history tab and open log for last uploaded doc
+    const lastId = docIds[docIds.length - 1]
+    setOpenLogId(lastId)
+    setTab('history')
+  }
+
+  const TABS: { key: Tab; icon: React.ReactNode; label: string }[] = [
+    { key: 'manage',  icon: <FileTextIcon size={15} />,    label: t('documents.tabManage')  },
+    { key: 'upload',  icon: <UploadCloudIcon size={15} />, label: t('documents.tabUpload')  },
+    { key: 'history', icon: <ScrollTextIcon size={15} />,  label: t('documents.tabHistory') },
+  ]
 
   return (
     <div className="docs-page">
@@ -102,53 +86,52 @@ export default function Documents() {
               <RefreshIcon size={14} />
               {t('documents.refresh')}
             </button>
-            <button className="btn btn-primary btn-sm" onClick={() => document.getElementById('upload-trigger')?.click()}>
-              <PlusIcon size={15} />
-              {t('documents.uploadBtn')}
-            </button>
           </div>
         </div>
 
-        {/* ── Upload zone ── */}
-        <div id="upload-trigger" style={{ display: 'none' }} />
-        <UploadZone
-          uploading={uploading}
-          progress={uploadProgress}
-          onFile={handleUpload}
-        />
+        {/* ── Tab bar ── */}
+        <div className="docs-tabs">
+          {TABS.map(({ key, icon, label }) => (
+            <button
+              key={key}
+              className={`docs-tab ${tab === key ? 'docs-tab--active' : ''}`}
+              onClick={() => setTab(key)}
+            >
+              {icon}
+              {label}
+              {key === 'manage' && docs.length > 0 && (
+                <span className="docs-tab-badge">{docs.length}</span>
+              )}
+              {key === 'history' && processingCount > 0 && (
+                <span className="docs-tab-badge docs-tab-badge--spin">
+                  <LoaderIcon size={10} className="icon-spin" />
+                </span>
+              )}
+            </button>
+          ))}
+        </div>
 
-        {/* ── Document count ── */}
-        {!loading && docs.length > 0 && (
-          <div className="docs-count">
-            <span>{t('documents.count', { count: docs.length })}</span>
-            <div className="docs-count-bar" />
-          </div>
-        )}
-
-        {/* ── Grid ── */}
-        {loading ? (
-          <div className="docs-grid">
-            {[1, 2, 3].map(i => <SkeletonCard key={i} />)}
-          </div>
-        ) : docs.length === 0 ? (
-          <div className="docs-empty">
-            <div className="docs-empty-icon">
-              <FolderOpenIcon size={40} />
-            </div>
-            <h3 className="docs-empty-title">{t('documents.empty')}</h3>
-            <p className="docs-empty-hint">{t('documents.emptyHint')}</p>
-          </div>
-        ) : (
-          <div className="docs-grid">
-            {docs.map(doc => (
-              <DocumentCard key={doc.id} doc={doc} onDelete={handleDelete} />
-            ))}
-          </div>
-        )}
+        {/* ── Tab content ── */}
+        <div className="docs-tab-content">
+          {tab === 'manage' && (
+            <ManageTab docs={docs} loading={loading} onDeleted={handleDeleted} />
+          )}
+          {tab === 'upload' && (
+            <UploadTab onUploaded={handleUploaded} />
+          )}
+          {tab === 'history' && (
+            <HistoryTab
+              docs={docs}
+              loading={loading}
+              openLogId={openLogId}
+              onLogClose={() => setOpenLogId(null)}
+            />
+          )}
+        </div>
 
       </div>
 
-      {/* ── Toasts ── */}
+      {/* ── Toast stack ── */}
       <div className="toast-stack">
         {toasts.map(toast => (
           <div key={toast.id} className={`toast toast--${toast.type}`}>
