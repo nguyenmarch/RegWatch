@@ -1,10 +1,13 @@
 from pathlib import Path
 from typing import List
+from urllib.parse import quote
 
 from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, UploadFile, status
+from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.db import get_db
+from app.core.enums import DocumentStatus
 from app.schemas.document import DocumentResponse
 from app.services.document import document_service
 
@@ -26,8 +29,20 @@ async def upload_document(
             detail=f"Unsupported file type '{ext}'. Accepted: {', '.join(_ALLOWED_EXTENSIONS)}",
         )
 
-    doc_record = await document_service.create_pending_document(db=db, filename=file.filename)
     file_content = await file.read()
+    doc_record = await document_service.create_pending_document(db=db, filename=file.filename)
+
+    try:
+        object_key = document_service.store_original_file(
+            doc_id=doc_record.id,
+            filename=file.filename,
+            file_content=file_content,
+        )
+        await document_service.attach_stored_file(db, doc_record.id, object_key)
+        doc_record.file_path = object_key
+    except Exception as exc:
+        await document_service._update_status(db, doc_record.id, DocumentStatus.FAILED)
+        raise HTTPException(status_code=500, detail=f"Failed to store document: {exc}") from exc
 
     background_tasks.add_task(
         document_service.pipeline_process_and_embed_law,
@@ -37,6 +52,41 @@ async def upload_document(
     )
 
     return doc_record
+
+
+def _stream_minio_response(response):
+    try:
+        for chunk in response.stream(32 * 1024):
+            yield chunk
+    finally:
+        response.close()
+        response.release_conn()
+
+
+def _download_filename(title: str, object_key: str | None) -> str:
+    suffix = Path(object_key or "").suffix
+    return f"{title}{suffix or '.bin'}"
+
+
+@router.get("/{doc_id}/download")
+async def download_document(doc_id: int, db: AsyncSession = Depends(get_db)) -> StreamingResponse:
+    doc = await document_service.get_document(db=db, doc_id=doc_id)
+    if doc is None or not doc.file_path:
+        raise HTTPException(status_code=404, detail=f"Document {doc_id} not found.")
+
+    try:
+        file_obj = document_service.open_original_file(doc.file_path)
+        stat = document_service.stat_original_file(doc.file_path)
+    except Exception as exc:
+        raise HTTPException(status_code=404, detail=f"Stored file for document {doc_id} not found.") from exc
+
+    filename = _download_filename(doc.title, doc.file_path)
+    encoded = quote(filename)
+    return StreamingResponse(
+        _stream_minio_response(file_obj),
+        media_type=stat.content_type or "application/octet-stream",
+        headers={"Content-Disposition": f"attachment; filename*=UTF-8''{encoded}"},
+    )
 
 
 @router.get("", response_model=List[DocumentResponse])

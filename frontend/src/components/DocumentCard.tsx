@@ -1,9 +1,10 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import type { Document } from '../lib/api'
+import { api, type Document } from '../lib/api'
 import {
   FileTextIcon, TrashIcon, LoaderIcon,
   CheckCircleIcon, ClockIcon, AlertTriangleIcon, XCircleIcon,
+  DownloadIcon,
 } from './Icons'
 
 interface Props {
@@ -45,6 +46,7 @@ export default function DocumentCard({ doc, onDelete }: Props) {
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [leaving, setLeaving] = useState(false)
+  const hasStoredFile = Boolean(doc.file_path)
 
   async function handleDelete() {
     setDeleting(true)
@@ -104,13 +106,24 @@ export default function DocumentCard({ doc, onDelete }: Props) {
               </button>
             </div>
           ) : (
-            <button
-              className="btn btn-ghost btn-sm doc-delete-btn"
-              onClick={() => setConfirmDelete(true)}
-            >
-              <TrashIcon size={14} />
-              {t('documents.delete')}
-            </button>
+            <div className="doc-card-actions">
+              {hasStoredFile && (
+                <a
+                  className="btn btn-outline btn-sm doc-file-btn"
+                  href={api.documents.downloadUrl(doc.id)}
+                >
+                  <DownloadIcon size={13} />
+                  {t('documents.download')}
+                </a>
+              )}
+              <button
+                className="btn btn-ghost btn-sm doc-delete-btn"
+                onClick={() => setConfirmDelete(true)}
+              >
+                <TrashIcon size={14} />
+                {t('documents.delete')}
+              </button>
+            </div>
           )}
         </div>
       </div>

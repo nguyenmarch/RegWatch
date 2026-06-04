@@ -25,6 +25,12 @@ class Settings(BaseSettings):
     QDRANT_PORT: int = 6333
     QDRANT_COLLECTION_NAME: str = "law_collection"
 
+    MINIO_ENDPOINT: str = "localhost:9000"
+    MINIO_ACCESS_KEY: str = "regwatch"
+    MINIO_SECRET_KEY: str = "regwatch123"
+    MINIO_BUCKET: str = "regwatch-documents"
+    MINIO_SECURE: bool = False
+
     CHUNK_SIZE: int = Field(default=1000, description="Size of each chunk for processing")
     CHUNK_OVERLAP: int = Field(default=100, description="Overlap between chunks")
     EMBEDDING_DIMENSION: int = Field(default=768, description="Dimension of the embedding vector")

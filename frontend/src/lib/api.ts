@@ -141,5 +141,8 @@ export const api = {
 
     delete: (id: number) =>
       request<{ message: string }>(`/v1/documents/${id}`, { method: 'DELETE' }),
+
+    downloadUrl: (id: number) =>
+      `${BASE_URL}/v1/documents/${id}/download`,
   },
 }

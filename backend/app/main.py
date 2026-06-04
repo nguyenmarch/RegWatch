@@ -5,6 +5,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.db import async_engine, async_session_factory
+from app.core.minio_client import ensure_minio_bucket
 from app.core.mysql_client import Base
 from app.core.neo4j_client import close_neo4j_driver, get_neo4j_driver
 from app.models import conversation as _conversation_model
@@ -39,6 +40,7 @@ async def lifespan(app: FastAPI):
             logger.info("Admin user seeded: username=admin")
 
     get_neo4j_driver()
+    ensure_minio_bucket()
     yield
     close_neo4j_driver()
 

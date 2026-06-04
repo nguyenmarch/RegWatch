@@ -28,6 +28,11 @@ services:
       QDRANT_HOST: qdrant
       QDRANT_PORT: "6333"
       NEO4J_URI: bolt://neo4j:7687
+      MINIO_ENDPOINT: minio:9000
+      MINIO_ACCESS_KEY: regwatch
+      MINIO_SECRET_KEY: regwatch123
+      MINIO_BUCKET: regwatch-documents
+      MINIO_SECURE: "false"
     depends_on:
       mysql:
         condition: service_healthy
@@ -35,7 +40,29 @@ services:
         condition: service_started
       neo4j:
         condition: service_healthy
+      minio:
+        condition: service_healthy
     restart: on-failure
+
+  # ── MinIO (object storage) ──────────────────────────────────
+  minio:
+    image: minio/minio:RELEASE.2025-04-22T22-12-26Z
+    container_name: regwatch_minio
+    command: server /data --console-address ":9001"
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      MINIO_ROOT_USER: regwatch
+      MINIO_ROOT_PASSWORD: regwatch123
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
 
   # ── MySQL 8.4 ───────────────────────────────────────────────
   mysql:
@@ -88,3 +115,4 @@ volumes:
   mysql_data:
   qdrant_data:
   neo4j_data:
+  minio_data:

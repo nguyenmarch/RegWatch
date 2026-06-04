@@ -152,6 +152,7 @@ const en = {
     dropzoneHint: 'Supports PDF, DOCX · Max 50 MB',
     errorType: 'Only PDF and DOCX files are supported.',
     errorSize: 'File exceeds {{mb}} MB limit.',
+    download: 'Download',
     delete: 'Delete',
     deleteConfirm: 'Are you sure?',
     deleteCancel: 'Cancel',

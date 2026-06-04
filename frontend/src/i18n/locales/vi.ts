@@ -150,6 +150,7 @@ const vi = {
     dropzoneHint: 'Hỗ trợ PDF, DOCX · Tối đa 50 MB',
     errorType: 'Chỉ hỗ trợ file PDF và DOCX.',
     errorSize: 'File vượt quá giới hạn {{mb}} MB.',
+    download: 'Tải về',
     delete: 'Xóa',
     deleteConfirm: 'Bạn chắc chắn?',
     deleteCancel: 'Hủy',
