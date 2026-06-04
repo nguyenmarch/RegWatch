@@ -46,6 +46,8 @@ const vi = {
     navChatDesc: 'Hỏi về quy định pháp lý và tuân thủ',
     navDocs: 'Kho Tri thức',
     navDocsDesc: 'Tải lên và quản lý tài liệu pháp lý',
+    navTest: 'Kiểm tra API',
+    navTestDesc: 'Kiểm tra backend và kết nối dịch vụ',
     navLogin: 'Đăng nhập để bắt đầu',
     navLoginDesc: 'Truy cập nền tảng RegWatch đầy đủ',
     samples: [

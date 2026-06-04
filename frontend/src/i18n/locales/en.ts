@@ -46,6 +46,8 @@ const en = {
     navChatDesc: 'Ask questions about regulations and compliance',
     navDocs: 'Knowledge Base',
     navDocsDesc: 'Upload and manage legal documents',
+    navTest: 'API Health',
+    navTestDesc: 'Check backend and service connectivity',
     navLogin: 'Sign in to get started',
     navLoginDesc: 'Access the full RegWatch platform',
     samples: [
