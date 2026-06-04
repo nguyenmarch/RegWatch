@@ -60,6 +60,14 @@ export const api = {
     me: () => request<User>('/users/me'),
   },
 
+  chat: {
+    send: (message: string, history: { role: string; content: string }[]) =>
+      request<{ reply: string }>('/chat/message', {
+        method: 'POST',
+        body: JSON.stringify({ message, history }),
+      }),
+  },
+
   documents: {
     list: () =>
       request<Document[]>('/v1/documents'),

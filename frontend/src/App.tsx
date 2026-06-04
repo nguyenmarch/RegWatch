@@ -4,6 +4,7 @@ import ScrollToTop from './components/ScrollToTop'
 import ProtectedRoute from './components/ProtectedRoute'
 import Home from './pages/Home'
 import Login from './pages/Login'
+import Chat from './pages/Chat'
 import Documents from './pages/Documents'
 import TestHealth from './pages/TestHealth'
 import NotFound from './pages/NotFound'
@@ -17,6 +18,9 @@ export default function App() {
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/login" element={<Login />} />
+          <Route path="/chat" element={
+            <ProtectedRoute><Chat /></ProtectedRoute>
+          } />
           <Route path="/documents" element={
             <ProtectedRoute><Documents /></ProtectedRoute>
           } />

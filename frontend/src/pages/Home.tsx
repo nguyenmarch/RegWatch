@@ -1,10 +1,10 @@
-import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useTranslation, Trans } from 'react-i18next'
+import { useAuth } from '../context/AuthContext'
 import {
-  SearchIcon, VectorIcon, GraphNetworkIcon, SparklesIcon,
+  VectorIcon, GraphNetworkIcon, SparklesIcon,
   WorkflowIcon, ArrowRightIcon, ExternalLinkIcon, GithubIcon,
-  DatabaseIcon, LayersIcon, ActivityIcon,
+  DatabaseIcon, LayersIcon, ActivityIcon, FileTextIcon, LogInIcon,
 } from '../components/Icons'
 
 const FEATURE_META = [
@@ -31,19 +31,10 @@ const PIPE_NODES = [
 
 export default function Home() {
   const { t } = useTranslation()
-  const [query, setQuery] = useState('')
-  const [searching, setSearching] = useState(false)
+  const { isAuthenticated } = useAuth()
 
-  const samples = t('home.samples', { returnObjects: true }) as string[]
   const features = t('home.features.items', { returnObjects: true }) as { title: string; desc: string }[]
   const steps = t('home.arch.steps', { returnObjects: true }) as { title: string; desc: string }[]
-
-  function handleSearch(e: React.FormEvent) {
-    e.preventDefault()
-    if (!query.trim()) return
-    setSearching(true)
-    setTimeout(() => setSearching(false), 1400)
-  }
 
   return (
     <div className="home">
@@ -70,30 +61,37 @@ export default function Home() {
 
           <p className="hero-subtitle">{t('home.subtitle')}</p>
 
-          <form className="search-form" onSubmit={handleSearch}>
-            <div className="search-box">
-              <span className="search-icon"><SearchIcon size={18} /></span>
-              <input
-                type="text"
-                className="search-input"
-                placeholder={t('home.searchPlaceholder')}
-                value={query}
-                onChange={e => setQuery(e.target.value)}
-              />
-              <button type="submit" className="btn btn-primary search-btn" disabled={searching}>
-                <span className="search-btn-text">
-                  {searching ? t('home.searching') : t('home.searchBtn')}
-                </span>
-                {!searching && <ArrowRightIcon size={15} />}
-              </button>
-            </div>
-          </form>
-
-          <div className="sample-queries">
-            <span className="sample-label">{t('home.tryLabel')}</span>
-            {samples.map(q => (
-              <button key={q} className="sample-chip" onClick={() => setQuery(q)}>{q}</button>
-            ))}
+          {/* Nav cards */}
+          <div className="hero-nav-cards">
+            {isAuthenticated ? (
+              <>
+                <Link to="/chat" className="hero-nav-card hero-nav-card--primary">
+                  <div className="hero-nav-card-icon"><SparklesIcon size={22} /></div>
+                  <div>
+                    <p className="hero-nav-card-title">{t('home.navChat')}</p>
+                    <p className="hero-nav-card-desc">{t('home.navChatDesc')}</p>
+                  </div>
+                  <ArrowRightIcon size={16} className="hero-nav-card-arrow" />
+                </Link>
+                <Link to="/documents" className="hero-nav-card">
+                  <div className="hero-nav-card-icon"><FileTextIcon size={22} /></div>
+                  <div>
+                    <p className="hero-nav-card-title">{t('home.navDocs')}</p>
+                    <p className="hero-nav-card-desc">{t('home.navDocsDesc')}</p>
+                  </div>
+                  <ArrowRightIcon size={16} className="hero-nav-card-arrow" />
+                </Link>
+              </>
+            ) : (
+              <Link to="/login" className="hero-nav-card hero-nav-card--primary">
+                <div className="hero-nav-card-icon"><LogInIcon size={22} /></div>
+                <div>
+                  <p className="hero-nav-card-title">{t('home.navLogin')}</p>
+                  <p className="hero-nav-card-desc">{t('home.navLoginDesc')}</p>
+                </div>
+                <ArrowRightIcon size={16} className="hero-nav-card-arrow" />
+              </Link>
+            )}
           </div>
         </div>
       </section>

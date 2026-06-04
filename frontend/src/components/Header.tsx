@@ -6,7 +6,7 @@ import { useAuth } from '../context/AuthContext'
 import {
   RegWatchLogoIcon, SunIcon, MoonIcon, GlobeIcon,
   ActivityIcon, HomeIcon, FileTextIcon, MenuIcon, XIcon,
-  UserIcon, LogInIcon,
+  UserIcon, LogInIcon, SparklesIcon,
 } from './Icons'
 
 export default function Header() {
@@ -44,6 +44,9 @@ export default function Header() {
           <nav className="nav">
             <Link to="/" className={`nav-link ${pathname === '/' ? 'active' : ''}`}>
               {t('header.home')}
+            </Link>
+            <Link to="/chat" className={`nav-link ${pathname === '/chat' ? 'active' : ''}`}>
+              {t('header.chat')}
             </Link>
             <Link to="/documents" className={`nav-link ${pathname === '/documents' ? 'active' : ''}`}>
               {t('header.documents')}
@@ -109,6 +112,14 @@ export default function Header() {
               >
                 <span className="mobile-nav-icon"><HomeIcon size={17} /></span>
                 {t('header.home')}
+              </Link>
+              <Link
+                to="/chat"
+                className={`mobile-nav-link ${pathname === '/chat' ? 'active' : ''}`}
+                onClick={closeMenu}
+              >
+                <span className="mobile-nav-icon"><SparklesIcon size={17} /></span>
+                {t('header.chat')}
               </Link>
               <Link
                 to="/documents"
