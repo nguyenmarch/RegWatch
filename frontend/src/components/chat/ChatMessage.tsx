@@ -1,3 +1,5 @@
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
 import { RegWatchLogoIcon, UserIcon } from '../Icons'
 import { formatGmt7Time } from '../../lib/datetime'
 
@@ -27,7 +29,15 @@ export default function ChatMessage({ message, isLatest }: Props) {
 
       <div className="chat-bubble-wrap">
         <div className={`chat-bubble ${isUser ? 'chat-bubble--user' : 'chat-bubble--bot'} ${message.error ? 'chat-bubble--error' : ''}`}>
-          <p className="chat-bubble-text">{message.content}</p>
+          {isUser ? (
+            <p className="chat-bubble-text">{message.content}</p>
+          ) : (
+            <div className="chat-markdown">
+              <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                {message.content}
+              </ReactMarkdown>
+            </div>
+          )}
         </div>
         <span className="chat-timestamp">{formatGmt7Time(message.timestamp)}</span>
       </div>

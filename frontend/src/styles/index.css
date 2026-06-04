@@ -3037,6 +3037,76 @@ code {
   white-space: pre-wrap;
   word-break: break-word;
 }
+
+/* ── Markdown inside bot bubble ── */
+.chat-markdown { font-size: 0.9375rem; line-height: 1.7; word-break: break-word; }
+.chat-markdown p { margin: 0 0 0.75em; }
+.chat-markdown p:last-child { margin-bottom: 0; }
+.chat-markdown strong { font-weight: 700; color: var(--text-1); }
+.chat-markdown em { font-style: italic; }
+.chat-markdown h1, .chat-markdown h2, .chat-markdown h3 {
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  margin: 1em 0 0.4em;
+  color: var(--text-1);
+}
+.chat-markdown h1 { font-size: 1.125rem; }
+.chat-markdown h2 { font-size: 1rem; }
+.chat-markdown h3 { font-size: 0.9375rem; }
+.chat-markdown ul, .chat-markdown ol {
+  padding-left: 1.4em;
+  margin: 0.5em 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.chat-markdown li { line-height: 1.6; }
+.chat-markdown code {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.8125em;
+  background: rgba(99,102,241,0.1);
+  border: 1px solid rgba(99,102,241,0.18);
+  padding: 1px 6px;
+  border-radius: 4px;
+  color: var(--indigo);
+}
+.chat-markdown pre {
+  background: #0a0e1a;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 12px 16px;
+  overflow-x: auto;
+  margin: 0.75em 0;
+}
+.chat-markdown pre code {
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--emerald);
+  font-size: 0.8125rem;
+}
+.chat-markdown blockquote {
+  border-left: 3px solid var(--indigo);
+  padding-left: 12px;
+  color: var(--text-2);
+  margin: 0.5em 0;
+  font-style: italic;
+}
+.chat-markdown table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 0.875rem;
+  margin: 0.75em 0;
+}
+.chat-markdown th, .chat-markdown td {
+  border: 1px solid var(--border-h);
+  padding: 6px 12px;
+  text-align: left;
+}
+.chat-markdown th { background: var(--bg-3); font-weight: 600; }
+.chat-markdown tr:nth-child(even) { background: var(--bg-glass); }
+.chat-markdown a { color: var(--indigo); text-decoration: underline; text-underline-offset: 2px; }
+.chat-markdown hr { border: none; border-top: 1px solid var(--border); margin: 1em 0; }
 .chat-timestamp {
   font-size: 0.7rem;
   color: var(--text-3);
