@@ -14,3 +14,5 @@ pymupdf==1.25.5
 python-docx==1.1.2
 python-multipart==0.0.20
 asyncmy==0.2.10
+bcrypt==4.2.1
+python-jose[cryptography]==3.3.0

@@ -6,6 +6,7 @@ import { useAuth } from '../context/AuthContext'
 import {
   RegWatchLogoIcon, SunIcon, MoonIcon, GlobeIcon,
   ActivityIcon, HomeIcon, FileTextIcon, MenuIcon, XIcon,
+  UserIcon, LogInIcon,
 } from './Icons'
 
 export default function Header() {
@@ -38,18 +39,20 @@ export default function Header() {
           </span>
         </Link>
 
-        {/* Desktop nav */}
-        <nav className="nav">
-          <Link to="/" className={`nav-link ${pathname === '/' ? 'active' : ''}`}>
-            {t('header.home')}
-          </Link>
-          <Link to="/documents" className={`nav-link ${pathname === '/documents' ? 'active' : ''}`}>
-            {t('header.documents')}
-          </Link>
-          <Link to="/test" className={`nav-link ${pathname === '/test' ? 'active' : ''}`}>
-            {t('header.apiTest')}
-          </Link>
-        </nav>
+        {/* Desktop nav — chỉ hiển thị khi đã đăng nhập */}
+        {isAuthenticated && (
+          <nav className="nav">
+            <Link to="/" className={`nav-link ${pathname === '/' ? 'active' : ''}`}>
+              {t('header.home')}
+            </Link>
+            <Link to="/documents" className={`nav-link ${pathname === '/documents' ? 'active' : ''}`}>
+              {t('header.documents')}
+            </Link>
+            <Link to="/test" className={`nav-link ${pathname === '/test' ? 'active' : ''}`}>
+              {t('header.apiTest')}
+            </Link>
+          </nav>
+        )}
 
         {/* Desktop actions */}
         <div className="header-actions">
@@ -61,23 +64,25 @@ export default function Header() {
           <button className="theme-toggle" onClick={toggleTheme} aria-label="Toggle theme">
             {theme === 'dark' ? <SunIcon size={17} /> : <MoonIcon size={17} />}
           </button>
-          {/* 
+
           <div className="auth-buttons">
             {isAuthenticated ? (
               <>
-                <span className="user-name">{user?.username}</span>
-                <button className="btn btn-outline btn-sm" onClick={logout}>{t('header.signOut')}</button>
+                <span className="user-badge">
+                  <UserIcon size={13} />
+                  {user?.username}
+                </span>
+                <button className="btn btn-outline btn-sm" onClick={logout}>
+                  {t('header.signOut')}
+                </button>
               </>
             ) : (
-              <>
-                <Link to="/test" className="btn btn-outline btn-sm">
-                  <ActivityIcon size={14} />
-                  {t('header.healthCheck')}
-                </Link>
-                <button className="btn btn-primary btn-sm">{t('header.getStarted')}</button>
-              </>
+              <Link to="/login" className="btn btn-primary btn-sm">
+                <LogInIcon size={14} />
+                {t('header.signIn')}
+              </Link>
             )}
-          </div> */}
+          </div>
 
           {/* Hamburger - mobile only */}
           <button
@@ -95,32 +100,34 @@ export default function Header() {
       {menuOpen && (
         <nav className="mobile-menu container" aria-label="Mobile navigation">
 
-          <div className="mobile-nav-group">
-            <Link
-              to="/"
-              className={`mobile-nav-link ${pathname === '/' ? 'active' : ''}`}
-              onClick={closeMenu}
-            >
-              <span className="mobile-nav-icon"><HomeIcon size={17} /></span>
-              {t('header.home')}
-            </Link>
-            <Link
-              to="/documents"
-              className={`mobile-nav-link ${pathname === '/documents' ? 'active' : ''}`}
-              onClick={closeMenu}
-            >
-              <span className="mobile-nav-icon"><FileTextIcon size={17} /></span>
-              {t('header.documents')}
-            </Link>
-            <Link
-              to="/test"
-              className={`mobile-nav-link ${pathname === '/test' ? 'active' : ''}`}
-              onClick={closeMenu}
-            >
-              <span className="mobile-nav-icon"><ActivityIcon size={17} /></span>
-              {t('header.apiTest')}
-            </Link>
-          </div>
+          {isAuthenticated && (
+            <div className="mobile-nav-group">
+              <Link
+                to="/"
+                className={`mobile-nav-link ${pathname === '/' ? 'active' : ''}`}
+                onClick={closeMenu}
+              >
+                <span className="mobile-nav-icon"><HomeIcon size={17} /></span>
+                {t('header.home')}
+              </Link>
+              <Link
+                to="/documents"
+                className={`mobile-nav-link ${pathname === '/documents' ? 'active' : ''}`}
+                onClick={closeMenu}
+              >
+                <span className="mobile-nav-icon"><FileTextIcon size={17} /></span>
+                {t('header.documents')}
+              </Link>
+              <Link
+                to="/test"
+                className={`mobile-nav-link ${pathname === '/test' ? 'active' : ''}`}
+                onClick={closeMenu}
+              >
+                <span className="mobile-nav-icon"><ActivityIcon size={17} /></span>
+                {t('header.apiTest')}
+              </Link>
+            </div>
+          )}
 
           <div className="mobile-nav-footer">
             {/* Language toggle row */}

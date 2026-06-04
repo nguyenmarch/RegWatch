@@ -21,26 +21,26 @@ const ENDPOINT_KEYS = ['health', 'swagger'] as const
 type EndpointKey = typeof ENDPOINT_KEYS[number]
 
 const ENDPOINT_CONFIG: Record<EndpointKey, { method: string; url: string; external?: boolean }> = {
-  health:  { method: 'GET', url: '/api/health' },
+  health: { method: 'GET', url: '/api/health' },
   swagger: { method: 'GET', url: 'http://localhost:8000/docs', external: true },
 }
 
 const initialResults: Record<EndpointKey, EndpointResult> = {
-  health:  { status: 'idle' },
+  health: { status: 'idle' },
   swagger: { status: 'idle' },
 }
 
 function statusColor(s: Status) {
-  if (s === 'ok')      return 'var(--emerald)'
-  if (s === 'error')   return 'var(--rose)'
+  if (s === 'ok') return 'var(--emerald)'
+  if (s === 'error') return 'var(--rose)'
   if (s === 'loading') return 'var(--amber)'
   return 'var(--text-3)'
 }
 
 function StatusIndicator({ status }: { status: Status }) {
   if (status === 'loading') return <LoaderIcon size={15} className="icon-spin" />
-  if (status === 'ok')      return <CheckCircleIcon size={15} />
-  if (status === 'error')   return <XCircleIcon size={15} />
+  if (status === 'ok') return <CheckCircleIcon size={15} />
+  if (status === 'error') return <XCircleIcon size={15} />
   return null
 }
 
@@ -124,9 +124,9 @@ export default function TestHealth() {
             const r = results[key]
             const cfg = ENDPOINT_CONFIG[key]
             const statusCls =
-              r.status === 'ok'      ? 'th-card--ok' :
-              r.status === 'error'   ? 'th-card--error' :
-              r.status === 'loading' ? 'th-card--loading' : ''
+              r.status === 'ok' ? 'th-card--ok' :
+                r.status === 'error' ? 'th-card--error' :
+                  r.status === 'loading' ? 'th-card--loading' : ''
 
             return (
               <div key={key} className={`th-card ${statusCls}`}>
@@ -215,7 +215,7 @@ export default function TestHealth() {
           <a href="http://localhost:7474" target="_blank" rel="noreferrer" className="btn btn-outline btn-sm">
             <ServerIcon size={13} />{t('testHealth.quickNeo4j')}
           </a>
-          <a href="http://localhost:6336/dashboard" target="_blank" rel="noreferrer" className="btn btn-outline btn-sm">
+          <a href="http://localhost:6333/dashboard" target="_blank" rel="noreferrer" className="btn btn-outline btn-sm">
             <TerminalIcon size={13} />{t('testHealth.quickQdrant')}
           </a>
         </div>

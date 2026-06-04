@@ -1,26 +1,34 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.security import OAuth2PasswordRequestForm
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.core.db import get_db
+from app.core.security import create_access_token, verify_password
+from app.repositories.user import user_repo
+from app.schemas.user import TokenResponse, UserResponse
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
 
-# TODO: Implement JWT authentication endpoints
-#
-# POST /auth/register
-#   - Accept: UserCreate schema (username, email, password, role)
-#   - Hash password with passlib/bcrypt before saving
-#   - Persist user via repositories/user.py → create_user()
-#   - Return: UserResponse (no password)
-#
-# POST /auth/login
-#   - Accept: OAuth2PasswordRequestForm (username, password)
-#   - Verify password hash with passlib
-#   - On success: generate access_token + refresh_token (JWT via python-jose)
-#   - Return: {"access_token": ..., "refresh_token": ..., "token_type": "bearer"}
-#
-# POST /auth/refresh
-#   - Accept: refresh_token in request body
-#   - Validate and decode JWT, check expiry
-#   - Return: new access_token
-#
-# Dependencies to create:
-#   - get_current_user(token: str) → decodes JWT, returns User from DB
-#   - require_role(role: str) → wraps get_current_user, raises 403 if role mismatch
+
+@router.post("/login", response_model=TokenResponse)
+async def login(
+    form: OAuth2PasswordRequestForm = Depends(),
+    db: AsyncSession = Depends(get_db),
+) -> TokenResponse:
+    user = await user_repo.get_by_username(db, form.username)
+
+    if not user or not verify_password(form.password, user.hashed_password):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect username or password",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    if not user.is_active:
+        raise HTTPException(status_code=400, detail="Inactive user")
+
+    token = create_access_token(subject=str(user.id))
+    return TokenResponse(
+        access_token=token,
+        token_type="bearer",
+        user=UserResponse.model_validate(user),
+    )

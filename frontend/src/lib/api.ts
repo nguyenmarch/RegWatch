@@ -15,6 +15,15 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
   return res.json() as Promise<T>
 }
 
+export interface User {
+  id: number
+  username: string
+  email: string
+  role: string
+  is_active: boolean
+  created_at: string
+}
+
 export interface Document {
   id: number
   title: string
@@ -30,6 +39,26 @@ export interface UploadResponse {
 
 export const api = {
   health: () => request<{ status: string }>('/health'),
+
+  auth: {
+    login: async (username: string, password: string): Promise<{ access_token: string; user: User }> => {
+      const form = new URLSearchParams()
+      form.append('username', username)
+      form.append('password', password)
+      const res = await fetch(`${BASE_URL}/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: form.toString(),
+      })
+      if (!res.ok) {
+        const error = await res.json().catch(() => ({ detail: 'Login failed' }))
+        throw new Error(error.detail ?? 'Login failed')
+      }
+      return res.json()
+    },
+
+    me: () => request<User>('/users/me'),
+  },
 
   documents: {
     list: () =>

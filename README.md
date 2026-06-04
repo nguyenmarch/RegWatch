@@ -83,7 +83,7 @@ npm run dev
 | App (production) | <http://localhost> |
 | Vite dev server | <http://localhost:5173> |
 | Swagger UI (API docs) | <http://localhost:8000/docs> |
-| Qdrant dashboard | <http://localhost:6336/dashboard> |
+| Qdrant dashboard | <http://localhost:6333/dashboard> |
 | Neo4j browser | <http://localhost:7474> |
 | App logs | `docker compose logs -f app` |
 | Frontend logs | `docker compose logs -f frontend` |
