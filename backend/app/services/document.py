@@ -191,9 +191,19 @@ class DocumentService:
         from app.core.neo4j_client import get_neo4j_driver
         with get_neo4j_driver().session() as session:
             session.run(
-                "MATCH (d:Document {document_id: $doc_id}) "
-                "OPTIONAL MATCH (d)-[:HAS_CLAUSE]->(c:Clause) "
-                "DETACH DELETE d, c",
+                """
+
+                MATCH (d:Document {document_id: $doc_id})
+
+                OPTIONAL MATCH (d)-[:HAS_ARTICLE]->(a:Article)
+
+                OPTIONAL MATCH (a)-[:HAS_CLAUSE]->(c:Clause)
+
+                OPTIONAL MATCH (d)-[:HAS_CLAUSE]->(dc:Clause)
+
+                DETACH DELETE d, a, c, dc
+
+                """,
                 doc_id=doc_id,
             )
         logger.info("[Delete] Neo4j nodes removed — doc_id=%s", doc_id)
