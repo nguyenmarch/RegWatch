@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { api, type Document } from '../../lib/api'
 import { FileTextIcon, TrashIcon, DownloadIcon, LoaderIcon, FolderOpenIcon } from '../Icons'
+import { formatGmt7DateTime } from '../../lib/datetime'
 import DeleteDialog from './DeleteDialog'
 
 interface Props {
@@ -76,7 +77,7 @@ export default function ManageTab({ docs, loading, onDeleted }: Props) {
               <div className="doc-row-meta">
                 <StatusBadge status={doc.status} />
                 <span className="doc-row-date">
-                  {new Date(doc.created_at).toLocaleDateString()}
+                  {formatGmt7DateTime(doc.created_at)}
                 </span>
               </div>
             </div>
