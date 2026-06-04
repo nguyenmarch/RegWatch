@@ -107,6 +107,39 @@ export const api = {
         body: JSON.stringify({ content }),
       }),
 
+    async *streamMessage(conversationId: number, content: string) {
+      const token = localStorage.getItem('access_token')
+      const res = await fetch(`${BASE_URL}/chat/conversations/${conversationId}/messages/stream`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ content }),
+      })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ detail: res.statusText }))
+        throw new Error(err.detail ?? 'Stream failed')
+      }
+      const reader = res.body!.getReader()
+      const decoder = new TextDecoder()
+      let buf = ''
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        buf += decoder.decode(value, { stream: true })
+        const lines = buf.split('\n')
+        buf = lines.pop() ?? ''
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue
+          const raw = line.slice(6).trim()
+          if (!raw) continue
+          try { yield JSON.parse(raw) as { token?: string; done?: boolean; error?: string; message_id?: number } }
+          catch { /* ignore malformed */ }
+        }
+      }
+    },
+
     deleteConversation: (id: number) =>
       request<void>(`/chat/conversations/${id}`, { method: 'DELETE' }),
   },

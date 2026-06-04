@@ -33,6 +33,7 @@ export default function Chat() {
   const [loadingConversations, setLoadingConversations] = useState(true)
   const [loadingMessages, setLoadingMessages] = useState(false)
   const [thinking, setThinking] = useState(false)
+  const [streamingId, setStreamingId] = useState<string | null>(null)
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
 
@@ -92,39 +93,56 @@ export default function Chat() {
     const text = input.trim()
     if (!text || thinking || activeId === null) return
 
-    const optimistic: Message = {
-      id: `tmp-${Date.now()}`,
-      role: 'user',
-      content: text,
-      timestamp: new Date(),
-    }
-    setMessages(prev => [...prev, optimistic])
+    const userMsg: Message = { id: `u-${Date.now()}`, role: 'user', content: text, timestamp: new Date() }
+    const streamId = `s-${Date.now()}`
+
+    setMessages(prev => [...prev, userMsg])   // chỉ thêm user, chưa thêm bot
     setInput('')
     setThinking(true)
+    setStreamingId(null)
 
     try {
-      const result = await api.chat.sendMessage(activeId, text)
-      setMessages(prev => [
-        ...prev.filter(m => m.id !== optimistic.id),
-        toUiMessage(result.user_message),
-        toUiMessage(result.assistant_message),
-      ])
-      const list = await refreshConversations()
-      const updated = list.find(c => c.id === activeId)
-      if (updated) setActiveId(updated.id)
+      let firstToken = true
+      for await (const chunk of api.chat.streamMessage(activeId, text)) {
+        if (chunk.error) throw new Error(chunk.error)
+
+        if (chunk.token) {
+          if (firstToken) {
+            // Token đầu tiên: thêm bot message + tắt thinking
+            setThinking(false)
+            setStreamingId(streamId)
+            setMessages(prev => [
+              ...prev,
+              { id: streamId, role: 'assistant', content: chunk.token!, timestamp: new Date() },
+            ])
+            firstToken = false
+          } else {
+            setMessages(prev => prev.map(m =>
+              m.id === streamId ? { ...m, content: m.content + chunk.token } : m,
+            ))
+          }
+        }
+
+        if (chunk.done) {
+          setStreamingId(null)
+          refreshConversations()
+          break
+        }
+      }
     } catch (err) {
-      setMessages(prev => [
-        ...prev.filter(m => m.id !== optimistic.id),
-        {
-          ...optimistic,
-          id: `err-${Date.now()}`,
-          role: 'assistant',
-          content: err instanceof Error ? err.message : t('chat.errorGeneric'),
-          error: true,
-        },
-      ])
+      setStreamingId(null)
+      const errContent = err instanceof Error ? err.message : t('chat.errorGeneric')
+      setMessages(prev => {
+        // Nếu bot message đã được thêm → update nội dung; nếu chưa → thêm mới
+        const hasBot = prev.some(m => m.id === streamId)
+        if (hasBot) {
+          return prev.map(m => m.id === streamId ? { ...m, content: errContent, error: true } : m)
+        }
+        return [...prev, { id: streamId, role: 'assistant', content: errContent, timestamp: new Date(), error: true }]
+      })
     } finally {
       setThinking(false)
+      setStreamingId(null)
     }
   }, [activeId, input, refreshConversations, thinking, t])
 
@@ -204,6 +222,7 @@ export default function Chat() {
                 key={msg.id}
                 message={msg}
                 isLatest={i === messages.length - 1}
+                isStreaming={msg.id === streamingId}
               />
             ))}
 

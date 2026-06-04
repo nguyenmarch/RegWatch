@@ -14,13 +14,14 @@ export interface Message {
 interface Props {
   message: Message
   isLatest: boolean
+  isStreaming?: boolean
 }
 
-export default function ChatMessage({ message, isLatest }: Props) {
+export default function ChatMessage({ message, isLatest, isStreaming }: Props) {
   const isUser = message.role === 'user'
 
   return (
-    <div className={`chat-message ${isUser ? 'chat-message--user' : 'chat-message--bot'} ${isLatest ? 'chat-message--latest' : ''}`}>
+    <div className={`chat-message ${isUser ? 'chat-message--user' : 'chat-message--bot'} ${isLatest ? 'chat-message--latest' : ''} ${isStreaming ? 'chat-message--streaming' : ''}`}>
       {!isUser && (
         <div className="chat-avatar chat-avatar--bot">
           <RegWatchLogoIcon size={22} />
