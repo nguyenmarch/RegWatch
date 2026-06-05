@@ -13,6 +13,7 @@ class DocumentResponse(BaseModel):
     title: str
     file_path: Optional[str] = None
     status: str
+    kb_type: str = "law"
     created_at: datetime
     processing_log: Optional[str] = None
 

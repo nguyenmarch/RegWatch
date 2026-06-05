@@ -8,25 +8,31 @@ from app.core.qdrant_client import qdrant_client
 from app.utils.logger import logger
 
 
-def _ensure_collection_exists() -> None:
+def _ensure_collection_exists(collection_name: str | None = None) -> None:
+    col = collection_name or settings.QDRANT_COLLECTION_NAME
     existing = {c.name for c in qdrant_client.get_collections().collections}
-    if settings.QDRANT_COLLECTION_NAME not in existing:
+    if col not in existing:
         qdrant_client.create_collection(
-            collection_name=settings.QDRANT_COLLECTION_NAME,
+            collection_name=col,
             vectors_config=VectorParams(
                 size=settings.EMBEDDING_DIMENSION,
                 distance=Distance.COSINE,
             ),
         )
-        logger.info(f"Qdrant collection '{settings.QDRANT_COLLECTION_NAME}' created.")
+        logger.info(f"Qdrant collection '{col}' created.")
 
 
 def _build_point_id(document_id: int, chunk_id: str) -> str:
     return str(uuid.uuid5(uuid.NAMESPACE_DNS, f"doc:{document_id}:chunk:{chunk_id}"))
 
 
-def upsert_document_chunks(chunks: list[dict], document_id: int) -> None:
-    _ensure_collection_exists()
+def upsert_document_chunks(
+    chunks: list[dict],
+    document_id: int,
+    collection_name: str | None = None,
+) -> None:
+    col = collection_name or settings.QDRANT_COLLECTION_NAME
+    _ensure_collection_exists(col)
 
     texts = [chunk["text_content"] for chunk in chunks]
     vectors = embed_texts(texts)
@@ -52,10 +58,22 @@ def upsert_document_chunks(chunks: list[dict], document_id: int) -> None:
         )
 
     if points:
-        qdrant_client.upsert(
-            collection_name=settings.QDRANT_COLLECTION_NAME,
-            points=points,
-        )
+        qdrant_client.upsert(collection_name=col, points=points)
         logger.info(
-            f"Upserted {len(points)} chunk(s) for document_id={document_id} into Qdrant."
+            f"Upserted {len(points)} chunk(s) for document_id={document_id} into '{col}'."
         )
+
+
+def delete_document_chunks(document_id: int, collection_name: str | None = None) -> None:
+    from qdrant_client.models import FieldCondition, Filter, FilterSelector, MatchValue
+    col = collection_name or settings.QDRANT_COLLECTION_NAME
+    existing = {c.name for c in qdrant_client.get_collections().collections}
+    if col not in existing:
+        return
+    qdrant_client.delete(
+        collection_name=col,
+        points_selector=FilterSelector(
+            filter=Filter(must=[FieldCondition(key="document_id", match=MatchValue(value=document_id))])
+        ),
+    )
+    logger.info(f"Deleted chunks for document_id={document_id} from '{col}'.")

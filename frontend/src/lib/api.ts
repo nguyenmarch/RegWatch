@@ -28,12 +28,16 @@ export interface User {
   created_at: string
 }
 
+export type KbType = 'law' | 'action_plan' | 'internal'
+
 export interface Document {
   id: number
   title: string
   file_path: string | null
   status: 'pending' | 'processing' | 'completed' | 'failed'
+  kb_type: KbType
   created_at: string
+  processing_log?: string | null
 }
 
 export interface UploadResponse {
@@ -145,13 +149,14 @@ export const api = {
   },
 
   documents: {
-    list: () =>
-      request<Document[]>('/v1/documents'),
+    list: (kbType?: KbType) =>
+      request<Document[]>(kbType ? `/v1/documents?kb_type=${kbType}` : '/v1/documents'),
 
-    upload: (file: File, onProgress?: (pct: number) => void) =>
-      new Promise<UploadResponse>((resolve, reject) => {
+    upload: (file: File, kbType: KbType = 'law', onProgress?: (pct: number) => void) =>
+      new Promise<Document>((resolve, reject) => {
         const form = new FormData()
         form.append('file', file)
+        form.append('kb_type', kbType)
         const xhr = new XMLHttpRequest()
         xhr.open('POST', `${BASE_URL}/v1/documents/upload`)
         const token = localStorage.getItem('access_token')
@@ -162,7 +167,7 @@ export const api = {
         }
         xhr.onload = () => {
           if (xhr.status >= 200 && xhr.status < 300) {
-            resolve(JSON.parse(xhr.responseText) as UploadResponse)
+            resolve(JSON.parse(xhr.responseText) as Document)
           } else {
             const detail = JSON.parse(xhr.responseText)?.detail ?? 'Upload failed'
             reject(new Error(detail))

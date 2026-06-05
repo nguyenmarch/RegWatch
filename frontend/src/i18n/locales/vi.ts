@@ -141,6 +141,8 @@ const vi = {
     uploadBtn: 'Tải lên',
     refresh: 'Làm mới',
     count: '{{count}} tài liệu',
+    docSingular: 'tài liệu',
+    docPlural: 'tài liệu',
     processing: '{{count}} đang xử lý...',
     empty: 'Chưa có tài liệu nào',
     emptyHint: 'Tải lên PDF hoặc DOCX để bắt đầu xây dựng kho tri thức pháp lý.',
@@ -181,6 +183,23 @@ const vi = {
       uploadError: 'Tải lên thất bại',
       deleteSuccess: 'Đã xóa tài liệu',
       fetchError: 'Không thể tải danh sách tài liệu',
+    },
+    kb: {
+      law: {
+        label: 'Kho Pháp luật',
+        desc: 'Thông tư, nghị định, văn bản pháp quy',
+        badge: 'Neo4j + Qdrant',
+      },
+      actionPlan: {
+        label: 'Kho Kế hoạch',
+        desc: 'Kế hoạch hành động, lộ trình tuân thủ',
+        badge: 'Chỉ Qdrant',
+      },
+      internal: {
+        label: 'Kho Nội bộ',
+        desc: 'Văn bản sửa đổi, đào tạo, nội quy nội bộ',
+        badge: 'Chỉ Qdrant',
+      },
     },
   },
 } as const

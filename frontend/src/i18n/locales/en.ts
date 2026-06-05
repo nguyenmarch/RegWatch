@@ -143,6 +143,8 @@ const en = {
     count_one: '{{count}} document',
     count_other: '{{count}} documents',
     count: '{{count}} documents',
+    docSingular: 'doc',
+    docPlural: 'docs',
     processing: '{{count}} processing...',
     empty: 'No documents yet',
     emptyHint: 'Upload a PDF or DOCX to start building the legal knowledge base.',
@@ -183,6 +185,23 @@ const en = {
       uploadError: 'Upload failed',
       deleteSuccess: 'Document deleted',
       fetchError: 'Failed to load documents',
+    },
+    kb: {
+      law: {
+        label: 'Law KB',
+        desc: 'Legal circulars, decrees, regulations',
+        badge: 'Neo4j + Qdrant',
+      },
+      actionPlan: {
+        label: 'Action Plan KB',
+        desc: 'Compliance action plans & roadmaps',
+        badge: 'Qdrant only',
+      },
+      internal: {
+        label: 'Internal KB',
+        desc: 'Amendments, training, internal policies',
+        badge: 'Qdrant only',
+      },
     },
   },
 } as const

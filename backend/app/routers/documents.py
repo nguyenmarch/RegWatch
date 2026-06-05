@@ -2,12 +2,12 @@ from pathlib import Path
 from typing import List
 from urllib.parse import quote
 
-from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, UploadFile, status
+from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, Query, UploadFile, status
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.db import get_db
-from app.core.enums import DocumentStatus
+from app.core.enums import DocumentStatus, KbType
 from app.schemas.document import DocumentResponse
 from app.services.document import document_service
 
@@ -20,6 +20,7 @@ _ALLOWED_EXTENSIONS = {".pdf", ".docx", ".doc"}
 async def upload_document(
     background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
+    kb_type: KbType = Form(KbType.LAW),
     db: AsyncSession = Depends(get_db),
 ) -> DocumentResponse:
     ext = Path(file.filename).suffix.lower()
@@ -30,7 +31,9 @@ async def upload_document(
         )
 
     file_content = await file.read()
-    doc_record = await document_service.create_pending_document(db=db, filename=file.filename)
+    doc_record = await document_service.create_pending_document(
+        db=db, filename=file.filename, kb_type=kb_type
+    )
 
     try:
         object_key = document_service.store_original_file(
@@ -49,6 +52,7 @@ async def upload_document(
         doc_id=doc_record.id,
         filename=file.filename,
         file_content=file_content,
+        kb_type=kb_type,
     )
 
     return doc_record
@@ -90,8 +94,11 @@ async def download_document(doc_id: int, db: AsyncSession = Depends(get_db)) -> 
 
 
 @router.get("", response_model=List[DocumentResponse])
-async def list_documents(db: AsyncSession = Depends(get_db)) -> List[DocumentResponse]:
-    return await document_service.get_all_documents(db=db)
+async def list_documents(
+    kb_type: KbType | None = Query(None),
+    db: AsyncSession = Depends(get_db),
+) -> List[DocumentResponse]:
+    return await document_service.get_all_documents(db=db, kb_type=kb_type)
 
 
 @router.get("/{doc_id}/log")
