@@ -1,3 +1,5 @@
+import type { AlertSummary, AlertDetail } from './alerts'
+
 const BASE_URL = '/api'
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
@@ -28,21 +30,21 @@ export interface User {
   created_at: string
 }
 
-export type KbType = 'law' | 'action_plan' | 'internal'
-
 export interface Document {
   id: number
   title: string
   file_path: string | null
   status: 'pending' | 'processing' | 'completed' | 'failed'
-  kb_type: KbType
   created_at: string
-  processing_log?: string | null
 }
 
 export interface UploadResponse {
-  document_id: number
-  message: string
+  id: number
+  title: string
+  file_path: string | null
+  status: string
+  created_at: string
+  processing_log: string | null
 }
 
 export interface ChatConversation {
@@ -111,52 +113,18 @@ export const api = {
         body: JSON.stringify({ content }),
       }),
 
-    async *streamMessage(conversationId: number, content: string) {
-      const token = localStorage.getItem('access_token')
-      const res = await fetch(`${BASE_URL}/chat/conversations/${conversationId}/messages/stream`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-        body: JSON.stringify({ content }),
-      })
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({ detail: res.statusText }))
-        throw new Error(err.detail ?? 'Stream failed')
-      }
-      const reader = res.body!.getReader()
-      const decoder = new TextDecoder()
-      let buf = ''
-      while (true) {
-        const { done, value } = await reader.read()
-        if (done) break
-        buf += decoder.decode(value, { stream: true })
-        const lines = buf.split('\n')
-        buf = lines.pop() ?? ''
-        for (const line of lines) {
-          if (!line.startsWith('data: ')) continue
-          const raw = line.slice(6).trim()
-          if (!raw) continue
-          try { yield JSON.parse(raw) as { token?: string; done?: boolean; error?: string; message_id?: number } }
-          catch { /* ignore malformed */ }
-        }
-      }
-    },
-
     deleteConversation: (id: number) =>
       request<void>(`/chat/conversations/${id}`, { method: 'DELETE' }),
   },
 
   documents: {
-    list: (kbType?: KbType) =>
-      request<Document[]>(kbType ? `/v1/documents?kb_type=${kbType}` : '/v1/documents'),
+    list: () =>
+      request<Document[]>('/v1/documents'),
 
-    upload: (file: File, kbType: KbType = 'law', onProgress?: (pct: number) => void) =>
-      new Promise<Document>((resolve, reject) => {
+    upload: (file: File, onProgress?: (pct: number) => void) =>
+      new Promise<UploadResponse>((resolve, reject) => {
         const form = new FormData()
         form.append('file', file)
-        form.append('kb_type', kbType)
         const xhr = new XMLHttpRequest()
         xhr.open('POST', `${BASE_URL}/v1/documents/upload`)
         const token = localStorage.getItem('access_token')
@@ -167,7 +135,7 @@ export const api = {
         }
         xhr.onload = () => {
           if (xhr.status >= 200 && xhr.status < 300) {
-            resolve(JSON.parse(xhr.responseText) as Document)
+            resolve(JSON.parse(xhr.responseText) as UploadResponse)
           } else {
             const detail = JSON.parse(xhr.responseText)?.detail ?? 'Upload failed'
             reject(new Error(detail))
@@ -185,5 +153,19 @@ export const api = {
 
     getLog: (id: number) =>
       request<{ level: string; message: string; ts: string }[]>(`/v1/documents/${id}/log`),
+  },
+
+  alerts: {
+    list: () =>
+      request<AlertSummary[]>('/v1/alerts'),
+
+    get: (id: number) =>
+      request<AlertDetail>(`/v1/alerts/${id}`),
+
+    pending: () =>
+      request<{ pending: number }>('/v1/alerts/pending'),
+
+    delete: (id: number) =>
+      request<void>(`/v1/alerts/${id}`, { method: 'DELETE' }),
   },
 }

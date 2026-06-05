@@ -1,3 +1,4 @@
+import asyncio
 import logging
 from contextlib import asynccontextmanager
 
@@ -8,10 +9,13 @@ from app.core.db import async_engine, async_session_factory
 from app.core.minio_client import ensure_minio_bucket
 from app.core.mysql_client import Base
 from app.core.neo4j_client import close_neo4j_driver, get_neo4j_driver
+from app.models import alert as _alert_model
+from app.models import alert_job as _alert_job_model
 from app.models import conversation as _conversation_model
 from app.models import document as _document_model
 from app.models import user as _user_model
-from app.routers import auth, chat, documents, users
+from app.routers import alerts, auth, chat, documents, users
+from app.services.alert_retry import alert_retry_loop
 
 logger = logging.getLogger(__name__)
 
@@ -41,7 +45,13 @@ async def lifespan(app: FastAPI):
 
     get_neo4j_driver()
     ensure_minio_bucket()
+
+    # Scheduler thử lại sinh cảnh báo cho các job 'pending' (vd. hết quota Gemini)
+    retry_task = asyncio.create_task(alert_retry_loop())
+
     yield
+
+    retry_task.cancel()
     close_neo4j_driver()
 
 
@@ -67,6 +77,7 @@ app.include_router(auth.router)
 app.include_router(users.router)
 app.include_router(chat.router)
 app.include_router(documents.router)
+app.include_router(alerts.router)
 
 
 @app.get("/health", tags=["Health"])

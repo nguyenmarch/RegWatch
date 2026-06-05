@@ -1,6 +1,13 @@
 import uuid
 
-from qdrant_client.models import Distance, PointStruct, VectorParams
+from qdrant_client.models import (
+    Distance,
+    FieldCondition,
+    Filter,
+    MatchValue,
+    PointStruct,
+    VectorParams,
+)
 
 from app.core.config import settings
 from app.core.gemini_client import embed_texts
@@ -8,31 +15,25 @@ from app.core.qdrant_client import qdrant_client
 from app.utils.logger import logger
 
 
-def _ensure_collection_exists(collection_name: str | None = None) -> None:
-    col = collection_name or settings.QDRANT_COLLECTION_NAME
+def _ensure_collection_exists() -> None:
     existing = {c.name for c in qdrant_client.get_collections().collections}
-    if col not in existing:
+    if settings.QDRANT_COLLECTION_NAME not in existing:
         qdrant_client.create_collection(
-            collection_name=col,
+            collection_name=settings.QDRANT_COLLECTION_NAME,
             vectors_config=VectorParams(
                 size=settings.EMBEDDING_DIMENSION,
                 distance=Distance.COSINE,
             ),
         )
-        logger.info(f"Qdrant collection '{col}' created.")
+        logger.info(f"Qdrant collection '{settings.QDRANT_COLLECTION_NAME}' created.")
 
 
 def _build_point_id(document_id: int, chunk_id: str) -> str:
     return str(uuid.uuid5(uuid.NAMESPACE_DNS, f"doc:{document_id}:chunk:{chunk_id}"))
 
 
-def upsert_document_chunks(
-    chunks: list[dict],
-    document_id: int,
-    collection_name: str | None = None,
-) -> None:
-    col = collection_name or settings.QDRANT_COLLECTION_NAME
-    _ensure_collection_exists(col)
+def upsert_document_chunks(chunks: list[dict], document_id: int) -> None:
+    _ensure_collection_exists()
 
     texts = [chunk["text_content"] for chunk in chunks]
     vectors = embed_texts(texts)
@@ -58,22 +59,70 @@ def upsert_document_chunks(
         )
 
     if points:
-        qdrant_client.upsert(collection_name=col, points=points)
+        qdrant_client.upsert(
+            collection_name=settings.QDRANT_COLLECTION_NAME,
+            points=points,
+        )
         logger.info(
-            f"Upserted {len(points)} chunk(s) for document_id={document_id} into '{col}'."
+            f"Upserted {len(points)} chunk(s) for document_id={document_id} into Qdrant."
         )
 
 
-def delete_document_chunks(document_id: int, collection_name: str | None = None) -> None:
-    from qdrant_client.models import FieldCondition, Filter, FilterSelector, MatchValue
-    col = collection_name or settings.QDRANT_COLLECTION_NAME
-    existing = {c.name for c in qdrant_client.get_collections().collections}
-    if col not in existing:
-        return
-    qdrant_client.delete(
-        collection_name=col,
-        points_selector=FilterSelector(
-            filter=Filter(must=[FieldCondition(key="document_id", match=MatchValue(value=document_id))])
+def fetch_doc_chunks(document_id: int, limit: int = 300) -> list[dict]:
+    """Lấy các chunk đã lưu của 1 tài liệu (kèm vector sẵn có — KHÔNG gọi embedding)."""
+    points, _ = qdrant_client.scroll(
+        collection_name=settings.QDRANT_COLLECTION_NAME,
+        scroll_filter=Filter(
+            must=[FieldCondition(key="document_id", match=MatchValue(value=document_id))]
         ),
+        limit=limit,
+        with_payload=True,
+        with_vectors=True,
     )
-    logger.info(f"Deleted chunks for document_id={document_id} from '{col}'.")
+    return [
+        {
+            "chunk_id": p.payload.get("chunk_id", ""),
+            "text": p.payload.get("text", ""),
+            "header": p.payload.get("header"),
+            "article_number": p.payload.get("article_number"),
+            "vector": p.vector,
+        }
+        for p in points
+    ]
+
+
+def search_conflicts(
+    vector: list[float],
+    exclude_document_id: int,
+    limit: int = 3,
+    score_threshold: float = 0.7,
+) -> list[dict]:
+    """Tìm điều khoản tương đồng ở tài liệu KHÁC (ứng viên xung đột/chồng chéo).
+
+    Dùng vector đã lưu nên không phát sinh lời gọi embedding. Loại trừ chính
+    tài liệu đang xét để chỉ đối chiếu với phần còn lại của kho.
+    """
+    hits = qdrant_client.search(
+        collection_name=settings.QDRANT_COLLECTION_NAME,
+        query_vector=vector,
+        query_filter=Filter(
+            must_not=[
+                FieldCondition(
+                    key="document_id", match=MatchValue(value=exclude_document_id)
+                )
+            ]
+        ),
+        limit=limit,
+        score_threshold=score_threshold,
+        with_payload=True,
+    )
+    return [
+        {
+            "document_id": h.payload.get("document_id"),
+            "chunk_id": h.payload.get("chunk_id", ""),
+            "header": h.payload.get("header"),
+            "text": h.payload.get("text", ""),
+            "score": round(h.score, 4),
+        }
+        for h in hits
+    ]

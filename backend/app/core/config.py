@@ -40,8 +40,14 @@ class Settings(BaseSettings):
     NEO4J_PASSWORD: str = "password"
 
     GEMINI_API_KEY: str = ""
+    GEMINI_ALERT_API_KEY: str = ""  # Key riêng cho tác vụ sinh cảnh báo (Alert)
     GEMINI_MODEL: str = "gemini-2.5-flash"
     GEMINI_EMBEDDING_MODEL: str = "gemini-embedding-001"
+
+    @property
+    def gemini_alert_api_key(self) -> str:
+        """Key cho tác vụ Alert; fallback về key chính nếu chưa cấu hình."""
+        return self.GEMINI_ALERT_API_KEY or self.GEMINI_API_KEY
 
     @property
     def DATABASE_URL(self) -> str:

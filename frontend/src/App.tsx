@@ -1,65 +1,37 @@
-import { useState } from 'react'
-import { Routes, Route, useLocation } from 'react-router-dom'
-import AppSidebar from './components/AppSidebar'
+import { Routes, Route } from 'react-router-dom'
+import Header from './components/Header'
 import ScrollToTop from './components/ScrollToTop'
 import ProtectedRoute from './components/ProtectedRoute'
 import Home from './pages/Home'
 import Login from './pages/Login'
 import Chat from './pages/Chat'
 import Documents from './pages/Documents'
+import AlertDetail from './pages/AlertDetail'
 import TestHealth from './pages/TestHealth'
 import NotFound from './pages/NotFound'
 
-function AppShell() {
-  const { pathname } = useLocation()
-  const [collapsed, setCollapsed] = useState(
-    () => localStorage.getItem('sb-collapsed') === 'true'
-  )
-  const [mobileOpen, setMobileOpen] = useState(false)
-
-  function toggleCollapse() {
-    setCollapsed(v => {
-      const next = !v
-      localStorage.setItem('sb-collapsed', String(next))
-      return next
-    })
-  }
-
-  // Login page: full-screen, no sidebar
-  if (pathname === '/login') {
-    return <Login />
-  }
-
+export default function App() {
   return (
-    <div className={`app-shell ${collapsed ? 'app-shell--sm' : ''}`}>
-      <AppSidebar
-        collapsed={collapsed}
-        onToggleCollapse={toggleCollapse}
-        mobileOpen={mobileOpen}
-        onMobileClose={() => setMobileOpen(false)}
-        onMobileOpen={() => setMobileOpen(true)}
-      />
-      <div className="app-content">
+    <div className="app">
+      <ScrollToTop />
+      <Header />
+      <main className="main-content">
         <Routes>
           <Route path="/" element={<Home />} />
-          <Route path="/chat" element={<ProtectedRoute><Chat /></ProtectedRoute>} />
-          <Route path="/documents" element={<ProtectedRoute><Documents /></ProtectedRoute>} />
+          <Route path="/login" element={<Login />} />
+          <Route path="/chat" element={
+            <ProtectedRoute><Chat /></ProtectedRoute>
+          } />
+          <Route path="/documents" element={
+            <ProtectedRoute><Documents /></ProtectedRoute>
+          } />
+          <Route path="/alerts/:id" element={
+            <ProtectedRoute><AlertDetail /></ProtectedRoute>
+          } />
           <Route path="/test" element={<TestHealth />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
-      </div>
+      </main>
     </div>
-  )
-}
-
-export default function App() {
-  return (
-    <>
-      <ScrollToTop />
-      <Routes>
-        <Route path="/login" element={<Login />} />
-        <Route path="*" element={<AppShell />} />
-      </Routes>
-    </>
   )
 }

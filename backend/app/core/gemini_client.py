@@ -1,11 +1,28 @@
+import asyncio
+import json
+import logging
 from typing import AsyncIterator
 
 from google import genai
+from google.genai import errors as genai_errors
 from google.genai import types
 
 from app.core.config import settings
 
+logger = logging.getLogger(__name__)
+
+# 429 = hết quota → KHÔNG retry ngắn (daily quota không hồi trong vài giây), để
+# caller bắt GeminiQuotaExceeded và đẩy job sang pending/retry sau. Chỉ retry các
+# lỗi server tạm thời 500/503.
+_RETRYABLE_STATUS = {500, 503}
+_MAX_RETRIES = 4
+
+
+class GeminiQuotaExceeded(RuntimeError):
+    """Gemini trả 429 RESOURCE_EXHAUSTED — hết quota (theo phút/ngày)."""
+
 _client: genai.Client | None = None
+_alert_client: genai.Client | None = None
 
 
 def get_gemini_client() -> genai.Client:
@@ -13,6 +30,55 @@ def get_gemini_client() -> genai.Client:
     if _client is None:
         _client = genai.Client(api_key=settings.GEMINI_API_KEY)
     return _client
+
+
+def get_alert_gemini_client() -> genai.Client:
+    """Client RIÊNG cho tác vụ Alert (Output 1) — tách quota khỏi ingestion/chat."""
+    global _alert_client
+    if _alert_client is None:
+        _alert_client = genai.Client(api_key=settings.gemini_alert_api_key)
+    return _alert_client
+
+
+async def agenerate_alert_json(
+    prompt: str,
+    system_instruction: str,
+    response_schema: types.Schema,
+) -> dict:
+    """Sinh structured JSON cho Alert bằng key Gemini riêng (Output 1).
+
+    Tự retry với exponential backoff khi Gemini trả lỗi transient (429/500/503).
+    """
+    config = types.GenerateContentConfig(
+        system_instruction=system_instruction,
+        response_mime_type="application/json",
+        response_schema=response_schema,
+    )
+    contents = [{"role": "user", "parts": [{"text": prompt}]}]
+
+    last_exc: Exception | None = None
+    for attempt in range(_MAX_RETRIES):
+        try:
+            response = await get_alert_gemini_client().aio.models.generate_content(
+                model=settings.GEMINI_MODEL,
+                contents=contents,
+                config=config,
+            )
+            return json.loads(response.text)
+        except genai_errors.APIError as exc:
+            if exc.code == 429:
+                raise GeminiQuotaExceeded(str(exc)) from exc
+            if exc.code not in _RETRYABLE_STATUS or attempt == _MAX_RETRIES - 1:
+                raise
+            last_exc = exc
+            delay = 2 ** attempt  # 1, 2, 4, 8s
+            logger.warning(
+                "[Alert] Gemini %s — retry %d/%d sau %ds",
+                exc.code, attempt + 1, _MAX_RETRIES, delay,
+            )
+            await asyncio.sleep(delay)
+
+    raise last_exc if last_exc else RuntimeError("Gemini alert generation failed")
 
 
 # ── Sync helpers (used by ingestion pipeline) ────────────────────────────────

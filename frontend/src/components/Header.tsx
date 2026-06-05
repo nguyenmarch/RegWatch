@@ -48,7 +48,7 @@ export default function Header() {
             <Link to="/chat" className={`nav-link ${pathname === '/chat' ? 'active' : ''}`}>
               {t('header.chat')}
             </Link>
-            <Link to="/documents" className={`nav-link ${pathname === '/documents' ? 'active' : ''}`}>
+            <Link to="/documents" className={`nav-link ${pathname.startsWith('/documents') || pathname.startsWith('/alerts') ? 'active' : ''}`}>
               {t('header.documents')}
             </Link>
             <Link to="/test" className={`nav-link ${pathname === '/test' ? 'active' : ''}`}>
@@ -123,7 +123,7 @@ export default function Header() {
               </Link>
               <Link
                 to="/documents"
-                className={`mobile-nav-link ${pathname === '/documents' ? 'active' : ''}`}
+                className={`mobile-nav-link ${pathname.startsWith('/documents') || pathname.startsWith('/alerts') ? 'active' : ''}`}
                 onClick={closeMenu}
               >
                 <span className="mobile-nav-icon"><FileTextIcon size={17} /></span>
