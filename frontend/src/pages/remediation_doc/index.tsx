@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useLayoutEffect, useRef, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import styles from './remediation_doc.module.css';
 import { api } from '../../lib/api';
 
@@ -26,6 +27,7 @@ interface GroupedDocEntry {
 
 // ── Main Component ───────────────────────────────────────────────────────────
 export default function Remediation() {
+    const { t } = useTranslation();
     const [actionPlans, setActionPlans] = useState<any[]>([]);
     const [selectedApId, setSelectedApId] = useState(() => sessionStorage.getItem('remediation_selectedApId') || '');
     const [selectedTaskIds, setSelectedTaskIds] = useState<Set<number>>(() => {
@@ -92,7 +94,7 @@ export default function Remediation() {
     };
 
     const handleDeleteAp = async (apId: string) => {
-        if (!confirm('Bạn có chắc chắn muốn xóa Action Plan này và tất cả văn bản sinh ra?')) return;
+        if (!confirm(t('remediation.confirmDeletePlan'))) return;
         try {
             await api.remediation.deleteActionPlan(Number(apId));
             if (selectedApId === apId) {
@@ -102,7 +104,7 @@ export default function Remediation() {
             }
             fetchActionPlans();
         } catch (e) {
-            alert('Lỗi khi xóa Action Plan');
+            alert(t('remediation.deleteError'));
             console.error(e);
         }
     };
@@ -174,7 +176,7 @@ export default function Remediation() {
         if (type === 'announcement') {
             for (const docName of Object.keys(groups)) {
                 if (!selectedDraftsByDoc.has(docName)) {
-                    alert(`Vui lòng chọn bản nháp cho "${docName}" trước`);
+                    alert(t('remediation.selectDraftFirst', { docName }));
                     return;
                 }
             }
@@ -451,8 +453,8 @@ export default function Remediation() {
                 <div className={styles.topBarInner}>
 
                     <div className={styles.brand}>
-                        <span className={styles.brandBadge}>Phase 3</span>
-                        <span className={styles.brandTitle}>Compliance Workspace</span>
+                        <span className={styles.brandBadge}>{t('remediation.phase')}</span>
+                        <span className={styles.brandTitle}>{t('remediation.pageTitle')}</span>
                     </div>
 
                     <div className={styles.selectors}>
@@ -465,7 +467,7 @@ export default function Remediation() {
                                     disabled={isLoading}
                                     onChange={e => handleApChange(e.target.value)}
                                 >
-                                    <option value="" disabled>Chọn Action Plan...</option>
+                                    <option value="" disabled>{t('remediation.selectPlanPlaceholder')}</option>
                                     {actionPlans.map(ap => (
                                         <option key={ap.id} value={ap.id.toString()}>
                                             {ap.plan_code} — {ap.law_id}
@@ -476,7 +478,7 @@ export default function Remediation() {
                                     <button
                                         className={styles.deleteApBtn}
                                         onClick={() => handleDeleteAp(selectedApId)}
-                                        title="Xóa Action Plan"
+                                        title={t('remediation.deletePlanTitle')}
                                     >
                                         <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -503,7 +505,7 @@ export default function Remediation() {
                             onClick={() => uploadInputRef.current?.click()}
                             disabled={uploadState === 'uploading'}
                         >
-                            {uploadState === 'uploading' ? <><span className={styles.spinner} /> Uploading...</> : <>📁 Upload JSON</>}
+                            {uploadState === 'uploading' ? <><span className={styles.spinner} /> {t('remediation.uploading')}</> : <>📁 {t('remediation.uploadJson')}</>}
                         </button>
                         {uploadMsg && (
                             <span className={`${styles.uploadToast} ${uploadState === 'error' ? styles.uploadToastErr : ''}`}>
@@ -519,13 +521,13 @@ export default function Remediation() {
                             className={styles.generateBtn}
                             onClick={() => handleGenerateSelected('document')}
                             disabled={!someSelected || generatingIds.size > 0}
-                            title="Chỉnh sửa văn bản cũ"
+                            title={t('remediation.generateDocTitle')}
                         >
                             {generatingIds.size > 0 ? (
-                                <><span className={styles.spinner} /> Đang sinh ({generatingIds.size})...</>
+                                <><span className={styles.spinner} /> {t('remediation.generating', { count: generatingIds.size })}</>
                             ) : (
                                 <>
-                                    ✦ Chỉnh sửa văn bản cũ
+                                    {t('remediation.generateDocBtn')}
                                     {someSelected && <span className={styles.genCount}>{selectedTaskIds.size}</span>}
                                 </>
                             )}
@@ -535,9 +537,9 @@ export default function Remediation() {
                             className={`${styles.generateBtn} ${styles.generateBtnAlt}`}
                             onClick={() => handleGenerateSelected('announcement')}
                             disabled={!someSelected || generatingIds.size > 0 || !allGroupsHaveDraft}
-                            title={!allGroupsHaveDraft ? "Chọn bản nháp trước khi sinh VB đào tạo" : "Sinh văn bản đào tạo nội bộ"}
+                            title={t('remediation.generateTrainingTitle')}
                         >
-                            🎓 Sinh VB Đào tạo
+                            {t('remediation.generateTrainingBtn')}
                         </button>
                     </div>
                 </div>
@@ -548,12 +550,8 @@ export default function Remediation() {
                 {!selectedAp ? (
                     <div className={styles.emptyState}>
                         <div className={styles.emptyIcon}>⚖</div>
-                        <h2 className={styles.emptyTitle}>Chọn Action Plan để bắt đầu</h2>
-                        <p className={styles.emptyDesc}>
-                            Sau khi chọn plan, tick các tác vụ cần xử lý rồi nhấn <strong>✦ Sinh văn bản</strong>.
-                            AI sẽ tự động gom nhóm các tác vụ tác động lên cùng một văn bản nội bộ
-                            và sửa đổi chúng song song.
-                        </p>
+                        <h2 className={styles.emptyTitle}>{t('remediation.emptyTitle')}</h2>
+                        <p className={styles.emptyDesc}>{t('remediation.emptyDesc')}</p>
                     </div>
                 ) : (
                     <div className={styles.workspaceLayout}>
@@ -561,7 +559,7 @@ export default function Remediation() {
                         {/* ── LEFT: Task checklist ── */}
                         <aside className={styles.taskPanel}>
                             <div className={styles.taskPanelHeader}>
-                                <span className={styles.taskPanelTitle}>Danh sách tác vụ</span>
+                                <span className={styles.taskPanelTitle}>{t('remediation.taskListTitle')}</span>
                                 <span className={styles.taskPanelMeta}>{selectedAp.law_id}</span>
                             </div>
 
@@ -576,7 +574,7 @@ export default function Remediation() {
                                     />
                                     <span className={styles.taskCheckboxCustom} />
                                     <span className={styles.taskSelectAllLabel}>
-                                        {allSelected ? 'Bỏ chọn tất cả' : 'Chọn tất cả'}
+                                        {allSelected ? t('remediation.deselectAll') : t('remediation.selectAll')}
                                         <span className={styles.taskTotalBadge}>{allTasks.length}</span>
                                     </span>
                                 </label>
@@ -603,7 +601,7 @@ export default function Remediation() {
                                             <div className={styles.taskItemBody}>
                                                 <div className={styles.taskItemTop}>
                                                     <span className={styles.taskDeptBadge}>{task.target_department}</span>
-                                                    {hasDoc && !isGen && <span className={styles.taskDocDot} title="Đã có văn bản">✓</span>}
+                                                    {hasDoc && !isGen && <span className={styles.taskDocDot} title={t('remediation.taskHasDoc')}>✓</span>}
                                                     {isGen && <span className={styles.taskGenSpinner} />}
                                                 </div>
                                                 <p className={styles.taskItemName}>{task.task_name}</p>
@@ -611,7 +609,7 @@ export default function Remediation() {
                                                     <p className={styles.taskItemDoc}>→ {task.impacted_internal_doc}</p>
                                                 )}
                                                 {isResolved && (
-                                                    <p className={styles.taskItemResolvedNote}>✓ Đã xử lý</p>
+                                                    <p className={styles.taskItemResolvedNote}>{t('remediation.taskResolved')}</p>
                                                 )}
                                             </div>
                                         </label>
@@ -621,8 +619,8 @@ export default function Remediation() {
 
                             <div className={styles.taskPanelFooter}>
                                 {someSelected
-                                    ? <span className={styles.selectedCount}>✦ {selectedTaskIds.size} tác vụ đã chọn</span>
-                                    : <span className={styles.selectedCountEmpty}>Chưa chọn tác vụ nào</span>
+                                    ? <span className={styles.selectedCount}>{t('remediation.tasksSelected', { count: selectedTaskIds.size })}</span>
+                                    : <span className={styles.selectedCountEmpty}>{t('remediation.noTasksSelected')}</span>
                                 }
                             </div>
                         </aside>
@@ -632,8 +630,8 @@ export default function Remediation() {
                             {renderEntries.length === 0 ? (
                                 <div className={styles.docStackEmpty}>
                                     <div className={styles.docStackEmptyIcon}>📄</div>
-                                    <p>Tick tác vụ bên trái để xem các văn bản cần sửa đổi.</p>
-                                    <p>Các tác vụ cùng tác động lên 1 văn bản sẽ tự động được gộp lại.</p>
+                                    <p>{t('remediation.docEmptyHint1')}</p>
+                                    <p>{t('remediation.docEmptyHint2')}</p>
                                 </div>
                             ) : (
                                 renderEntries.map((group) => (
@@ -677,6 +675,7 @@ function DocSection({
     onSave, onSaveDraft, onApprove, onRefine, onExport,
     onToggleRefinement, onSetRefinementPrompt, onSelectDraft,
 }: DocSectionProps) {
+    const { t } = useTranslation();
     const [approveRole, setApproveRole] = useState('product');
     const [localComments, setLocalComments] = useState<any[]>([]);
     // Draft history
@@ -783,7 +782,7 @@ function DocSection({
     };
 
     const doRestoreDraft = (draftContent: string) => {
-        if (!confirm("Khôi phục bản nháp này? Những thay đổi chưa lưu sẽ bị mất.")) return;
+        if (!confirm(t('remediation.confirmRestore'))) return;
         try {
             const contentObj = JSON.parse(draftContent);
             onSave(group.taskIds, contentObj);
@@ -825,18 +824,18 @@ function DocSection({
                             <button
                                 className={`${styles.secBtn} ${group.refinementOpen ? styles.secBtnActive : ''}`}
                                 onClick={() => onToggleRefinement(group.taskIds)}
-                                title="Tinh chỉnh AI"
+                                title={t('remediation.refineAi')}
                             >
                                 ✨
                             </button>
-                            <button className={`${styles.secBtn} ${showDrafts ? styles.secBtnActive : ''}`} onClick={() => setShowDrafts(!showDrafts)} title="Lịch sử bản nháp">
+                            <button className={`${styles.secBtn} ${showDrafts ? styles.secBtnActive : ''}`} onClick={() => setShowDrafts(!showDrafts)} title={t('remediation.draftHistory')}>
                                 🕒 {drafts.length}
                             </button>
-                            <button className={styles.secBtn} onClick={doSaveDraft} title="Lưu bản nháp">
+                            <button className={styles.secBtn} onClick={doSaveDraft} title={t('remediation.saveDraft')}>
                                 💾
                             </button>
-                            <button className={styles.secBtn} onClick={() => onExport(group.taskIds)} title="Export .doc">
-                                ↓ .doc
+                            <button className={styles.secBtn} onClick={() => onExport(group.taskIds)} title={t('remediation.exportDocTitle')}>
+                                {t('remediation.exportDocLabel')}
                             </button>
                             <div className={styles.approveInline}>
                                 <select
@@ -852,7 +851,7 @@ function DocSection({
                                     onClick={() => onApprove(group.taskIds, approveRole)}
                                     disabled={doc?.status === 'APPROVED'}
                                 >
-                                    ✍ Ký
+                                    {t('remediation.signBtn')}
                                 </button>
                             </div>
                         </>
@@ -863,25 +862,25 @@ function DocSection({
             {/* Draft History Bar */}
             {showDrafts && drafts.length > 0 && (
                 <div className={styles.draftHistoryBar}>
-                    <div className={styles.draftsTitle}>Lịch sử bản nháp</div>
+                    <div className={styles.draftsTitle}>{t('remediation.draftHistoryTitle')}</div>
                     <div className={styles.draftsList}>
                         {drafts.map((d: any, idx: number) => (
                             <div key={d.id} className={`${styles.draftItem} ${group.selectedDraftId === d.id ? styles.draftItemSelected : ''}`}>
                                 <span className={styles.draftTime}>{new Date(d.created_at).toLocaleString('vi-VN')}</span>
-                                {idx === 0 && <span className={styles.draftBadge}>Mới nhất</span>}
+                                {idx === 0 && <span className={styles.draftBadge}>{t('remediation.draftNewest')}</span>}
                                 <button
                                     className={styles.draftRestoreBtn}
                                     onClick={() => doRestoreDraft(d.content)}
-                                    title="Khôi phục bản nháp này để chỉnh sửa"
+                                    title={t('remediation.draftRestoreTitle')}
                                 >
-                                    Khôi phục
+                                    {t('remediation.draftRestore')}
                                 </button>
                                 <button
                                     className={`${styles.draftSelectBtn} ${group.selectedDraftId === d.id ? styles.draftSelectBtnActive : ''}`}
                                     onClick={() => onSelectDraft(group.docName, d.id)}
-                                    title="Chọn bản nháp này để sinh VB đào tạo"
+                                    title={t('remediation.draftSelectTitle')}
                                 >
-                                    {group.selectedDraftId === d.id ? '✓ Đã chọn' : 'Chọn'}
+                                    {group.selectedDraftId === d.id ? t('remediation.draftSelected') : t('remediation.draftSelectBtn')}
                                 </button>
                             </div>
                         ))}
@@ -895,7 +894,7 @@ function DocSection({
                     <span className={styles.refinementIcon}>✨</span>
                     <input
                         className={styles.refinementInput}
-                        placeholder="Yêu cầu tinh chỉnh nội dung văn bản này... (Enter để gửi)"
+                        placeholder={t('remediation.refinePlaceholder')}
                         value={group.refinementPrompt || ''}
                         onChange={e => onSetRefinementPrompt(group.taskIds, e.target.value)}
                         onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) onRefine(group.taskIds, group.refinementPrompt || ''); }}
@@ -906,7 +905,7 @@ function DocSection({
                         onClick={() => onRefine(group.taskIds, group.refinementPrompt || '')}
                         disabled={!group.refinementPrompt?.trim()}
                     >
-                        Gửi
+                        {t('remediation.send')}
                     </button>
                 </div>
             )}
@@ -918,13 +917,13 @@ function DocSection({
                         className={`${styles.tabBtn} ${viewMode === 'document' ? styles.tabBtnActive : ''}`}
                         onClick={() => setViewMode('document')}
                     >
-                        📝 Văn bản chỉnh sửa
+                        {t('remediation.tabDocument')}
                     </button>
                     <button
                         className={`${styles.tabBtn} ${viewMode === 'announcement' ? styles.tabBtnActive : ''}`}
                         onClick={() => setViewMode('announcement')}
                     >
-                        🎓 Thông cáo đào tạo
+                        {t('remediation.tabAnnouncement')}
                     </button>
                 </div>
             )}
@@ -935,7 +934,7 @@ function DocSection({
                     <div className={styles.generatingState}>
                         <div className={styles.generatingDots}><span /><span /><span /></div>
                         <p className={styles.generatingText}>
-                            Đang gộp <strong>{group.tasks.length} tác vụ</strong> và sinh nội dung sửa đổi cho <strong>{group.docName}</strong>...
+                            {t('remediation.generatingContent', { count: group.tasks.length, docName: group.docName })}
                         </p>
                     </div>
                 ) : viewMode === 'document' && (parsed?.modified_document || parsed?.old_document) ? (
@@ -997,7 +996,7 @@ function DocSection({
                                 })}
                                 {localComments.length === 0 && (
                                     <div className={styles.commentCard} style={{ opacity: 0.6 }}>
-                                        <p className={styles.commentReason}>Chưa có đề xuất thay đổi nào.</p>
+                                        <p className={styles.commentReason}>{t('remediation.noComments')}</p>
                                     </div>
                                 )}
                             </div>
@@ -1008,10 +1007,10 @@ function DocSection({
                         <div className={styles.docPaperWide}>
                             <div className={styles.paperHeader}>
                                 <div className={styles.paperHeaderLeft}>
-                                    <span className={styles.paperLabel}>🎓 Văn bản đào tạo / Thông báo</span>
+                                    <span className={styles.paperLabel}>{t('remediation.trainingDocLabel')}</span>
                                     <span className={styles.paperMeta}>{group.docName}</span>
                                 </div>
-                                <span className={styles.tagAI}>AI GENERATED</span>
+                                <span className={styles.tagAI}>{t('remediation.aiGenerated')}</span>
                             </div>
                             <div
                                 className={styles.paperBody}
@@ -1021,11 +1020,11 @@ function DocSection({
                     </div>
                 ) : doc ? (
                     <div className={styles.docSectionEmpty}>
-                        <p>Nội dung chưa được sinh. Nhấn ✨ tinh chỉnh hoặc sinh lại.</p>
+                        <p>{t('remediation.noContentRefine')}</p>
                     </div>
                 ) : (
                     <div className={styles.docSectionEmpty}>
-                        <p>Văn bản chưa được sinh. Hãy nhấn nút <strong>✦ Chỉnh sửa văn bản cũ</strong> ở thanh công cụ phía trên.</p>
+                        <p>{t('remediation.noContentGenerate')}</p>
                     </div>
                 )}
             </div>
