@@ -249,6 +249,8 @@ const en = {
     backToHistory: 'Back to History',
     childDashboardTitle: 'Findings in this analysis',
     childDashboardSubtitle: 'Review each child analysis generated from this uploaded document.',
+    exportJson: 'JSON',
+    exportDocx: 'DOCX',
     detail: {
       loading: 'Loading alert detail...',
       loadError: 'Could not load this analysis.',

@@ -15,7 +15,7 @@ class ComplianceAnalysis(Base):
     __tablename__ = "compliance_analyses"
 
     id                = Column(Integer, primary_key=True, index=True)
-    code              = Column(String(32), nullable=False)   # e.g. "VD-001"
+    code              = Column(String(32), nullable=False)   # e.g. "D2-001"
     document_id       = Column(
         Integer,
         ForeignKey("documents.id", ondelete="SET NULL"),

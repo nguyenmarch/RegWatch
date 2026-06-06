@@ -247,6 +247,8 @@ const vi = {
     backToHistory: 'Về History',
     childDashboardTitle: 'Finding trong analysis này',
     childDashboardSubtitle: 'Rà soát từng analysis con được sinh từ tài liệu đã tải lên.',
+    exportJson: 'JSON',
+    exportDocx: 'DOCX',
     detail: {
       loading: 'Đang tải chi tiết alert...',
       loadError: 'Không tải được phân tích này.',

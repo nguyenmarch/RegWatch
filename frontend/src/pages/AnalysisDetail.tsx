@@ -69,7 +69,7 @@ function RiskGauge({ score }: { score: RiskScore }) {
       </svg>
       <div className="gauge-readout">
         <span className="gauge-value" style={{ color }}>{score.value}%</span>
-        {/* <span className="gauge-level" style={{ color }}>{score.level}</span> */}
+        <span className="gauge-level" style={{ color }}>{score.level}</span>
       </div>
       <span className="gauge-label">{score.label}</span>
     </div>

@@ -5814,6 +5814,13 @@ code {
   gap: 1rem;
   margin-bottom: 1rem;
 }
+.analysis-run-hero-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
 .analysis-run-hero-main {
   display: grid;
   grid-template-columns: auto 1fr auto;
@@ -5886,6 +5893,12 @@ code {
   .arun-footer {
     align-items: stretch;
     flex-direction: column;
+  }
+  .analysis-run-hero-actions {
+    justify-content: stretch;
+  }
+  .analysis-run-hero-actions .btn {
+    flex: 1 1 auto;
   }
   .analysis-run-summary {
     grid-template-columns: 1fr;

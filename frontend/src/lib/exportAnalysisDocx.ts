@@ -3,6 +3,7 @@ import {
   HeadingLevel, AlignmentType, BorderStyle, WidthType, ShadingType,
 } from 'docx'
 import type { AnalysisDetail } from './analyses'
+import type { AnalysisRun } from './analysisRuns'
 
 const SEVERITY_VI: Record<string, string> = {
   urgent: 'KHẨN CẤP',
@@ -77,6 +78,104 @@ function makeTable(headers: string[], rows: string[][], shadeHeader = true) {
     rows: [headerRow, ...dataRows],
     width: { size: 9000, type: WidthType.DXA },
   })
+}
+
+function safeFileName(value: string) {
+  return value
+    .replace(/[\\/:*?"<>|]/g, '-')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 120) || 'analysis-run'
+}
+
+export async function exportAnalysisRunDocx(run: AnalysisRun): Promise<void> {
+  const createdDate = new Date(run.documentCreatedAt ?? run.latestAnalysisAt).toLocaleString('vi-VN')
+  const severityLabel = SEVERITY_VI[run.highestSeverity] ?? run.highestSeverity
+
+  const children = [
+    new Paragraph({
+      children: [new TextRun({ text: 'BÁO CÁO TỔNG HỢP ANALYSIS', bold: true, size: 32 })],
+      heading: HeadingLevel.TITLE,
+      alignment: AlignmentType.CENTER,
+      spacing: { after: 200 },
+    }),
+    new Paragraph({
+      children: [new TextRun({ text: run.documentTitle, bold: true, size: 24 })],
+      alignment: AlignmentType.CENTER,
+      spacing: { after: 80 },
+    }),
+    new Paragraph({
+      children: [new TextRun({ text: `Thời gian: ${createdDate}`, size: 22 })],
+      alignment: AlignmentType.CENTER,
+      spacing: { after: 320 },
+    }),
+
+    separator(),
+
+    heading('I. THÔNG TIN CHUNG', HeadingLevel.HEADING_1),
+    labelValue('Tài liệu', run.documentTitle),
+    labelValue('Mã analysis', run.key),
+    labelValue('Số alert', String(run.analyses.length)),
+    labelValue('Mức nghiêm trọng cao nhất', severityLabel),
+    labelValue('Rủi ro cao nhất', `${run.riskLabel} (${run.topRisk}/100)`),
+    labelValue('Trạng thái', run.status === 'processed' ? 'Đã xử lý' : 'Đang mở'),
+    body(run.summary),
+
+    separator(),
+
+    heading('II. THỐNG KÊ ALERT', HeadingLevel.HEADING_1),
+    makeTable(
+      ['Khẩn cấp', 'Cần rà soát', 'Theo dõi', 'Tổng cộng'],
+      [[
+        String(run.counts.urgent),
+        String(run.counts.review),
+        String(run.counts.monitor),
+        String(run.analyses.length),
+      ]],
+    ),
+
+    separator(),
+
+    heading('III. DANH SÁCH ALERT CON', HeadingLevel.HEADING_1),
+    makeTable(
+      ['Mã', 'Tiêu đề', 'Mức độ', 'Rủi ro', 'Trạng thái', 'Hạn xử lý'],
+      run.analyses.map(analysis => [
+        analysis.code,
+        analysis.title,
+        SEVERITY_VI[analysis.severity] ?? analysis.severity,
+        `${analysis.overall_risk.label} (${analysis.overall_risk.value}/100)`,
+        analysis.status === 'processed' ? 'Đã xử lý' : 'Đang mở',
+        analysis.deadline ?? '',
+      ]),
+    ),
+    body(''),
+
+    ...run.analyses.flatMap((analysis, index) => [
+      heading(`${index + 1}. ${analysis.code} - ${analysis.title}`, HeadingLevel.HEADING_2),
+      labelValue('Mức độ', SEVERITY_VI[analysis.severity] ?? analysis.severity),
+      labelValue('Rủi ro', `${analysis.overall_risk.label} (${analysis.overall_risk.value}/100)`),
+      body(analysis.summary),
+    ]),
+  ]
+
+  const doc = new Document({
+    styles: {
+      default: {
+        document: {
+          run: { font: 'Times New Roman', size: 22 },
+        },
+      },
+    },
+    sections: [{ children }],
+  })
+
+  const blob = await Packer.toBlob(doc)
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `${safeFileName(run.documentTitle)}-analysis-run.docx`
+  a.click()
+  URL.revokeObjectURL(url)
 }
 
 export async function exportAnalysisDocx(analysis: AnalysisDetail): Promise<void> {

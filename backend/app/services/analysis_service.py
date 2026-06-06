@@ -122,7 +122,7 @@ _ANALYSIS_SCHEMA = types.Schema(
                             properties={
                                 "label": _str(),
                                 "value": types.Schema(type=types.Type.INTEGER),
-                                "level": _str(),
+                                "level": _str(["Cao", "Trung bình", "Thấp"]),
                             },
                             required=["label", "value", "level"],
                         ),
@@ -259,8 +259,12 @@ class AnalysisService:
         await db.commit()
         return True
 
-    async def _next_code_seq(self, db: AsyncSession) -> int:
-        total = await db.scalar(select(func.count()).select_from(ComplianceAnalysis))
+    async def _next_code_seq(self, db: AsyncSession, document_id: int) -> int:
+        total = await db.scalar(
+            select(func.count())
+            .select_from(ComplianceAnalysis)
+            .where(ComplianceAnalysis.document_id == document_id)
+        )
         return int(total or 0) + 1
 
     async def _doc_title_map(self, db: AsyncSession) -> dict[int, str]:
@@ -379,7 +383,7 @@ class AnalysisService:
                 return
 
             if parsed.analyses:
-                seq = await self._next_code_seq(db)
+                seq = await self._next_code_seq(db, document_id)
                 for offset, content in enumerate(parsed.analyses):
                     row = self._to_row(content, document_id, code_seq=seq + offset)
                     db.add(row)
@@ -396,7 +400,7 @@ class AnalysisService:
         score = _clamp_score(content.overall_risk.value)
         overall = {**content.overall_risk.model_dump(), "value": score}
         return ComplianceAnalysis(
-            code=f"VD-{code_seq:03d}",
+            code=f"D{document_id}-{code_seq:03d}",
             document_id=document_id,
             title=content.title,
             summary=content.summary,

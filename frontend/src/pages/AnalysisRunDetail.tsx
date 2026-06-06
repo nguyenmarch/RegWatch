@@ -5,6 +5,7 @@ import { api, type Document } from '../lib/api'
 import type { AnalysisSeverity, AnalysisSummary } from '../lib/analyses'
 import { SEVERITY_META } from '../lib/analyses'
 import { buildAnalysisRuns, findAnalysisRun } from '../lib/analysisRuns'
+import { exportAnalysisRunDocx } from '../lib/exportAnalysisDocx'
 import { parseBackendDate } from '../lib/datetime'
 import AnalysisStats, { type AnalysisStatKey } from '../components/analysis/AnalysisStats'
 import AnalysisFindingRow from '../components/analysis/AnalysisFindingRow'
@@ -13,6 +14,7 @@ import {
   ArrowLeftIcon,
   ChartIcon,
   ClockIcon,
+  DownloadIcon,
   FileTextIcon,
   LoaderIcon,
   RefreshIcon,
@@ -107,6 +109,34 @@ export default function AnalysisRunDetail() {
   const activeSeverityLabel =
     filter && filter !== 'total' ? t(SEVERITY_META[filter as AnalysisSeverity].labelKey) : null
 
+  function safeFileName(value: string) {
+    return value.replace(/[\\/:*?"<>|]/g, '-').replace(/\s+/g, ' ').trim().slice(0, 120) || 'analysis-run'
+  }
+
+  function downloadRunJson() {
+    const payload = {
+      key: run.key,
+      document_id: run.documentId,
+      document_title: run.documentTitle,
+      document_created_at: run.documentCreatedAt,
+      latest_analysis_at: run.latestAnalysisAt,
+      highest_severity: run.highestSeverity,
+      top_risk: run.topRisk,
+      risk_label: run.riskLabel,
+      status: run.status,
+      counts: run.counts,
+      summary: run.summary,
+      analyses: run.analyses,
+    }
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const anchor = document.createElement('a')
+    anchor.href = url
+    anchor.download = `${safeFileName(run.documentTitle)}-analysis-run.json`
+    anchor.click()
+    URL.revokeObjectURL(url)
+  }
+
   return (
     <div className="analyses-page">
       <div className="container">
@@ -116,10 +146,20 @@ export default function AnalysisRunDetail() {
               <ArrowLeftIcon size={15} />
               {t('analyses.backToHistory')}
             </Link>
-            <button className="btn btn-outline btn-sm" onClick={() => void loadData()} type="button">
-              <RefreshIcon size={14} />
-              {t('analyses.refresh')}
-            </button>
+            <div className="analysis-run-hero-actions">
+              <button className="btn btn-outline btn-sm" onClick={downloadRunJson} type="button">
+                <DownloadIcon size={14} />
+                {t('analyses.exportJson')}
+              </button>
+              <button className="btn btn-outline btn-sm" onClick={() => void exportAnalysisRunDocx(run)} type="button">
+                <DownloadIcon size={14} />
+                {t('analyses.exportDocx')}
+              </button>
+              <button className="btn btn-outline btn-sm" onClick={() => void loadData()} type="button">
+                <RefreshIcon size={14} />
+                {t('analyses.refresh')}
+              </button>
+            </div>
           </div>
 
           <div className="analysis-run-hero-main">
