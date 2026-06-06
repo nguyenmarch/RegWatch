@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
-import { api } from '../../lib/api'
+import { api, type KbType } from '../../lib/api'
 import { UploadCloudIcon, FileTextIcon, XIcon, LoaderIcon, CheckCircleIcon, AlertTriangleIcon } from '../Icons'
 import UploadConfirmDialog from './UploadConfirmDialog'
 
@@ -15,6 +15,7 @@ interface StagedFile {
 
 interface Props {
   onUploaded: (docIds: number[]) => void
+  kbType: KbType
 }
 
 const ACCEPTED = ['.pdf', '.docx', '.doc']
@@ -26,7 +27,7 @@ function formatBytes(b: number) {
   return `${(b / 1024 / 1024).toFixed(1)} MB`
 }
 
-export default function UploadTab({ onUploaded }: Props) {
+export default function UploadTab({ onUploaded, kbType }: Props) {
   const { t } = useTranslation()
   const inputRef = useRef<HTMLInputElement>(null)
   const [staged, setStaged] = useState<StagedFile[]>([])
@@ -62,7 +63,7 @@ export default function UploadTab({ onUploaded }: Props) {
     for (const sf of staged) {
       setStaged(prev => prev.map(f => f.id === sf.id ? { ...f, status: 'uploading' } : f))
       try {
-        const res = await api.documents.upload(sf.file, pct =>
+        const res = await api.documents.upload(sf.file, kbType, pct =>
           setStaged(prev => prev.map(f => f.id === sf.id ? { ...f, progress: pct } : f))
         )
         uploadedIds.push(res.id)

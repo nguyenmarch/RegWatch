@@ -1,4 +1,4 @@
-import type { AlertSummary, AlertDetail } from './alerts'
+import type { AnalysisSummary, AnalysisDetail, AnalysisUpdate } from './analyses'
 
 const BASE_URL = '/api'
 
@@ -30,21 +30,21 @@ export interface User {
   created_at: string
 }
 
+export type KbType = 'law' | 'action_plan' | 'internal'
+
 export interface Document {
   id: number
   title: string
   file_path: string | null
   status: 'pending' | 'processing' | 'completed' | 'failed'
+  kb_type: KbType
   created_at: string
+  processing_log?: string | null
 }
 
 export interface UploadResponse {
-  id: number
-  title: string
-  file_path: string | null
-  status: string
-  created_at: string
-  processing_log: string | null
+  document_id: number
+  message: string
 }
 
 export interface ChatConversation {
@@ -113,18 +113,52 @@ export const api = {
         body: JSON.stringify({ content }),
       }),
 
+    async *streamMessage(conversationId: number, content: string) {
+      const token = localStorage.getItem('access_token')
+      const res = await fetch(`${BASE_URL}/chat/conversations/${conversationId}/messages/stream`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ content }),
+      })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ detail: res.statusText }))
+        throw new Error(err.detail ?? 'Stream failed')
+      }
+      const reader = res.body!.getReader()
+      const decoder = new TextDecoder()
+      let buf = ''
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        buf += decoder.decode(value, { stream: true })
+        const lines = buf.split('\n')
+        buf = lines.pop() ?? ''
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue
+          const raw = line.slice(6).trim()
+          if (!raw) continue
+          try { yield JSON.parse(raw) as { token?: string; done?: boolean; error?: string; message_id?: number } }
+          catch { /* ignore malformed */ }
+        }
+      }
+    },
+
     deleteConversation: (id: number) =>
       request<void>(`/chat/conversations/${id}`, { method: 'DELETE' }),
   },
 
   documents: {
-    list: () =>
-      request<Document[]>('/v1/documents'),
+    list: (kbType?: KbType) =>
+      request<Document[]>(kbType ? `/v1/documents?kb_type=${kbType}` : '/v1/documents'),
 
-    upload: (file: File, onProgress?: (pct: number) => void) =>
-      new Promise<UploadResponse>((resolve, reject) => {
+    upload: (file: File, kbType: KbType = 'law', onProgress?: (pct: number) => void) =>
+      new Promise<Document>((resolve, reject) => {
         const form = new FormData()
         form.append('file', file)
+        form.append('kb_type', kbType)
         const xhr = new XMLHttpRequest()
         xhr.open('POST', `${BASE_URL}/v1/documents/upload`)
         const token = localStorage.getItem('access_token')
@@ -135,7 +169,7 @@ export const api = {
         }
         xhr.onload = () => {
           if (xhr.status >= 200 && xhr.status < 300) {
-            resolve(JSON.parse(xhr.responseText) as UploadResponse)
+            resolve(JSON.parse(xhr.responseText) as Document)
           } else {
             const detail = JSON.parse(xhr.responseText)?.detail ?? 'Upload failed'
             reject(new Error(detail))
@@ -155,17 +189,26 @@ export const api = {
       request<{ level: string; message: string; ts: string }[]>(`/v1/documents/${id}/log`),
   },
 
-  alerts: {
+  analyses: {
     list: () =>
-      request<AlertSummary[]>('/v1/alerts'),
+      request<AnalysisSummary[]>('/v1/analyses'),
 
     get: (id: number) =>
-      request<AlertDetail>(`/v1/alerts/${id}`),
+      request<AnalysisDetail>(`/v1/analyses/${id}`),
 
     pending: () =>
-      request<{ pending: number }>('/v1/alerts/pending'),
+      request<{ pending: number }>('/v1/analyses/pending'),
+
+    patch: (id: number, data: AnalysisUpdate) =>
+      request<AnalysisDetail>(`/v1/analyses/${id}`, {
+        method: 'PATCH',
+        body: JSON.stringify(data),
+      }),
+
+    publish: (id: number) =>
+      request<AnalysisDetail>(`/v1/analyses/${id}/publish`, { method: 'POST' }),
 
     delete: (id: number) =>
-      request<void>(`/v1/alerts/${id}`, { method: 'DELETE' }),
+      request<void>(`/v1/analyses/${id}`, { method: 'DELETE' }),
   },
 }

@@ -11,18 +11,18 @@ from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
-# 429 = hết quota → KHÔNG retry ngắn (daily quota không hồi trong vài giây), để
-# caller bắt GeminiQuotaExceeded và đẩy job sang pending/retry sau. Chỉ retry các
-# lỗi server tạm thời 500/503.
+# 429 = quota exhausted → do NOT short-retry (daily quota does not recover in
+# seconds); let the caller catch GeminiQuotaExceeded and push the job to
+# pending/retry later. Only retry transient server errors 500/503.
 _RETRYABLE_STATUS = {500, 503}
 _MAX_RETRIES = 4
 
 
 class GeminiQuotaExceeded(RuntimeError):
-    """Gemini trả 429 RESOURCE_EXHAUSTED — hết quota (theo phút/ngày)."""
+    """Gemini returned 429 RESOURCE_EXHAUSTED — quota exhausted (per minute/day)."""
 
 _client: genai.Client | None = None
-_alert_client: genai.Client | None = None
+_analysis_client: genai.Client | None = None
 
 
 def get_gemini_client() -> genai.Client:
@@ -32,22 +32,22 @@ def get_gemini_client() -> genai.Client:
     return _client
 
 
-def get_alert_gemini_client() -> genai.Client:
-    """Client RIÊNG cho tác vụ Alert (Output 1) — tách quota khỏi ingestion/chat."""
-    global _alert_client
-    if _alert_client is None:
-        _alert_client = genai.Client(api_key=settings.gemini_alert_api_key)
-    return _alert_client
+def get_analysis_gemini_client() -> genai.Client:
+    """DEDICATED client for the analysis task (Output 1) — isolates quota from ingestion/chat."""
+    global _analysis_client
+    if _analysis_client is None:
+        _analysis_client = genai.Client(api_key=settings.gemini_analysis_api_key)
+    return _analysis_client
 
 
-async def agenerate_alert_json(
+async def agenerate_analysis_json(
     prompt: str,
     system_instruction: str,
     response_schema: types.Schema,
 ) -> dict:
-    """Sinh structured JSON cho Alert bằng key Gemini riêng (Output 1).
+    """Generate structured JSON for the analysis using the dedicated Gemini key (Output 1).
 
-    Tự retry với exponential backoff khi Gemini trả lỗi transient (429/500/503).
+    Retries with exponential backoff on transient Gemini errors (429/500/503).
     """
     config = types.GenerateContentConfig(
         system_instruction=system_instruction,
@@ -59,7 +59,7 @@ async def agenerate_alert_json(
     last_exc: Exception | None = None
     for attempt in range(_MAX_RETRIES):
         try:
-            response = await get_alert_gemini_client().aio.models.generate_content(
+            response = await get_analysis_gemini_client().aio.models.generate_content(
                 model=settings.GEMINI_MODEL,
                 contents=contents,
                 config=config,
@@ -73,12 +73,12 @@ async def agenerate_alert_json(
             last_exc = exc
             delay = 2 ** attempt  # 1, 2, 4, 8s
             logger.warning(
-                "[Alert] Gemini %s — retry %d/%d sau %ds",
+                "[Analysis] Gemini %s — retry %d/%d after %ds",
                 exc.code, attempt + 1, _MAX_RETRIES, delay,
             )
             await asyncio.sleep(delay)
 
-    raise last_exc if last_exc else RuntimeError("Gemini alert generation failed")
+    raise last_exc if last_exc else RuntimeError("Gemini analysis generation failed")
 
 
 # ── Sync helpers (used by ingestion pipeline) ────────────────────────────────

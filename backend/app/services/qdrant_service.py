@@ -15,25 +15,29 @@ from app.core.qdrant_client import qdrant_client
 from app.utils.logger import logger
 
 
-def _ensure_collection_exists() -> None:
+def _ensure_collection_exists(collection_name: str) -> None:
     existing = {c.name for c in qdrant_client.get_collections().collections}
-    if settings.QDRANT_COLLECTION_NAME not in existing:
+    if collection_name not in existing:
         qdrant_client.create_collection(
-            collection_name=settings.QDRANT_COLLECTION_NAME,
+            collection_name=collection_name,
             vectors_config=VectorParams(
                 size=settings.EMBEDDING_DIMENSION,
                 distance=Distance.COSINE,
             ),
         )
-        logger.info(f"Qdrant collection '{settings.QDRANT_COLLECTION_NAME}' created.")
+        logger.info(f"Qdrant collection '{collection_name}' created.")
 
 
 def _build_point_id(document_id: int, chunk_id: str) -> str:
     return str(uuid.uuid5(uuid.NAMESPACE_DNS, f"doc:{document_id}:chunk:{chunk_id}"))
 
 
-def upsert_document_chunks(chunks: list[dict], document_id: int) -> None:
-    _ensure_collection_exists()
+def upsert_document_chunks(
+    chunks: list[dict],
+    document_id: int,
+    collection_name: str = settings.QDRANT_COLLECTION_NAME,
+) -> None:
+    _ensure_collection_exists(collection_name)
 
     texts = [chunk["text_content"] for chunk in chunks]
     vectors = embed_texts(texts)
@@ -60,16 +64,17 @@ def upsert_document_chunks(chunks: list[dict], document_id: int) -> None:
 
     if points:
         qdrant_client.upsert(
-            collection_name=settings.QDRANT_COLLECTION_NAME,
+            collection_name=collection_name,
             points=points,
         )
         logger.info(
-            f"Upserted {len(points)} chunk(s) for document_id={document_id} into Qdrant."
+            f"Upserted {len(points)} chunk(s) for document_id={document_id} "
+            f"into Qdrant collection '{collection_name}'."
         )
 
 
 def fetch_doc_chunks(document_id: int, limit: int = 300) -> list[dict]:
-    """Lấy các chunk đã lưu của 1 tài liệu (kèm vector sẵn có — KHÔNG gọi embedding)."""
+    """Fetch a document's stored chunks (with existing vectors — does NOT call embedding)."""
     points, _ = qdrant_client.scroll(
         collection_name=settings.QDRANT_COLLECTION_NAME,
         scroll_filter=Filter(
@@ -97,10 +102,10 @@ def search_conflicts(
     limit: int = 3,
     score_threshold: float = 0.7,
 ) -> list[dict]:
-    """Tìm điều khoản tương đồng ở tài liệu KHÁC (ứng viên xung đột/chồng chéo).
+    """Find similar clauses in OTHER documents (conflict/overlap candidates).
 
-    Dùng vector đã lưu nên không phát sinh lời gọi embedding. Loại trừ chính
-    tài liệu đang xét để chỉ đối chiếu với phần còn lại của kho.
+    Uses stored vectors so no embedding call is made. Excludes the document
+    under review so it is only compared against the rest of the knowledge base.
     """
     hits = qdrant_client.search(
         collection_name=settings.QDRANT_COLLECTION_NAME,

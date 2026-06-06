@@ -1,21 +1,5 @@
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker, declarative_base
-from app.core.config import settings
+from sqlalchemy.orm import declarative_base
 
-engine = create_engine(
-    settings.DATABASE_URL,
-    pool_pre_ping=True,
-    pool_recycle=3600,
-)
-
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-
+# Shared declarative base for all ORM models.
+# The async engine, session factory and get_db dependency live in app.core.db.
 Base = declarative_base()
-
-
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()

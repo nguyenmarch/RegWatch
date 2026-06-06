@@ -4,7 +4,6 @@
    REGWATCH DESIGN SYSTEM
    ══════════════════════════════════════════════════════════ */
 
-/* ── Tokens ─────────────────────────────────────────────── */
 :root {
   --font-ui: 'Be Vietnam Pro', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   --font-display: 'Playfair Display', 'Be Vietnam Pro', Georgia, serif;
@@ -4399,4 +4398,431 @@ code {
 /* Hero: tighter top padding with sidebar (no header) */
 @media (min-width: 769px) {
   .home-hero { padding-top: 80px; }
+}
+
+/* ══════════════════════════════════════════════════════════
+   KB SELECTOR — 3-type Knowledge Base cards
+   ══════════════════════════════════════════════════════════ */
+
+.kb-selector {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  margin-bottom: 28px;
+}
+
+@media (max-width: 680px) {
+  .kb-selector { grid-template-columns: 1fr; }
+}
+
+.kb-card {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 18px 16px;
+  background: var(--bg-glass);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius);
+  cursor: pointer;
+  text-align: left;
+  transition: transform var(--t-fast), box-shadow var(--t-fast), border-color var(--t-fast), background var(--t-fast);
+  animation: kbFadeUp var(--t-slow) var(--ease) both;
+}
+
+.kb-card:nth-child(1) { animation-delay: 0ms; }
+.kb-card:nth-child(2) { animation-delay: 60ms; }
+.kb-card:nth-child(3) { animation-delay: 120ms; }
+
+@keyframes kbFadeUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.kb-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+  border-color: var(--border-h);
+  background: var(--bg-glass-h);
+}
+
+/* Law — orange/brand */
+.kb-card.kb-law.kb-card--active {
+  border-color: #f37021;
+  background: rgba(243, 112, 33, 0.08);
+  box-shadow: 0 0 0 1px #f37021, 0 6px 24px rgba(243, 112, 33, 0.2);
+}
+.kb-law-icon {
+  color: #f37021;
+  background: rgba(243, 112, 33, 0.12);
+}
+
+/* Action plan — cyan/teal */
+.kb-card.kb-action.kb-card--active {
+  border-color: #14b8a6;
+  background: rgba(20, 184, 166, 0.08);
+  box-shadow: 0 0 0 1px #14b8a6, 0 6px 24px rgba(20, 184, 166, 0.2);
+}
+.kb-action-icon {
+  color: #14b8a6;
+  background: rgba(20, 184, 166, 0.12);
+}
+
+/* Internal — violet/indigo */
+.kb-card.kb-internal.kb-card--active {
+  border-color: #818cf8;
+  background: rgba(129, 140, 248, 0.08);
+  box-shadow: 0 0 0 1px #818cf8, 0 6px 24px rgba(129, 140, 248, 0.2);
+}
+.kb-internal-icon {
+  color: #818cf8;
+  background: rgba(129, 140, 248, 0.12);
+}
+
+.kb-card-icon-wrap {
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform var(--t-fast);
+}
+
+.kb-card:hover .kb-card-icon-wrap { transform: scale(1.08); }
+
+.kb-card-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.kb-card-title {
+  font-size: 0.93rem;
+  font-weight: 700;
+  color: var(--text-1);
+  margin-bottom: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.kb-card-desc {
+  font-size: 0.775rem;
+  color: var(--text-3);
+  margin-bottom: 10px;
+  line-height: 1.4;
+}
+
+.kb-card-footer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.kb-badge {
+  display: inline-block;
+  font-size: 0.68rem;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: 20px;
+  letter-spacing: 0.02em;
+}
+
+.kb-law-badge    { background: rgba(243,112,33,0.18); color: #fb923c; }
+.kb-action-badge { background: rgba(20,184,166,0.18); color: #2dd4bf; }
+.kb-internal-badge { background: rgba(129,140,248,0.18); color: #a5b4fc; }
+
+.kb-count {
+  font-size: 0.72rem;
+  color: var(--text-3);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.kb-count-spin { display: flex; align-items: center; }
+
+.kb-card-check {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  font-size: 0.75rem;
+  font-weight: 800;
+  opacity: 0.9;
+}
+
+.kb-law.kb-card--active     .kb-card-check { color: #f37021; }
+.kb-action.kb-card--active  .kb-card-check { color: #14b8a6; }
+.kb-internal.kb-card--active .kb-card-check { color: #818cf8; }
+
+/* light-mode overrides */
+[data-theme="light"] .kb-card {
+  background: #fff;
+  border-color: #e5e7eb;
+}
+[data-theme="light"] .kb-card:hover {
+  background: #f9fafb;
+  border-color: #d1d5db;
+}
+[data-theme="light"] .kb-card.kb-law.kb-card--active     { background: rgba(243,112,33,0.05);   border-color: #f37021; }
+[data-theme="light"] .kb-card.kb-action.kb-card--active  { background: rgba(20,184,166,0.05);   border-color: #14b8a6; }
+[data-theme="light"] .kb-card.kb-internal.kb-card--active{ background: rgba(129,140,248,0.05);  border-color: #818cf8; }
+
+/* ════════════════════════════════════════════════════════════════════
+   ANALYSES (Output 1) — analysis dashboard + detail page
+   ════════════════════════════════════════════════════════════════════ */
+
+.analyses-page,
+.analysis-detail-page { padding: 1.5rem 0 3rem; }
+
+/* ── Banner trạng thái (pending/quota) ── */
+.analysis-notice {
+  margin: 0 0 1.25rem;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--amber);
+  border-radius: var(--radius-sm, 8px);
+  background: rgba(245, 158, 11, 0.08);
+  color: var(--text-2);
+  font-size: 0.88rem;
+}
+
+/* ── Stat cards ── */
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+.stat-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 1.1rem 1.25rem;
+  text-align: left;
+  border: 1px solid var(--border);
+  border-top: 3px solid var(--border);
+  border-radius: var(--radius, 12px);
+  background: var(--bg-glass);
+  cursor: pointer;
+  transition: border-color 0.15s, transform 0.15s;
+}
+.stat-card:hover { transform: translateY(-2px); }
+.stat-card--active { border-color: var(--text-2); }
+.stat--urgent  { border-top-color: var(--rose); }
+.stat--review  { border-top-color: var(--amber); }
+.stat--monitor { border-top-color: var(--emerald); }
+.stat--total   { border-top-color: #818cf8; }
+.stat-value { font-size: 1.8rem; font-weight: 700; color: var(--text-1); line-height: 1; }
+.stat-label { font-size: 0.82rem; color: var(--text-2); }
+.stat-link  { font-size: 0.74rem; color: var(--text-3); margin-top: 0.35rem; }
+
+/* ── Danh sách cảnh báo ── */
+.analysis-list-card {
+  border: 1px solid var(--border);
+  border-radius: var(--radius, 12px);
+  background: var(--bg-glass);
+  overflow: hidden;
+}
+.analysis-list-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid var(--border);
+}
+.analysis-list-title {
+  display: flex; align-items: center; gap: 0.5rem;
+  margin: 0; font-size: 1rem; font-weight: 650; color: var(--text-1);
+}
+.analysis-list-empty {
+  display: flex; flex-direction: column; align-items: center; gap: 0.75rem;
+  padding: 3rem 1.5rem; text-align: center; color: var(--text-3);
+}
+.analysis-list { display: flex; flex-direction: column; }
+.analysis-row {
+  display: grid;
+  grid-template-columns: auto 1fr auto auto auto;
+  align-items: center;
+  gap: 0.85rem;
+  padding: 0.85rem 1.25rem;
+  border-bottom: 1px solid var(--border);
+  text-decoration: none;
+  transition: background 0.12s;
+}
+.analysis-row:last-child { border-bottom: none; }
+.analysis-row:hover { background: rgba(127, 127, 127, 0.06); }
+.analysis-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+.analysis-dot--urgent  { background: var(--rose); }
+.analysis-dot--review  { background: var(--amber); }
+.analysis-dot--monitor { background: var(--emerald); }
+.analysis-row-main { display: flex; flex-direction: column; gap: 0.15rem; min-width: 0; }
+.analysis-row-title { font-weight: 600; color: var(--text-1); font-size: 0.92rem; }
+.analysis-row-sub {
+  color: var(--text-3); font-size: 0.82rem;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.analysis-row-deadline {
+  display: inline-flex; align-items: center; gap: 0.3rem;
+  color: var(--text-3); font-size: 0.8rem; white-space: nowrap;
+}
+.analysis-row-view { color: var(--text-3); display: inline-flex; }
+
+/* ── Severity chip ── */
+.analysis-chip {
+  display: inline-flex; align-items: center;
+  padding: 0.22rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.7rem; font-weight: 700; letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+.analysis-chip--urgent  { background: rgba(244, 63, 94, 0.15);  color: var(--rose); }
+.analysis-chip--review  { background: rgba(245, 158, 11, 0.15); color: var(--amber); }
+.analysis-chip--monitor { background: rgba(16, 185, 129, 0.15); color: var(--emerald); }
+
+/* ── Trang chi tiết: back + hero + meta ── */
+.analysis-back {
+  display: inline-flex; align-items: center; gap: 0.4rem;
+  color: var(--text-2); text-decoration: none; font-size: 0.88rem;
+  margin-bottom: 1.25rem;
+}
+.analysis-back:hover { color: var(--text-1); }
+.analysis-hero {
+  display: flex; align-items: flex-start; gap: 1rem;
+  padding: 1.25rem; margin-bottom: 1rem;
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--rose);
+  border-radius: var(--radius, 12px);
+  background: var(--bg-glass);
+}
+.analysis-hero-icon { color: var(--rose); flex-shrink: 0; }
+.analysis-hero-title { margin: 0 0 0.35rem; font-size: 1.25rem; font-weight: 700; color: var(--text-1); }
+.analysis-hero-sub { margin: 0; color: var(--text-2); font-size: 0.92rem; }
+.analysis-meta-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 0.6rem; margin-bottom: 1.5rem; }
+.analysis-meta-pill {
+  display: inline-flex; align-items: center; gap: 0.35rem;
+  padding: 0.3rem 0.7rem; border: 1px solid var(--border);
+  border-radius: 999px; font-size: 0.82rem; color: var(--text-2);
+}
+
+/* ── Panels ── */
+.panel {
+  border: 1px solid var(--border);
+  border-radius: var(--radius, 12px);
+  background: var(--bg-glass);
+  padding: 1.25rem;
+  margin-bottom: 1.25rem;
+}
+.panel-title {
+  display: flex; align-items: center; gap: 0.5rem;
+  margin: 0 0 1rem; font-size: 1rem; font-weight: 650; color: var(--text-1);
+}
+
+/* ── So sánh xung đột ── */
+.compare-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+.compare-card {
+  display: flex; flex-direction: column; gap: 0.5rem;
+  padding: 1rem; border: 1px solid var(--border); border-radius: var(--radius-sm, 8px);
+}
+.compare-card--danger { border-left: 3px solid var(--rose); }
+.compare-card--safe { border-left: 3px solid var(--emerald); }
+.compare-card--conflict { grid-column: 1 / -1; border-left: 3px solid var(--amber); background: rgba(245,158,11,0.05); }
+.compare-source { font-size: 0.78rem; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.03em; }
+.compare-verdict { display: inline-flex; align-items: center; gap: 0.4rem; font-weight: 650; color: var(--text-1); font-size: 0.9rem; }
+.compare-verdict--warn { color: var(--amber); }
+.compare-quote { margin: 0; font-style: italic; color: var(--text-2); font-size: 0.88rem; }
+.compare-note { margin: 0; color: var(--text-2); font-size: 0.9rem; }
+
+/* ── Tác động nghiệp vụ ── */
+.impact-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 0.85rem; }
+.impact-card { padding: 0.9rem 1rem; border: 1px solid var(--border); border-radius: var(--radius-sm, 8px); border-left: 3px solid var(--border); }
+.impact-card--urgent  { border-left-color: var(--rose); }
+.impact-card--review  { border-left-color: var(--amber); }
+.impact-card--monitor { border-left-color: var(--emerald); }
+.impact-area { font-weight: 650; color: var(--text-1); font-size: 0.9rem; }
+.impact-detail { margin: 0.35rem 0 0; color: var(--text-2); font-size: 0.85rem; }
+
+/* ── Gauges ── */
+.gauge-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 1.25rem; margin-bottom: 1.25rem; }
+.gauge { position: relative; display: flex; flex-direction: column; align-items: center; gap: 0.4rem; }
+.gauge-svg { width: 100%; max-width: 160px; }
+.gauge-readout { position: absolute; top: 38%; left: 0; right: 0; display: flex; flex-direction: column; align-items: center; }
+.gauge-value { font-size: 1.3rem; font-weight: 700; line-height: 1; }
+.gauge-level { font-size: 0.72rem; font-weight: 600; }
+.gauge-label { font-size: 0.82rem; color: var(--text-2); text-align: center; }
+.risk-conclusion { padding: 1rem; border: 1px solid var(--border); border-left: 3px solid var(--rose); border-radius: var(--radius-sm, 8px); background: rgba(244,63,94,0.05); }
+.risk-conclusion-head { display: inline-flex; align-items: center; gap: 0.4rem; font-weight: 700; color: var(--rose); font-size: 0.9rem; }
+.risk-conclusion p { margin: 0.5rem 0 0; color: var(--text-2); font-size: 0.88rem; }
+
+/* ── Bảng chi tiết ── */
+.detail-tables { display: flex; flex-direction: column; gap: 1.5rem; }
+.detail-table-title { margin: 0 0 0.6rem; font-size: 0.92rem; color: var(--text-1); }
+.detail-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+.detail-table th, .detail-table td { padding: 0.6rem 0.75rem; text-align: left; border-bottom: 1px solid var(--border); color: var(--text-2); }
+.detail-table th { color: var(--text-3); font-weight: 600; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.02em; }
+.detail-cell-strong { color: var(--text-1); font-weight: 600; }
+.tag { display: inline-flex; padding: 0.18rem 0.5rem; border-radius: 999px; font-size: 0.7rem; font-weight: 700; }
+.tag--violation { background: rgba(244,63,94,0.15); color: var(--rose); }
+.tag--compliant { background: rgba(16,185,129,0.15); color: var(--emerald); }
+.tag--risk { background: rgba(245,158,11,0.15); color: var(--amber); }
+.tag--missing { background: rgba(127,127,127,0.15); color: var(--text-3); }
+
+/* ── Actions + empty ── */
+.analysis-actions { display: flex; justify-content: flex-end; gap: 0.75rem; margin-top: 1.5rem; }
+.analysis-empty { display: flex; flex-direction: column; align-items: center; gap: 0.85rem; padding: 4rem 1.5rem; text-align: center; color: var(--text-3); }
+
+/* ── Responsive ── */
+@media (max-width: 720px) {
+  .stat-grid { grid-template-columns: 1fr 1fr; }
+  .compare-grid { grid-template-columns: 1fr; }
+  .analysis-row { grid-template-columns: auto 1fr auto; }
+  .analysis-row-deadline { display: none; }
+}
+
+/* ── Status badge (pending / processed) ── */
+.status-badge {
+  display: inline-flex; align-items: center; gap: 0.3rem;
+  padding: 0.2rem 0.65rem; border-radius: 999px;
+  font-size: 0.7rem; font-weight: 600; letter-spacing: .04em; white-space: nowrap;
+}
+.status-badge--pending   { background: color-mix(in srgb, var(--amber) 12%, transparent); color: var(--amber); border: 1px solid color-mix(in srgb, var(--amber) 30%, transparent); }
+.status-badge--processed { background: color-mix(in srgb, var(--emerald) 12%, transparent); color: var(--emerald); border: 1px solid color-mix(in srgb, var(--emerald) 30%, transparent); }
+
+/* ── Inline edit fields ── */
+.edit-field {
+  background: var(--surface-2);
+  border: 1.5px solid var(--primary);
+  border-radius: 6px;
+  color: var(--text-1);
+  font: inherit;
+  padding: 0.2rem 0.5rem;
+  width: 100%;
+  outline: none;
+  transition: box-shadow .15s;
+}
+.edit-field:focus { box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 20%, transparent); }
+.edit-field--area { resize: vertical; min-height: 60px; }
+
+/* ── Analysis hero actions (edit button row) ── */
+.analysis-hero-actions {
+  display: flex; gap: 0.5rem; align-items: flex-start; flex-shrink: 0; margin-top: 0.25rem;
+}
+
+/* ── Save message banner ── */
+.save-msg {
+  padding: 0.6rem 1rem; border-radius: 8px; font-size: 0.85rem; font-weight: 500;
+  margin-bottom: 1rem;
+}
+.save-msg--ok    { background: color-mix(in srgb, var(--emerald) 12%, transparent); color: var(--emerald); }
+.save-msg--error { background: color-mix(in srgb, var(--rose) 12%, transparent); color: var(--rose); }
+
+/* ── In báo cáo → PDF (browser print) ── */
+@media print {
+  .app-sidebar, .sb-topbar, .analysis-back, .analysis-actions, .toast-stack { display: none !important; }
+  .app-content, .app-shell { margin: 0 !important; }
+  body { background: #fff; }
+  .panel, .analysis-hero, .compare-card, .impact-card, .detail-table-wrap { break-inside: avoid; box-shadow: none; }
+  * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 }
