@@ -198,6 +198,66 @@ export const api = {
       request<{ level: string; message: string; ts: string }[]>(`/v1/documents/${id}/log`),
   },
 
+  remediation: {
+    getActionPlans: () => request<any[]>('/remediation/action-plans'),
+
+    deleteActionPlan: (id: number) =>
+      request<{ message: string }>(`/remediation/action-plans/${id}`, { method: 'DELETE' }),
+
+    generateDocument: (task_id: number, refinement_prompt?: string, generation_type: string = 'document') =>
+      request<any>('/remediation/generate', {
+        method: 'POST',
+        body: JSON.stringify({ task_id, refinement_prompt, generation_type }),
+      }),
+
+    generateGroupDocument: (task_ids: number[], refinement_prompt?: string, generation_type: string = 'document') =>
+      request<any[]>('/remediation/generate-group', {
+        method: 'POST',
+        body: JSON.stringify({ task_ids, refinement_prompt, generation_type }),
+      }),
+
+    updateDocument: (doc_id: number, content: string) =>
+      request<any>(`/remediation/documents/${doc_id}`, {
+        method: 'PUT',
+        body: JSON.stringify({ content }),
+      }),
+
+    approveDocument: (doc_id: number, role: string) =>
+      request<any>(`/remediation/documents/${doc_id}/approve`, {
+        method: 'POST',
+        body: JSON.stringify({ role }),
+      }),
+
+    saveDraft: (doc_id: number, content: string, saved_by?: string) =>
+      request<any[]>(`/remediation/documents/${doc_id}/save-draft`, {
+        method: 'POST',
+        body: JSON.stringify({ content, saved_by }),
+      }),
+
+    getDrafts: (doc_id: number) =>
+      request<any[]>(`/remediation/documents/${doc_id}/drafts`),
+
+    restoreDraft: (doc_id: number, draft_id: number) =>
+      request<any>(`/remediation/documents/${doc_id}/drafts/${draft_id}/restore`, {
+        method: 'POST',
+      }),
+
+    uploadActionPlan: (file: File) => {
+      const form = new FormData()
+      form.append('file', file)
+      return fetch(`${BASE_URL}/remediation/upload-action-plan`, {
+        method: 'POST',
+        body: form,
+        headers: localStorage.getItem('access_token')
+          ? { Authorization: `Bearer ${localStorage.getItem('access_token')}` }
+          : {},
+      }).then(async (res) => {
+        if (!res.ok) throw new Error(await res.text())
+        return res.json()
+      })
+    },
+  },
+
   report: {
     listAnalyses: () =>
       request<Analyses[]>('/report/analyses'),

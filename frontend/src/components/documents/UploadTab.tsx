@@ -18,7 +18,7 @@ interface Props {
   kbType: KbType
 }
 
-const ACCEPTED = ['.pdf', '.docx', '.doc']
+const ACCEPTED = ['.pdf', '.docx', '.doc', '.json', '.txt']
 const MAX_MB = 50
 let uid = 0
 
@@ -118,10 +118,10 @@ export default function UploadTab({ onUploaded, kbType }: Props) {
           {staged.map(sf => (
             <div key={sf.id} className={`staged-row staged-row--${sf.status}`}>
               <div className="staged-icon">
-                {sf.status === 'done'      && <CheckCircleIcon size={16} />}
-                {sf.status === 'error'     && <AlertTriangleIcon size={16} />}
+                {sf.status === 'done' && <CheckCircleIcon size={16} />}
+                {sf.status === 'error' && <AlertTriangleIcon size={16} />}
                 {sf.status === 'uploading' && <LoaderIcon size={16} className="icon-spin" />}
-                {sf.status === 'staged'    && <FileTextIcon size={16} />}
+                {sf.status === 'staged' && <FileTextIcon size={16} />}
               </div>
               <div className="staged-info">
                 <p className="staged-name">{sf.file.name}</p>

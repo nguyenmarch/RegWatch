@@ -13,6 +13,7 @@ import AnalysisDetail from './pages/AnalysisDetail'
 import AnalysisRunDetail from './pages/AnalysisRunDetail'
 import TestHealth from './pages/TestHealth'
 import NotFound from './pages/NotFound'
+import Remediation from './pages/remediation_doc';
 
 function AppShell() {
   const { pathname } = useLocation()
@@ -56,6 +57,9 @@ function AppShell() {
           <Route path="/analyses/:id" element={<ProtectedRoute><AnalysisDetail /></ProtectedRoute>} />
           <Route path="/test" element={<TestHealth />} />
           <Route path="*" element={<NotFound />} />
+          <Route path="/remediation" element={
+            <ProtectedRoute><Remediation /></ProtectedRoute>
+          } />
         </Routes>
       </div>
     </div>
