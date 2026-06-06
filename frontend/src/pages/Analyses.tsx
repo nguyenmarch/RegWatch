@@ -1,275 +1,272 @@
-import { useEffect, useMemo, useState, useCallback } from 'react'
-import { Link } from 'react-router-dom'
-import { api, type Document, type KbType } from '../lib/api'
-import ManageTab from '../components/documents/ManageTab'
-import UploadTab from '../components/documents/UploadTab'
-import { SEVERITY_META, type AnalysisSeverity, type AnalysisSummary } from '../lib/analyses'
+import { useEffect, useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
+import { api, type Document } from '../lib/api'
+import type { AnalysisSeverity, AnalysisSummary } from '../lib/analyses'
+import { SEVERITY_META } from '../lib/analyses'
+import { buildAnalysisRuns, countRunFindings } from '../lib/analysisRuns'
+import AnalysisStats, { type AnalysisStatKey } from '../components/analysis/AnalysisStats'
+import AnalysisRunCard, { AnalysisRunCardSkeleton } from '../components/analysis/AnalysisRunCard'
+import AnalysisFindingRow, { AnalysisRowSkeleton } from '../components/analysis/AnalysisFindingRow'
 import {
-  AlertTriangleIcon, ClockIcon, EyeIcon, LoaderIcon, RefreshIcon,
-  FileTextIcon, UploadCloudIcon,
+  AlertTriangleIcon,
+  ChartIcon,
+  FileTextIcon,
+  LoaderIcon,
+  RefreshIcon,
+  ScrollTextIcon,
 } from '../components/Icons'
 
-type SubTab = 'history' | 'manage' | 'upload'
-type StatKey = AnalysisSeverity | 'total'
+type Tab = 'history' | 'findings'
 
-const STAT_CARDS: { key: StatKey; label: string; tone: string }[] = [
-  { key: 'urgent',  label: 'Phân Tích Khẩn Cấp', tone: 'stat--urgent'  },
-  { key: 'review',  label: 'Cần Chỉnh',          tone: 'stat--review'  },
-  { key: 'monitor', label: 'Theo Dõi',           tone: 'stat--monitor' },
-  { key: 'total',   label: 'Tổng Cộng',          tone: 'stat--total'   },
+const TABS: { key: Tab; icon: JSX.Element; labelKey: string }[] = [
+  { key: 'history', icon: <ScrollTextIcon size={15} />, labelKey: 'analyses.tabs.history' },
+  { key: 'findings', icon: <ChartIcon size={15} />, labelKey: 'analyses.tabs.findings' },
 ]
 
-const SEVERITY_RANK: Record<AnalysisSeverity, number> = { urgent: 0, review: 1, monitor: 2 }
-
-const STATUS_LABEL: Record<string, { text: string; cls: string }> = {
-  pending:   { text: 'Chưa xử lý', cls: 'status-badge--pending'   },
-  processed: { text: 'Đã xử lý',   cls: 'status-badge--processed' },
-}
-
-type Toast = { id: number; type: 'success' | 'error'; msg: string }
-let toastSeq = 0
-
-// ── AnalysesHistory — dashboard tab ─────────────────────────────────────────────
-
-function AnalysesHistory() {
+export default function Analyses() {
+  const { t } = useTranslation()
+  const [tab, setTab] = useState<Tab>('history')
   const [analyses, setAnalyses] = useState<AnalysisSummary[]>([])
+  const [documents, setDocuments] = useState<Document[]>([])
   const [pending, setPending] = useState(0)
   const [loading, setLoading] = useState(true)
-  const [filter, setFilter] = useState<StatKey | null>(null)
+  const [filter, setFilter] = useState<AnalysisStatKey | null>(null)
 
-  async function loadAnalyses(silent = false) {
+  async function loadData(silent = false) {
     if (!silent) setLoading(true)
     try {
-      const [list, jobs] = await Promise.all([
+      const [list, docs, jobs] = await Promise.all([
         api.analyses.list(),
+        api.documents.list().catch(() => [] as Document[]),
         api.analyses.pending().catch(() => ({ pending: 0 })),
       ])
       setAnalyses(list)
+      setDocuments(docs)
       setPending(jobs.pending)
     } catch {
-      if (!silent) setAnalyses([])
+      if (!silent) {
+        setAnalyses([])
+        setDocuments([])
+      }
     } finally {
       setLoading(false)
     }
   }
 
-  useEffect(() => { loadAnalyses() }, [])
+  useEffect(() => {
+    void loadData()
+  }, [])
 
-  const counts = useMemo(() => {
-    const c: Record<StatKey, number> = { urgent: 0, review: 0, monitor: 0, total: analyses.length }
-    for (const a of analyses) c[a.severity]++
-    return c
+  useEffect(() => {
+    if (!pending) return undefined
+    const timer = window.setInterval(() => void loadData(true), 5000)
+    return () => window.clearInterval(timer)
+  }, [pending])
+
+  const runs = useMemo(() => buildAnalysisRuns(analyses, documents), [analyses, documents])
+
+  const counts = useMemo<Record<AnalysisStatKey, number>>(() => {
+    const next: Record<AnalysisStatKey, number> = {
+      urgent: 0,
+      review: 0,
+      monitor: 0,
+      total: analyses.length,
+    }
+    for (const analysis of analyses) next[analysis.severity] += 1
+    return next
   }, [analyses])
 
-  const visible = useMemo(() => {
-    const filtered = filter && filter !== 'total'
-      ? analyses.filter(a => a.severity === filter)
-      : analyses
-    return [...filtered].sort((a, b) =>
-      SEVERITY_RANK[a.severity] - SEVERITY_RANK[b.severity] ||
-      b.overall_risk.value - a.overall_risk.value
-    )
+  const visibleRuns = useMemo(() => {
+    if (!filter || filter === 'total') return runs
+    return runs.filter(run => run.counts[filter] > 0)
+  }, [runs, filter])
+
+  const visibleFindings = useMemo(() => {
+    const filtered =
+      filter && filter !== 'total' ? analyses.filter(analysis => analysis.severity === filter) : analyses
+    return [...filtered].sort((a, b) => b.overall_risk.value - a.overall_risk.value)
   }, [analyses, filter])
 
+  function handleStatSelect(key: AnalysisStatKey) {
+    setFilter(current => (current === key ? null : key))
+  }
+
+  const activeSeverityLabel =
+    filter && filter !== 'total' ? t(SEVERITY_META[filter as AnalysisSeverity].labelKey) : null
+
   return (
-    <div>
-      <div className="docs-header" style={{ marginBottom: '1rem' }}>
-        <p className="docs-subtitle">
-          Tự động phát hiện xung đột / chồng chéo giữa tài liệu mới và kho tri thức (Qdrant + Neo4j).
-        </p>
-        <button className="btn btn-outline btn-sm" onClick={() => loadAnalyses()} disabled={loading}>
-          <RefreshIcon size={14} /> Làm mới
-        </button>
-      </div>
-
-      {pending > 0 && (
-        <div className="analysis-notice">
-          ⏳ {pending} tài liệu đang chờ sinh phân tích (hết quota Gemini) — hệ thống sẽ tự thử lại.
-        </div>
-      )}
-
-      {/* Stat cards */}
-      <div className="stat-grid">
-        {STAT_CARDS.map(({ key, label, tone }) => (
-          <button
-            key={key}
-            className={`stat-card ${tone} ${filter === key ? 'stat-card--active' : ''}`}
-            onClick={() => setFilter(f => (f === key ? null : key))}
-          >
-            <span className="stat-value">{counts[key]}</span>
-            <span className="stat-label">{label}</span>
-            <span className="stat-link">Xem chi tiết →</span>
-          </button>
-        ))}
-      </div>
-
-      {/* Analysis list */}
-      <div className="analysis-list-card">
-        <div className="analysis-list-head">
-          <h2 className="analysis-list-title">
-            <AlertTriangleIcon size={20} />
-            Danh Sách Phân Tích Tuân Thủ Quy Định
-          </h2>
-          {filter && (
-            <button className="btn btn-outline btn-sm" onClick={() => setFilter(null)}>
-              Bỏ lọc
-            </button>
-          )}
-        </div>
-
-        {loading ? (
-          <div className="analysis-list-empty"><LoaderIcon size={28} /><p>Đang tải...</p></div>
-        ) : visible.length === 0 ? (
-          <div className="analysis-list-empty">
-            <AlertTriangleIcon size={32} />
-            <p>Chưa có phân tích nào. Tải lên một tài liệu — phân tích sẽ tự động xuất hiện sau khi xử lý xong.</p>
+    <div className="analyses-page">
+      <div className="container">
+        <div className="analyses-header analyses-header--hero">
+          <div className="analyses-header-left">
+            <div className="analyses-header-icon">
+              <ChartIcon size={24} />
+            </div>
+            <div>
+              <p className="analyses-eyebrow">{t('analyses.eyebrow')}</p>
+              <h1 className="analyses-title">{t('analyses.title')}</h1>
+              <p className="analyses-subtitle">{t('analyses.subtitle')}</p>
+            </div>
           </div>
-        ) : (
-          <div className="analysis-list">
-            {visible.map(a => {
-              const meta = SEVERITY_META[a.severity]
-              const statusInfo = STATUS_LABEL[a.status] ?? STATUS_LABEL['pending']
-              return (
-                <Link key={a.id} to={`/analyses/${a.id}`} className={`analysis-row analysis-row--${a.severity}`}>
-                  <span className={`analysis-dot ${meta.dot}`} />
-                  <div className="analysis-row-main">
-                    <span className="analysis-row-title">{a.code}: {a.title}</span>
-                    <span className="analysis-row-sub">{a.summary}</span>
-                  </div>
-                  {a.deadline && (
-                    <span className="analysis-row-deadline">
-                      <ClockIcon size={14} />
-                      {a.deadline}
-                    </span>
-                  )}
-                  <span className={`status-badge ${statusInfo.cls}`}>{statusInfo.text}</span>
-                  <span className={`analysis-chip ${meta.chip}`}>{meta.label}</span>
-                  <span className="analysis-row-view"><EyeIcon size={16} /></span>
-                </Link>
-              )
-            })}
+          <button className="btn btn-outline btn-sm" onClick={() => void loadData()} disabled={loading}>
+            <RefreshIcon size={14} />
+            {t('analyses.refresh')}
+          </button>
+        </div>
+
+        {pending > 0 && (
+          <div className="analyses-notice">
+            <LoaderIcon size={14} className="icon-spin" />
+            <span>{t('analyses.pendingNotice', { count: pending })}</span>
           </div>
         )}
+
+        <div className="analysis-run-summary">
+          <div>
+            <span className="analysis-run-summary-label">{t('analyses.parentRuns')}</span>
+            <strong>{runs.length}</strong>
+          </div>
+          <div>
+            <span className="analysis-run-summary-label">{t('analyses.childFindings')}</span>
+            <strong>{countRunFindings(runs)}</strong>
+          </div>
+          <div>
+            <span className="analysis-run-summary-label">{t('analyses.openItems')}</span>
+            <strong>{analyses.filter(item => item.status !== 'processed').length}</strong>
+          </div>
+        </div>
+
+        <AnalysisStats
+          counts={counts}
+          active={filter}
+          loading={loading}
+          onSelect={handleStatSelect}
+        />
+
+        <div className="docs-tabs">
+          {TABS.map(({ key, icon, labelKey }) => (
+            <button
+              key={key}
+              className={`docs-tab ${tab === key ? 'docs-tab--active' : ''}`}
+              onClick={() => setTab(key)}
+              type="button"
+            >
+              {icon}
+              {t(labelKey)}
+              <span className="docs-tab-badge">
+                {key === 'history' ? visibleRuns.length : visibleFindings.length}
+              </span>
+            </button>
+          ))}
+        </div>
+
+        {activeSeverityLabel && (
+          <div className="analyses-filter-bar">
+            <span>{t('analyses.filteringBy', { severity: activeSeverityLabel })}</span>
+            <button className="btn btn-outline btn-xs" onClick={() => setFilter(null)} type="button">
+              {t('analyses.clearFilter')}
+            </button>
+          </div>
+        )}
+
+        <div className="docs-tab-content">
+          {tab === 'history' ? (
+            <HistoryTab runs={visibleRuns} loading={loading} total={runs.length} />
+          ) : (
+            <FindingsTab analyses={visibleFindings} documents={documents} loading={loading} />
+          )}
+        </div>
       </div>
     </div>
   )
 }
 
-// ── Analyses page — 3 sub-tabs ──────────────────────────────────────────────────
+function HistoryTab({
+  runs,
+  loading,
+  total,
+}: {
+  runs: ReturnType<typeof buildAnalysisRuns>
+  loading: boolean
+  total: number
+}) {
+  const { t } = useTranslation()
 
-export default function Analyses() {
-  const [subTab, setSubTab] = useState<SubTab>('history')
-  const [docs, setDocs] = useState<Document[]>([])
-  const [loading, setLoading] = useState(true)
-  const [toasts, setToasts] = useState<Toast[]>([])
-
-  const activeKb: KbType = 'law'
-  const kbDocs = docs.filter(d => d.kb_type === activeKb)
-  const processingCount = kbDocs.filter(d => d.status === 'pending' || d.status === 'processing').length
-
-  function addToast(type: Toast['type'], msg: string) {
-    const id = ++toastSeq
-    setToasts(prev => [...prev, { id, type, msg }])
-    setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 3500)
+  if (loading) {
+    return (
+      <div className="analysis-run-grid">
+        {[1, 2, 3].map(item => <AnalysisRunCardSkeleton key={item} />)}
+      </div>
+    )
   }
 
-  const fetchDocs = useCallback(async (silent = false) => {
-    if (!silent) setLoading(true)
-    try {
-      setDocs(await api.documents.list())
-    } catch {
-      if (!silent) addToast('error', 'Không tải được danh sách tài liệu.')
-    } finally {
-      setLoading(false)
-    }
-  }, [])
-
-  useEffect(() => { fetchDocs() }, [fetchDocs])
-
-  useEffect(() => {
-    if (!processingCount) return
-    const timer = setInterval(() => fetchDocs(true), 3000)
-    return () => clearInterval(timer)
-  }, [processingCount, fetchDocs])
-
-  function handleDeleted(id: number) {
-    setDocs(prev => prev.filter(d => d.id !== id))
-    addToast('success', 'Đã xoá tài liệu.')
+  if (total === 0) {
+    return (
+      <div className="analyses-empty">
+        <div className="analyses-empty-icon"><FileTextIcon size={36} /></div>
+        <p className="analyses-empty-title">{t('analyses.emptyHistoryTitle')}</p>
+        <p className="analyses-empty-hint">{t('analyses.emptyHistoryHint')}</p>
+      </div>
+    )
   }
 
-  function handleUploaded(_docIds: number[]) {
-    fetchDocs(true)
-    addToast('success', 'Tải lên thành công — đang xử lý và sinh phân tích...')
-    setSubTab('manage')
+  if (runs.length === 0) {
+    return (
+      <div className="analyses-empty">
+        <div className="analyses-empty-icon"><AlertTriangleIcon size={36} /></div>
+        <p className="analyses-empty-title">{t('analyses.emptyFilterTitle')}</p>
+      </div>
+    )
   }
-
-  const SUB_TABS: { key: SubTab; icon: React.ReactNode; label: string }[] = [
-    { key: 'history', icon: <AlertTriangleIcon size={14} />, label: 'Phân Tích' },
-    { key: 'manage',  icon: <FileTextIcon size={14} />,      label: 'Quản lý tài liệu' },
-    { key: 'upload',  icon: <UploadCloudIcon size={14} />,   label: 'Tải lên' },
-  ]
 
   return (
-    <div className="analyses-page">
-      <div className="container">
+    <div className="analysis-run-grid">
+      {runs.map((run, index) => <AnalysisRunCard key={run.key} run={run} index={index} />)}
+    </div>
+  )
+}
 
-        {/* Page header */}
-        <div className="docs-header">
-          <div>
-            <h1 className="docs-title">Phân Tích Tuân Thủ</h1>
-          </div>
-          {processingCount > 0 && (
-            <span className="docs-processing-badge">
-              <LoaderIcon size={13} className="icon-spin" />
-              {processingCount} đang xử lý
-            </span>
-          )}
-        </div>
+function FindingsTab({
+  analyses,
+  documents,
+  loading,
+}: {
+  analyses: AnalysisSummary[]
+  documents: Document[]
+  loading: boolean
+}) {
+  const { t } = useTranslation()
+  const documentsById = useMemo(() => new Map(documents.map(doc => [doc.id, doc])), [documents])
 
-        {/* Sub-tabs */}
-        <div className="docs-tabs">
-          {SUB_TABS.map(({ key, icon, label }) => (
-            <button
-              key={key}
-              className={`docs-tab ${subTab === key ? 'docs-tab--active' : ''}`}
-              onClick={() => setSubTab(key)}
-            >
-              {icon}
-              {label}
-              {key === 'manage' && kbDocs.length > 0 && (
-                <span className="docs-tab-badge">{kbDocs.length}</span>
-              )}
-              {key === 'manage' && processingCount > 0 && (
-                <span className="docs-tab-badge docs-tab-badge--spin">
-                  <LoaderIcon size={10} className="icon-spin" />
-                </span>
-              )}
-            </button>
-          ))}
-        </div>
-
-        {/* Tab content */}
-        <div className="docs-tab-content">
-          {subTab === 'history' && <AnalysesHistory />}
-          {subTab === 'manage' && (
-            <ManageTab docs={kbDocs} loading={loading} onDeleted={handleDeleted} />
-          )}
-          {subTab === 'upload' && (
-            <UploadTab kbType={activeKb} onUploaded={handleUploaded} />
-          )}
-        </div>
-
+  if (loading) {
+    return (
+      <div className="analyses-list-wrap">
+        {[1, 2, 3].map(item => <AnalysisRowSkeleton key={item} />)}
       </div>
+    )
+  }
 
-      {/* Toast stack */}
-      <div className="toast-stack">
-        {toasts.map(toast => (
-          <div key={toast.id} className={`toast toast--${toast.type}`}>
-            <span className="toast-dot" />
-            {toast.msg}
-          </div>
-        ))}
+  if (analyses.length === 0) {
+    return (
+      <div className="analyses-empty">
+        <div className="analyses-empty-icon"><AlertTriangleIcon size={36} /></div>
+        <p className="analyses-empty-title">{t('analyses.emptyFindingsTitle')}</p>
+        <p className="analyses-empty-hint">{t('analyses.emptyFindingsHint')}</p>
       </div>
+    )
+  }
+
+  return (
+    <div className="analyses-list-wrap">
+      {analyses.map((analysis, index) => (
+        <AnalysisFindingRow
+          key={analysis.id}
+          analysis={analysis}
+          index={index}
+          documentTitle={analysis.document_id ? documentsById.get(analysis.document_id)?.title : undefined}
+          showDate
+        />
+      ))}
     </div>
   )
 }

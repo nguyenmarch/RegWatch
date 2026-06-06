@@ -1,6 +1,3 @@
-// Kiểu dữ liệu Phân tích Tuân thủ (Output 1) — khớp response backend (snake_case).
-// Dữ liệu thật lấy từ API (Qdrant + Neo4j → Gemini); xem api.analyses.
-
 export type AnalysisSeverity = 'urgent' | 'review' | 'monitor'
 
 export interface AnalysisCompareSide {
@@ -40,7 +37,6 @@ export interface OverallRisk {
   label: string
 }
 
-/** Bản rút gọn cho danh sách dashboard. */
 export interface AnalysisSummary {
   id: number
   code: string
@@ -54,7 +50,6 @@ export interface AnalysisSummary {
   created_at: string
 }
 
-/** Bản đầy đủ cho trang chi tiết. */
 export interface AnalysisDetail extends AnalysisSummary {
   conflict_headline: string
   compare_left: AnalysisCompareSide
@@ -67,7 +62,6 @@ export interface AnalysisDetail extends AnalysisSummary {
   generated_at: string | null
 }
 
-/** Partial update payload cho PATCH /v1/analyses/:id */
 export interface AnalysisUpdate {
   title?: string
   summary?: string
@@ -85,9 +79,9 @@ export interface AnalysisUpdate {
 
 export const SEVERITY_META: Record<
   AnalysisSeverity,
-  { label: string; dot: string; chip: string }
+  { labelKey: string; dot: string; chip: string }
 > = {
-  urgent:  { label: 'KHẨN CẤP',  dot: 'analysis-dot--urgent',  chip: 'analysis-chip--urgent'  },
-  review:  { label: 'CẦN CHỈNH', dot: 'analysis-dot--review',  chip: 'analysis-chip--review'  },
-  monitor: { label: 'THEO DÕI',  dot: 'analysis-dot--monitor', chip: 'analysis-chip--monitor' },
+  urgent: { labelKey: 'analyses.severity.urgent', dot: 'analysis-dot--urgent', chip: 'analysis-chip--urgent' },
+  review: { labelKey: 'analyses.severity.review', dot: 'analysis-dot--review', chip: 'analysis-chip--review' },
+  monitor: { labelKey: 'analyses.severity.monitor', dot: 'analysis-dot--monitor', chip: 'analysis-chip--monitor' },
 }

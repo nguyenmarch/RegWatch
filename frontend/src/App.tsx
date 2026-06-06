@@ -9,6 +9,7 @@ import Chat from './pages/Chat'
 import Documents from './pages/Documents'
 import Analyses from './pages/Analyses'
 import AnalysisDetail from './pages/AnalysisDetail'
+import AnalysisRunDetail from './pages/AnalysisRunDetail'
 import TestHealth from './pages/TestHealth'
 import NotFound from './pages/NotFound'
 
@@ -47,6 +48,7 @@ function AppShell() {
           <Route path="/chat" element={<ProtectedRoute><Chat /></ProtectedRoute>} />
           <Route path="/documents" element={<ProtectedRoute><Documents /></ProtectedRoute>} />
           <Route path="/analyses" element={<ProtectedRoute><Analyses /></ProtectedRoute>} />
+          <Route path="/analyses/history/:runKey" element={<ProtectedRoute><AnalysisRunDetail /></ProtectedRoute>} />
           <Route path="/analyses/:id" element={<ProtectedRoute><AnalysisDetail /></ProtectedRoute>} />
           <Route path="/test" element={<TestHealth />} />
           <Route path="*" element={<NotFound />} />
