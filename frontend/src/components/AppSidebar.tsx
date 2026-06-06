@@ -20,8 +20,10 @@ const NAV = [
   { to: '/', icon: HomeIcon, labelKey: 'header.home', exact: true, authOnly: false },
   { to: '/chat', icon: SparklesIcon, labelKey: 'header.chat', exact: false, authOnly: true },
   { to: '/documents', icon: FileTextIcon, labelKey: 'header.documents', exact: false, authOnly: true },
+  { to: '/actionplan', icon: FileTextIcon, labelKey: 'header.actionPlan', exact: false, authOnly: true },
   { to: '/test', icon: ActivityIcon, labelKey: 'header.apiTest', exact: false, authOnly: false },
-] as const
+  ] as const
+
 
 function initials(name: string) {
   return name.slice(0, 2).toUpperCase()

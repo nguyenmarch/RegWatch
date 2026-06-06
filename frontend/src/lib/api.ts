@@ -1,3 +1,13 @@
+import type {
+  ActionPlanItem,
+  ActionPlanItemsSaveResponse,
+  ActionPlanDossier,
+  ActionPlanUpdate,
+  Alert,
+  FinalizedActionPlan,
+  RecommendationResponse,
+} from '../types/actionplan'
+
 const BASE_URL = '/api'
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
@@ -185,5 +195,39 @@ export const api = {
 
     getLog: (id: number) =>
       request<{ level: string; message: string; ts: string }[]>(`/v1/documents/${id}/log`),
+  },
+
+  actionPlan: {
+    listAlerts: () =>
+      request<Alert[]>('/actionplan/alerts'),
+
+    getActionPlanItems: (alertId: number) =>
+      request<ActionPlanItem[]>(`/actionplan/alerts/${alertId}/items`),
+
+    getActionPlan: (alertId: number) =>
+      request<ActionPlanDossier>(`/actionplan/alerts/${alertId}/plan`),
+
+    updateActionPlan: (alertId: number, data: ActionPlanUpdate) =>
+      request<ActionPlanDossier>(`/actionplan/alerts/${alertId}/plan`, {
+        method: 'PATCH',
+        body: JSON.stringify(data),
+      }),
+
+    saveActionPlanItems: (alertId: number, items: ActionPlanItem[]) =>
+      request<ActionPlanItemsSaveResponse>(`/actionplan/alerts/${alertId}/items`, {
+        method: 'POST',
+        body: JSON.stringify({ items }),
+      }),
+
+    finalizeActionPlan: (alertId: number) =>
+      request<FinalizedActionPlan>(`/actionplan/alerts/${alertId}/finalize`, {
+        method: 'POST',
+      }),
+
+    generateLLMRecommendations: (alertId: number, prompt: string) =>
+      request<RecommendationResponse>(`/actionplan/alerts/${alertId}/recommendations`, {
+        method: 'POST',
+        body: JSON.stringify({ prompt }),
+      }),
   },
 }
