@@ -2,6 +2,11 @@ import React, { useState, useEffect, useLayoutEffect, useRef, useCallback } from
 import { useTranslation } from 'react-i18next';
 import styles from './remediation_doc.module.css';
 import { api } from '../../lib/api';
+import {
+    ScaleIcon, FileTextIcon, LayersIcon, CheckCircleIcon, CheckIcon,
+    SparklesIcon, ClockIcon, SaveIcon, DownloadIcon, EditIcon,
+    BookOpenIcon, PenLineIcon, GraduationCapIcon, FileBadgeIcon, SendIcon,
+} from '../../components/Icons';
 
 type PageTab = 'workspace' | 'signed';
 
@@ -403,13 +408,13 @@ export default function Remediation() {
                             className={`${styles.pageTab} ${pageTab === 'workspace' ? styles.pageTabActive : ''}`}
                             onClick={() => setPageTab('workspace')}
                         >
-                            ✦ {t('remediation.tabWorkspace')}
+                            <LayersIcon size={14} />{t('remediation.tabWorkspace')}
                         </button>
                         <button
                             className={`${styles.pageTab} ${pageTab === 'signed' ? styles.pageTabActive : ''}`}
                             onClick={() => setPageTab('signed')}
                         >
-                            ✍ {t('remediation.tabSigned')}
+                            <FileBadgeIcon size={14} />{t('remediation.tabSigned')}
                             {signedDocs.length > 0 && (
                                 <span className={styles.pageTabBadge}>{signedDocs.length}</span>
                             )}
@@ -462,7 +467,7 @@ export default function Remediation() {
                                         <><span className={styles.spinner} /> {t('remediation.generating', { count: generatingIds.size })}</>
                                     ) : (
                                         <>
-                                            {t('remediation.generateDocBtn')}
+                                            <EditIcon size={15} />{t('remediation.generateDocBtn')}
                                             {someSelected && <span className={styles.genCount}>{selectedTaskIds.size}</span>}
                                         </>
                                     )}
@@ -473,7 +478,7 @@ export default function Remediation() {
                                     disabled={!someSelected || generatingIds.size > 0 || !allGroupsHaveDraft}
                                     title={t('remediation.generateTrainingTitle')}
                                 >
-                                    {t('remediation.generateTrainingBtn')}
+                                    <GraduationCapIcon size={15} />{t('remediation.generateTrainingBtn')}
                                 </button>
                             </div>
                         </>
@@ -487,7 +492,7 @@ export default function Remediation() {
                     /* ── WORKSPACE ── */
                     !selectedAp ? (
                         <div className={styles.emptyState}>
-                            <div className={styles.emptyIcon}>⚖</div>
+                            <div className={styles.emptyIcon}><ScaleIcon size={32} /></div>
                             <h2 className={styles.emptyTitle}>{t('remediation.emptyTitle')}</h2>
                             <p className={styles.emptyDesc}>{t('remediation.emptyDesc')}</p>
                         </div>
@@ -545,7 +550,7 @@ export default function Remediation() {
                                                         <p className={styles.taskItemDoc}>→ {task.impacted_internal_doc}</p>
                                                     )}
                                                     {isResolved && (
-                                                        <p className={styles.taskItemResolvedNote}>{t('remediation.taskResolved')}</p>
+                                                        <p className={styles.taskItemResolvedNote}><CheckIcon size={11} />{t('remediation.taskResolved')}</p>
                                                     )}
                                                 </div>
                                             </label>
@@ -555,7 +560,7 @@ export default function Remediation() {
 
                                 <div className={styles.taskPanelFooter}>
                                     {someSelected
-                                        ? <span className={styles.selectedCount}>{t('remediation.tasksSelected', { count: selectedTaskIds.size })}</span>
+                                        ? <span className={styles.selectedCount}><CheckCircleIcon size={13} />{t('remediation.tasksSelected', { count: selectedTaskIds.size })}</span>
                                         : <span className={styles.selectedCountEmpty}>{t('remediation.noTasksSelected')}</span>
                                     }
                                 </div>
@@ -565,7 +570,7 @@ export default function Remediation() {
                             <div className={styles.docStack}>
                                 {renderEntries.length === 0 ? (
                                     <div className={styles.docStackEmpty}>
-                                        <div className={styles.docStackEmptyIcon}>📄</div>
+                                        <div className={styles.docStackEmptyIcon}><FileTextIcon size={24} /></div>
                                         <p>{t('remediation.docEmptyHint1')}</p>
                                         <p>{t('remediation.docEmptyHint2')}</p>
                                     </div>
@@ -627,7 +632,7 @@ function SignedDocumentsPage({ docs, isLoading }: { docs: SignedDoc[]; isLoading
     if (docs.length === 0) {
         return (
             <div className={styles.emptyState}>
-                <div className={styles.emptyIcon}>✍</div>
+                <div className={styles.emptyIcon}><FileBadgeIcon size={32} /></div>
                 <h2 className={styles.emptyTitle}>{t('remediation.signedEmptyTitle')}</h2>
                 <p className={styles.emptyDesc}>{t('remediation.signedEmptyDesc')}</p>
             </div>
@@ -831,15 +836,15 @@ function DocSection({
                                 className={`${styles.secBtn} ${group.refinementOpen ? styles.secBtnActive : ''}`}
                                 onClick={() => onToggleRefinement(group.taskIds)}
                                 title={t('remediation.refineAi')}
-                            >✨</button>
+                            ><SparklesIcon size={14} /></button>
                             <button
                                 className={`${styles.secBtn} ${showDrafts ? styles.secBtnActive : ''}`}
                                 onClick={() => setShowDrafts(!showDrafts)}
                                 title={t('remediation.draftHistory')}
-                            >🕒 {drafts.length}</button>
-                            <button className={styles.secBtn} onClick={doSaveDraft} title={t('remediation.saveDraft')}>💾</button>
+                            ><ClockIcon size={14} /> {drafts.length}</button>
+                            <button className={styles.secBtn} onClick={doSaveDraft} title={t('remediation.saveDraft')}><SaveIcon size={14} /></button>
                             <button className={styles.secBtn} onClick={() => onExport(group.taskIds)} title={t('remediation.exportDocTitle')}>
-                                {t('remediation.exportDocLabel')}
+                                <DownloadIcon size={14} />{t('remediation.exportDocLabel')}
                             </button>
                             <div className={styles.approveInline}>
                                 <select className={styles.approveMiniSelect} value={approveRole} onChange={e => setApproveRole(e.target.value)}>
@@ -850,7 +855,7 @@ function DocSection({
                                     className={styles.approveMiniBtn}
                                     onClick={() => onApprove(group.taskIds, approveRole)}
                                     disabled={doc?.status === 'APPROVED'}
-                                >{t('remediation.signBtn')}</button>
+                                ><PenLineIcon size={13} />{t('remediation.signBtn')}</button>
                             </div>
                         </>
                     )}
@@ -883,7 +888,7 @@ function DocSection({
 
             {group.refinementOpen && (
                 <div className={styles.refinementBar}>
-                    <span className={styles.refinementIcon}>✨</span>
+                    <span className={styles.refinementIcon}><SparklesIcon size={16} /></span>
                     <input
                         className={styles.refinementInput}
                         placeholder={t('remediation.refinePlaceholder')}
@@ -893,7 +898,7 @@ function DocSection({
                         autoFocus
                     />
                     <button className={styles.refineBarBtn} onClick={() => onRefine(group.taskIds, group.refinementPrompt || '')} disabled={!group.refinementPrompt?.trim()}>
-                        {t('remediation.send')}
+                        <SendIcon size={14} />
                     </button>
                 </div>
             )}
@@ -901,10 +906,10 @@ function DocSection({
             {parsed && (parsed.modified_document || parsed.old_document) && parsed.announcement && (
                 <div className={styles.viewModeTabs}>
                     <button className={`${styles.tabBtn} ${viewMode === 'document' ? styles.tabBtnActive : ''}`} onClick={() => setViewMode('document')}>
-                        {t('remediation.tabDocument')}
+                        <EditIcon size={13} />{t('remediation.tabDocument')}
                     </button>
                     <button className={`${styles.tabBtn} ${viewMode === 'announcement' ? styles.tabBtnActive : ''}`} onClick={() => setViewMode('announcement')}>
-                        {t('remediation.tabAnnouncement')}
+                        <GraduationCapIcon size={13} />{t('remediation.tabAnnouncement')}
                     </button>
                 </div>
             )}
@@ -965,7 +970,7 @@ function DocSection({
                         <div className={styles.docPaperWide}>
                             <div className={styles.paperHeader}>
                                 <div className={styles.paperHeaderLeft}>
-                                    <span className={styles.paperLabel}>{t('remediation.trainingDocLabel')}</span>
+                                    <span className={styles.paperLabel}><GraduationCapIcon size={14} />{t('remediation.trainingDocLabel')}</span>
                                     <span className={styles.paperMeta}>{group.docName}</span>
                                 </div>
                                 <span className={styles.tagAI}>{t('remediation.aiGenerated')}</span>

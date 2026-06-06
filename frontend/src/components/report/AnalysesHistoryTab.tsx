@@ -19,9 +19,9 @@ const normalizeSeverity = (severity: string): string => {
 }
 
 const formatDate = (value: string) => {
-  if (!value) return 'Chưa có'
+  if (!value) return ''
   const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return 'Chưa có'
+  if (Number.isNaN(date.getTime())) return ''
   return date.toLocaleDateString('vi-VN')
 }
 
@@ -79,11 +79,11 @@ export default function AnalysesHistoryTab({
 
   return (
     <div className="rpt-list">
-      <div className="rpt-analysis-filters" role="tablist" aria-label="Report analysis filters">
+      <div className="rpt-analysis-filters" role="tablist" aria-label={t('report.filters.ariaLabel') || 'Report analysis filters'}>
         {[
-          { key: 'all' as const, label: 'Tất cả', title: 'Tất cả Analyses', count: counts.all },
-          { key: 'open' as const, label: 'Mở', title: 'Chưa giải quyết', count: counts.open },
-          { key: 'finalized' as const, label: 'Chốt', title: 'Đã giải quyết', count: counts.finalized },
+          { key: 'all' as const, label: t('report.filters.allShort') || 'Tất cả', title: t('report.filters.allTitle') || 'Tất cả Analyses', count: counts.all },
+          { key: 'open' as const, label: t('report.filters.openShort') || 'Mở', title: t('report.filters.openTitle') || 'Chưa giải quyết', count: counts.open },
+          { key: 'finalized' as const, label: t('report.filters.finalizedShort') || 'Chốt', title: t('report.filters.finalizedTitle') || 'Đã giải quyết', count: counts.finalized },
         ].map(item => (
           <button
             key={item.key}
@@ -101,7 +101,7 @@ export default function AnalysesHistoryTab({
 
       {filteredAnalyses.length === 0 ? (
         <div className="rpt-list-empty">
-          Không có Analyses phù hợp bộ lọc
+          {t('report.noFilterMatches') || 'Không có Analyses phù hợp bộ lọc'}
         </div>
       ) : filteredAnalyses.map(a => {
         const sev = normalizeSeverity(a.severity)
@@ -118,18 +118,18 @@ export default function AnalysesHistoryTab({
                 <span className={`rpt-sev ${SEV_CLASS[sev] ?? ''}`}>{sev}</span>
                 <span className="rpt-item-code">{a.analyses_code}</span>
                 <span className={`rpt-item-status${isFinalized(a) ? ' rpt-item-status--done' : ''}`}>
-                  {isFinalized(a) ? 'Đã giải quyết' : 'Chưa giải quyết'}
+                  {isFinalized(a) ? t('report.statusFinalized') || 'Đã giải quyết' : t('report.statusOpen') || 'Chưa giải quyết'}
                 </span>
               </div>
               <div className="rpt-item-title">{a.title}</div>
               <div className="rpt-item-dates">
                 <span className="rpt-item-date-pair">
                   <span>{t('report.issuedDate') || 'Phát hành'}:</span>
-                  <span>{formatDate(a.issued_date)}</span>
+                  <span>{formatDate(a.issued_date) || t('report.noDate') || 'Chưa có'}</span>
                 </span>
                 <span className="rpt-item-date-pair">
                   <span>{t('report.dueDate') || 'Hạn'}:</span>
-                  <span>{formatDate(a.due_date)}</span>
+                  <span>{formatDate(a.due_date) || t('report.noDate') || 'Chưa có'}</span>
                 </span>
               </div>
             </div>

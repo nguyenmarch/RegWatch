@@ -136,7 +136,7 @@ export default function Report() {
 
   const stats = [
     {
-      label: 'Tổng Analyses', value: totalAnalyses, mod: 'blue', d: '80ms',
+      label: t('report.stats.totalAnalyses') || 'Tổng Analyses', value: totalAnalyses, mod: 'blue', d: '80ms',
       icon: (
         <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
           <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /><line x1="16" y1="13" x2="8" y2="13" /><line x1="16" y1="17" x2="8" y2="17" />
@@ -144,7 +144,7 @@ export default function Report() {
       ),
     },
     {
-      label: 'Cần xử lý', value: needsAction, mod: 'red', d: '110ms',
+      label: t('report.stats.needsAction') || 'Cần xử lý', value: needsAction, mod: 'red', d: '110ms',
       icon: (
         <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
           <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" /><line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" />
@@ -152,7 +152,7 @@ export default function Report() {
       ),
     },
     {
-      label: 'Đã chốt Report', value: completed, mod: 'green', d: '140ms',
+      label: t('report.stats.finalized') || 'Đã chốt Report', value: completed, mod: 'green', d: '140ms',
       icon: (
         <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
           <polyline points="20 6 9 17 4 12" />
@@ -167,7 +167,7 @@ export default function Report() {
         {/* Header */}
         <div className="rpt-header">
           <div className="rpt-header-left">
-            <p className="rpt-eyebrow">Compliance Report</p>
+            <p className="rpt-eyebrow">{t('report.eyebrow') || 'Compliance Report'}</p>
             <h1 className="rpt-title">{t('report.title') || 'Report'}</h1>
             <p className="rpt-subtitle">{t('report.subtitle') || 'Quản lý report các Analyses rủi ro'}</p>
           </div>
@@ -196,7 +196,7 @@ export default function Report() {
           <div className="rpt-panel" style={{ '--d': '220ms' } as React.CSSProperties}>
             <div className="rpt-panel-head">
               <div className="rpt-panel-icon"><FileTextIcon size={14} /></div>
-              <span className="rpt-panel-title">Danh sách Analyses</span>
+              <span className="rpt-panel-title">{t('report.analysesList') || 'Danh sách Analyses'}</span>
               {loading && <LoaderIcon size={13} className="icon-spin" />}
               <span className="rpt-panel-badge">{analyses.length}</span>
             </div>
@@ -228,7 +228,7 @@ export default function Report() {
           <div className="rpt-panel rpt-right-panel" style={{ '--d': '300ms' } as React.CSSProperties}>
             <div className="rpt-panel-head">
               <div className="rpt-panel-icon"><SparklesIcon size={14} /></div>
-              <span className="rpt-panel-title">AI Recommendations</span>
+              <span className="rpt-panel-title">{t('report.aiRecommendations') || 'AI Recommendations'}</span>
             </div>
             <div className="rpt-right-wrap">
               <LLMRecommendTab

@@ -30,25 +30,25 @@ export default function LLMRecommendTab({ selectedAnalyses, kbDocuments }: LLMRe
     try {
       const kbText = kbDocuments.map(d => `- ${d.title}`).join('\n')
       const finalPrompt = [
-        'Bạn là trợ lý giúp xây dựng Report cho CEO.',
+        t('report.llm.systemRole') || 'Bạn là trợ lý giúp xây dựng Report cho CEO.',
         '',
-        '### Thông tin Analyses',
-        `- Mã Analyses: ${selectedAnalyses.analyses_code}`,
-        `- Mức độ: ${selectedAnalyses.severity}`,
-        `- Tiêu đề: ${selectedAnalyses.title}`,
-        `- Mô tả: ${selectedAnalyses.description}`,
+        `### ${t('report.llm.analysisInfo') || 'Thông tin Analyses'}`,
+        `- ${t('report.llm.analysisCode') || 'Mã Analyses'}: ${selectedAnalyses.analyses_code}`,
+        `- ${t('report.llm.severity') || 'Mức độ'}: ${selectedAnalyses.severity}`,
+        `- ${t('report.llm.title') || 'Tiêu đề'}: ${selectedAnalyses.title}`,
+        `- ${t('report.llm.description') || 'Mô tả'}: ${selectedAnalyses.description}`,
         '',
-        '### Knowledge Base của CEO',
-        kbDocuments.length ? kbText : '- (Chưa có tài liệu tham khảo)',
+        `### ${t('report.llm.ceoKb') || 'Knowledge Base của CEO'}`,
+        kbDocuments.length ? kbText : `- (${t('report.llm.noReferenceDocs') || 'Chưa có tài liệu tham khảo'})`,
         '',
-        '### Prompt người dùng',
-        prompt.trim() ? prompt.trim() : '(không có)',
+        `### ${t('report.llm.userPrompt') || 'Prompt người dùng'}`,
+        prompt.trim() ? prompt.trim() : `(${t('report.llm.noPrompt') || 'không có'})`,
         '',
-        '### Yêu cầu đầu ra',
-        'Hãy đề xuất bảng action plan để bộ phận phụ trách tham khảo.',
-        'Mỗi dòng phải có: report_description, responsible_department, target_date, estimated_budget, estimated_risk, code, status, deliverable_type, owner_role, co_owner_role, dependency, evidence_document.',
-        'responsible_department chỉ được dùng đúng một trong các giá trị: Khối Công nghệ, Khối Vận hành, Khối Pháp chế, Khối BoD, Khối Marketing.',
-        'estimated_risk chỉ được dùng đúng một trong các giá trị: Cao, Trung bình, Thấp.',
+        `### ${t('report.llm.outputRequirements') || 'Yêu cầu đầu ra'}`,
+        t('report.llm.actionPlanInstruction') || 'Hãy đề xuất bảng action plan để bộ phận phụ trách tham khảo.',
+        t('report.llm.requiredFields') || 'Mỗi dòng phải có: report_description, responsible_department, target_date, estimated_budget, estimated_risk, code, status, deliverable_type, owner_role, co_owner_role, dependency, evidence_document.',
+        t('report.llm.departmentConstraint') || 'responsible_department chỉ được dùng đúng một trong các giá trị: Khối Công nghệ, Khối Vận hành, Khối Pháp chế, Khối BoD, Khối Marketing.',
+        t('report.llm.riskConstraint') || 'estimated_risk chỉ được dùng đúng một trong các giá trị: Cao, Trung bình, Thấp.',
       ].join('\n')
       const result = await api.report.generateLLMRecommendations(selectedAnalyses.id, finalPrompt)
       setRecommendations(result.recommendations)
@@ -87,7 +87,7 @@ export default function LLMRecommendTab({ selectedAnalyses, kbDocuments }: LLMRe
           disabled={loading}
         >
           <SparklesIcon size={15} />
-          {loading ? 'Đang xử lý...' : 'Tạo gợi ý'}
+          {loading ? t('report.processing') || 'Đang xử lý...' : t('report.generateRecommendations') || 'Tạo gợi ý'}
         </button>
       </div>
 
@@ -121,7 +121,7 @@ export default function LLMRecommendTab({ selectedAnalyses, kbDocuments }: LLMRe
                     <td><span className="rpt-budget">{Number(rec.estimated_budget || 0).toLocaleString()} VND</span></td>
                     <td><span className="rpt-risk">{rec.estimated_risk || '—'}</span></td>
                     <td>{rec.code || '—'}</td>
-                    <td><span className="rpt-status">{rec.status || 'Cần xử lý'}</span></td>
+                    <td><span className="rpt-status">{rec.status || t('report.defaultItemStatus') || 'Cần xử lý'}</span></td>
                   </tr>
                 ))}
               </tbody>

@@ -297,7 +297,18 @@
   padding: 40px;
 }
 
-.emptyIcon  { font-size: 4rem; margin-bottom: 4px; filter: grayscale(0.3) opacity(0.55); }
+.emptyIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 64px;
+  height: 64px;
+  border-radius: 18px;
+  background: rgba(99,102,241,.08);
+  color: #6366f1;
+  margin-bottom: 12px;
+  flex-shrink: 0;
+}
 .emptyTitle { font-size: 1.3rem; font-weight: 600; color: #374151; margin: 0; }
 .emptyDesc  { font-size: 0.9rem; color: #6B7280; max-width: 520px; line-height: 1.7; margin: 0; }
 
@@ -521,6 +532,9 @@
 }
 
 .taskItemResolvedNote {
+  display: flex;
+  align-items: center;
+  gap: 4px;
   font-size: 0.72rem;
   font-weight: 700;
   color: #10B981;
@@ -536,6 +550,9 @@
 }
 
 .selectedCount {
+  display: flex;
+  align-items: center;
+  gap: 5px;
   font-size: 0.78rem;
   font-weight: 700;
   color: #E67E22;
@@ -570,7 +587,17 @@
   padding: 40px;
 }
 
-.docStackEmptyIcon { font-size: 2.5rem; margin-bottom: 8px; opacity: 0.5; }
+.docStackEmptyIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
+  background: rgba(107,114,128,.07);
+  color: #9CA3AF;
+  margin-bottom: 10px;
+}
 .docStackEmpty p { font-size: 0.88rem; margin: 0; line-height: 1.6; }
 .docStackEmpty strong { color: #6B7280; }
 
@@ -687,6 +714,9 @@
 
 /* Small icon/text buttons */
 .secBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   padding: 5px 10px;
   border: 1px solid #E5E7EB;
   border-radius: 6px;
@@ -720,6 +750,9 @@
 }
 
 .approveMiniBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
   padding: 5px 11px;
   background: #fff;
   border: 1.5px solid #10B981;
@@ -922,7 +955,7 @@
   border-bottom: 1px solid #FDEBD0;
 }
 
-.refinementIcon { font-size: 1rem; flex-shrink: 0; }
+.refinementIcon { display: flex; align-items: center; color: #E67E22; flex-shrink: 0; }
 
 .refinementInput {
   flex: 1;
@@ -1053,6 +1086,9 @@
 .paperHeaderLeft { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 
 .paperLabel {
+  display: flex;
+  align-items: center;
+  gap: 5px;
   font-size: 0.8rem;
   font-weight: 700;
   color: #374151;

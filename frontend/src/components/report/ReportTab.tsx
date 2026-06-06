@@ -98,7 +98,7 @@ export default function ReportTab({
       estimated_budget: 0,
       estimated_risk: '',
       code: '',
-      status: 'Cần xử lý',
+      status: t('report.defaultItemStatus') || 'Cần xử lý',
       deliverable_type: 'process_update',
       owner_role: 'Compliance Department / Risk Manager',
       co_owner_role: 'Product / IT / PO',
@@ -136,22 +136,22 @@ export default function ReportTab({
       const delimiter = '\t'
       const exportedAt = new Date().toLocaleString('vi-VN')
       const headers = [
-        'STT',
-        'Mã phân tích',
-        'Tiêu đề phân tích',
-        'Mức độ phân tích',
-        'Mô tả report',
-        'Bộ phận phụ trách',
-        'Ngày mục tiêu',
-        'Ngân sách ước tính (VND)',
-        'Mức rủi ro',
-        'Mã hành động',
-        'Trạng thái',
-        'Loại deliverable',
-        'Vai trò owner',
-        'Vai trò co-owner',
-        'Phụ thuộc',
-        'Tài liệu bằng chứng',
+        t('report.csv.no') || 'STT',
+        t('report.csv.analysisCode') || 'Mã phân tích',
+        t('report.csv.analysisTitle') || 'Tiêu đề phân tích',
+        t('report.csv.analysisSeverity') || 'Mức độ phân tích',
+        t('report.csv.reportDescription') || 'Mô tả report',
+        t('report.csv.department') || 'Bộ phận phụ trách',
+        t('report.csv.targetDate') || 'Ngày mục tiêu',
+        t('report.csv.estimatedBudget') || 'Ngân sách ước tính (VND)',
+        t('report.csv.riskLevel') || 'Mức rủi ro',
+        t('report.csv.actionCode') || 'Mã hành động',
+        t('report.csv.status') || 'Trạng thái',
+        t('report.csv.deliverableType') || 'Loại deliverable',
+        t('report.csv.ownerRole') || 'Vai trò owner',
+        t('report.csv.coOwnerRole') || 'Vai trò co-owner',
+        t('report.csv.dependency') || 'Phụ thuộc',
+        t('report.csv.evidenceDocument') || 'Tài liệu bằng chứng',
       ]
       const rows = editedItems.map((it, idx) => [
         idx + 1,
@@ -187,12 +187,12 @@ export default function ReportTab({
         return buffer
       }
       const metadata = [
-        ['REGWATCH REPORT EXPORT'],
-        ['Mã phân tích', selectedAnalyses?.analyses_code || ''],
-        ['Tiêu đề phân tích', selectedAnalyses?.title || ''],
-        ['Mức độ phân tích', selectedAnalyses?.severity || ''],
-        ['Ngày xuất file', exportedAt],
-        ['Số dòng report', editedItems.length],
+        [t('report.csv.title') || 'REGWATCH REPORT EXPORT'],
+        [t('report.csv.analysisCode') || 'Mã phân tích', selectedAnalyses?.analyses_code || ''],
+        [t('report.csv.analysisTitle') || 'Tiêu đề phân tích', selectedAnalyses?.title || ''],
+        [t('report.csv.analysisSeverity') || 'Mức độ phân tích', selectedAnalyses?.severity || ''],
+        [t('report.csv.exportedAt') || 'Ngày xuất file', exportedAt],
+        [t('report.csv.rowCount') || 'Số dòng report', editedItems.length],
         [],
       ]
       const csv = [
@@ -214,7 +214,7 @@ export default function ReportTab({
       URL.revokeObjectURL(url)
     } catch (e) {
       console.error('Export CSV failed:', e)
-      window.alert('Không xuất được CSV')
+      window.alert(t('report.toast.exportCsvError') || 'Không xuất được CSV')
     }
   }
 
@@ -254,35 +254,35 @@ export default function ReportTab({
                     <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
                     <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
                   </svg>
-                  Chỉnh sửa
+                  {t('report.edit') || 'Chỉnh sửa'}
                 </button>
                 <div className="rpt-toolbar-spacer" />
                 <button className="rpt-btn rpt-btn--success" onClick={onFinalize} disabled={saving || locked || !allItemsComplete}>
                   <CheckIcon size={13} />
-                  {saving ? 'Đang xử lý...' : locked ? 'Đã chốt Report' : 'Chốt Report'}
+                  {saving ? t('report.processing') || 'Đang xử lý...' : locked ? t('report.finalizedReport') || 'Đã chốt Report' : t('report.finalizeReport') || 'Chốt Report'}
                 </button>
                 <button className="rpt-btn rpt-btn--teal" onClick={handleExportCSV}>
                   <DownloadIcon size={13} />
-                  Export CSV
+                  {t('report.exportCsv') || 'Export CSV'}
                 </button>
               </>
             ) : (
               <>
                 <button className="rpt-btn" onClick={handleAddRow}>
                   <PlusIcon size={13} />
-                  Thêm hàng
+                  {t('report.addRow') || 'Thêm hàng'}
                 </button>
                 <div className="rpt-toolbar-spacer" />
                 <button className="rpt-btn rpt-btn--primary" onClick={handleSave} disabled={saving}>
                   <SaveIcon size={13} />
-                  {saving ? 'Đang lưu...' : 'Lưu'}
+                  {saving ? t('report.saving') || 'Đang lưu...' : t('report.save') || 'Lưu'}
                 </button>
                 <button className="rpt-btn rpt-btn--ghost" onClick={handleCancel} disabled={saving}>
-                  Hủy
+                  {t('report.cancel') || 'Hủy'}
                 </button>
                 <button className="rpt-btn rpt-btn--teal" onClick={handleExportCSV} disabled={saving}>
                   <DownloadIcon size={13} />
-                  CSV
+                  {t('report.csvShort') || 'CSV'}
                 </button>
               </>
             )}
@@ -290,12 +290,12 @@ export default function ReportTab({
 
           {!locked && !allItemsComplete && (
             <div className="rpt-validation-note">
-              Vui lòng điền đủ mô tả, bộ phận, ngày mục tiêu, ngân sách, mức rủi ro, mã và trạng thái trước khi chốt Report.
+              {t('report.validationNote') || 'Vui lòng điền đủ mô tả, bộ phận, ngày mục tiêu, ngân sách, mức rủi ro, mã và trạng thái trước khi chốt Report.'}
             </div>
           )}
           {locked && (
             <div className="rpt-lock-note">
-              Report đã được chốt. Không thể chỉnh sửa hoặc chốt lại.
+              {t('report.lockNote') || 'Report đã được chốt. Không thể chỉnh sửa hoặc chốt lại.'}
             </div>
           )}
 
@@ -335,7 +335,7 @@ export default function ReportTab({
                             value={item.report_description}
                             onChange={e => handleFieldChange(item.id, 'report_description', e.target.value)}
                             rows={4}
-                            placeholder="Mô tả hành động"
+                            placeholder={t('report.actionDescriptionPlaceholder') || 'Mô tả hành động'}
                           />
                         ) : (
                           <div className="rpt-desc-scroll">
@@ -349,9 +349,9 @@ export default function ReportTab({
                             className="rpt-input rpt-select"
                             value={item.responsible_department}
                             onChange={e => handleFieldChange(item.id, 'responsible_department', e.target.value)}
-                            aria-label="Chọn bộ phận"
+                            aria-label={t('report.selectDepartment') || 'Chọn bộ phận'}
                           >
-                            <option value="">Chọn...</option>
+                            <option value="">{t('report.choose') || 'Chọn...'}</option>
                             {DEPARTMENTS.map(d => <option key={d} value={d}>{d}</option>)}
                           </select>
                         ) : (
@@ -365,7 +365,7 @@ export default function ReportTab({
                             type="date"
                             value={item.target_date}
                             onChange={e => handleFieldChange(item.id, 'target_date', e.target.value)}
-                            aria-label="Ngày mục tiêu"
+                            aria-label={t('report.targetDate') || 'Ngày mục tiêu'}
                           />
                         ) : (
                           <span>{formatDate(item.target_date)}</span>
@@ -392,9 +392,9 @@ export default function ReportTab({
                             className={`rpt-input rpt-select ${riskClass(item.estimated_risk)}`}
                             value={item.estimated_risk}
                             onChange={e => handleFieldChange(item.id, 'estimated_risk', e.target.value)}
-                            aria-label="Chọn mức rủi ro"
+                            aria-label={t('report.selectRiskLevel') || 'Chọn mức rủi ro'}
                           >
-                            <option value="">Chọn...</option>
+                            <option value="">{t('report.choose') || 'Chọn...'}</option>
                             {RISK_LEVELS.map(l => <option key={l} value={l}>{l}</option>)}
                           </select>
                         ) : (
@@ -410,8 +410,8 @@ export default function ReportTab({
                             type="text"
                             value={item.code}
                             onChange={e => handleFieldChange(item.id, 'code', e.target.value)}
-                            placeholder="Mã"
-                            aria-label="Mã"
+                            placeholder={t('report.code') || 'Mã'}
+                            aria-label={t('report.code') || 'Mã'}
                           />
                         ) : (
                           <span>{item.code || '—'}</span>
@@ -424,7 +424,7 @@ export default function ReportTab({
                             type="text"
                             value={item.status}
                             onChange={e => handleFieldChange(item.id, 'status', e.target.value)}
-                            placeholder="Trạng thái"
+                            placeholder={t('report.status') || 'Trạng thái'}
                           />
                         ) : (
                           <span className="rpt-status">{item.status}</span>
@@ -435,7 +435,7 @@ export default function ReportTab({
                           <button
                             className="rpt-btn rpt-btn--ghost"
                             onClick={() => handleDeleteRow(item.id)}
-                            title="Xóa hàng"
+                            title={t('report.deleteRow') || 'Xóa hàng'}
                           >
                             <TrashIcon size={14} />
                           </button>
@@ -452,10 +452,10 @@ export default function ReportTab({
             <div className="rpt-action-plan">
               <div className="rpt-action-plan-head">
                 <div>
-                  <p className="rpt-section-label">Action Plan</p>
-                  <h3>{actionPlan?.action_plan_id || 'Finalized action plan'}</h3>
+                  <p className="rpt-section-label">{t('report.actionPlan') || 'Action Plan'}</p>
+                  <h3>{actionPlan?.action_plan_id || t('report.finalizedActionPlan') || 'Finalized action plan'}</h3>
                 </div>
-                <span className="rpt-status">Read-only</span>
+                <span className="rpt-status">{t('report.readOnly') || 'Read-only'}</span>
               </div>
               <div className="rpt-table-scroll">
                 <table className="rpt-table rpt-action-table">
