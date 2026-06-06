@@ -11,7 +11,8 @@ from app.core.neo4j_client import close_neo4j_driver, get_neo4j_driver
 from app.models import conversation as _conversation_model
 from app.models import document as _document_model
 from app.models import user as _user_model
-from app.routers import auth, chat, documents, users
+from app.models import remediation_doc as _remediation_model
+from app.routers import auth, chat, documents, users, remediation_doc as remediation
 
 logger = logging.getLogger(__name__)
 
@@ -67,6 +68,7 @@ app.include_router(auth.router)
 app.include_router(users.router)
 app.include_router(chat.router)
 app.include_router(documents.router)
+app.include_router(remediation.router)
 
 
 @app.get("/health", tags=["Health"])

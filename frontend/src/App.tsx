@@ -9,6 +9,7 @@ import Chat from './pages/Chat'
 import Documents from './pages/Documents'
 import TestHealth from './pages/TestHealth'
 import NotFound from './pages/NotFound'
+import Remediation from './pages/remediation_doc';
 
 function AppShell() {
   const { pathname } = useLocation()
@@ -46,6 +47,9 @@ function AppShell() {
           <Route path="/documents" element={<ProtectedRoute><Documents /></ProtectedRoute>} />
           <Route path="/test" element={<TestHealth />} />
           <Route path="*" element={<NotFound />} />
+          <Route path="/remediation" element={
+            <ProtectedRoute><Remediation /></ProtectedRoute>
+          } />
         </Routes>
       </div>
     </div>

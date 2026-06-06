@@ -20,6 +20,7 @@ const NAV = [
   { to: '/', icon: HomeIcon, labelKey: 'header.home', exact: true, authOnly: false },
   { to: '/chat', icon: SparklesIcon, labelKey: 'header.chat', exact: false, authOnly: true },
   { to: '/documents', icon: FileTextIcon, labelKey: 'header.documents', exact: false, authOnly: true },
+  { to: '/remediation', icon: ActivityIcon, labelKey: 'header.remediation', exact: false, authOnly: true },
   { to: '/test', icon: ActivityIcon, labelKey: 'header.apiTest', exact: false, authOnly: false },
 ] as const
 

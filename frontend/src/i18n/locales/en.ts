@@ -10,6 +10,7 @@ const en = {
     signOut: 'Sign out',
     lightMode: 'Switch to Light',
     darkMode: 'Switch to Dark',
+    remediation_doc: 'Remediation Document',
   },
   chat: {
     sidebarTitle: 'Conversations',
