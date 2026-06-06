@@ -2,6 +2,7 @@ import asyncio
 import json
 from collections.abc import AsyncIterator
 from datetime import datetime
+import time
 
 from sqlalchemy import delete, desc, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -9,6 +10,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.gemini_client import agenerate_text_stream
 from app.graph.nodes import fetch_graph_context, fetch_vector_context
 from app.models.conversation import ChatConversation, ChatMessage
+from app.utils.citation_extractor import citation_extractor
+from app.services.retrieval_service import retrieval_service
 
 _HISTORY_WINDOW = 20  # last 20 messages = 10 turns
 _SYSTEM_INSTRUCTION = (
@@ -192,13 +195,28 @@ class ChatService:
         prior_messages = [m for m in all_messages if m.id != user_message.id]
         history = _format_history(prior_messages[-_HISTORY_WINDOW:])
 
+        # Extract citations for better retrieval
+        citations, _ = citation_extractor.extract_from_question(normalized)
+
         # Fetch vector + graph contexts in parallel
-        (vector_ctx, _), graph_ctx = await asyncio.gather(
-            fetch_vector_context(normalized),
-            fetch_graph_context(normalized),
+        (vector_ctx, vector_hits), (graph_ctx, graph_results) = await asyncio.gather(
+            fetch_vector_context(normalized, citations),
+            fetch_graph_context(normalized, citations),
         )
 
-        system = _build_system_with_context(vector_ctx, graph_ctx)
+        # Hybrid ranking and deduplication
+        ranked = await retrieval_service.rank_results(vector_hits, graph_results)
+        deduped = await retrieval_service.deduplicate_context(ranked, max_tokens=4000)
+
+        # Build system prompt with ranked context
+        context_lines = []
+        for result in deduped:
+            score_str = f"score:{result.total_score:.3f}"
+            header = f"[{result.chunk_type} | {score_str}]"
+            context_lines.append(f"{header}\n{result.text}")
+
+        context_block = "\n\n---\n\n".join(context_lines) if context_lines else "No context available."
+        system = _SYSTEM_INSTRUCTION + "\n\nContext (ranked by relevance):\n" + context_block
 
         # Stream generation
         full_response = ""

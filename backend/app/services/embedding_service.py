@@ -23,7 +23,7 @@ class _SentenceTransformerBackend(_EmbeddingBackend):
         from sentence_transformers import SentenceTransformer
 
         logger.info("Loading sentence-transformers model: %s", model_name)
-        self._model = SentenceTransformer(model_name)
+        self._model = SentenceTransformer(model_name, device="cpu")
 
     def embed(self, texts: list[str]) -> list[list[float]]:
         embeddings = self._model.encode(
@@ -36,13 +36,13 @@ class _OllamaBackend(_EmbeddingBackend):
     def __init__(self, model_name: str, base_url: str):
         self._model = model_name
         self._base_url = base_url.rstrip("/")
+        self._client = httpx.Client(timeout=180.0)
         logger.info(f"Using Ollama embedding model: {model_name} at {base_url}")
 
     def embed(self, texts: list[str]) -> list[list[float]]:
-        resp = httpx.post(
+        resp = self._client.post(
             f"{self._base_url}/api/embed",
             json={"model": self._model, "input": texts},
-            timeout=180.0,
         )
         resp.raise_for_status()
         return resp.json()["embeddings"]

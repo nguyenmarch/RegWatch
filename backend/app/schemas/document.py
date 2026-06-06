@@ -1,13 +1,18 @@
 from __future__ import annotations
 
-from datetime import datetime
-from enum import Enum
+import json
+from datetime import date, datetime
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-
-# ── API response model ─────────────────────────────────────────
+from app.core.enums import (
+    DocumentStatus,
+    KbType,
+    DocumentType,
+    RelationshipType,
+    AppendixType,
+)
 
 
 class DocumentResponse(BaseModel):
@@ -15,116 +20,250 @@ class DocumentResponse(BaseModel):
 
     id: int
     title: str
+    status: DocumentStatus
     file_path: str | None = None
-    status: str
-    kb_type: str | None = None
+    kb_type: KbType | None = None
     created_at: datetime
-    processing_log: str | None = None
+    processing_log: list[dict[str, Any]] = Field(default_factory=list)
 
+    @field_validator("processing_log", mode="before")
+    @classmethod
+    def parse_processing_log(cls, v):
+        if isinstance(v, str):
+            try:
+                return json.loads(v)
+            except Exception:
+                return []
+        return v or []
 
-# ── Enums ─────────────────────────────────────────────────────
+class DocumentMetadata(BaseModel):
+    """
+    Top-level metadata of a legal document.
+    """
 
-
-class RelationshipType(str, Enum):
-    CAN_CU_PHAP_LY = "CAN_CU_PHAP_LY"
-    THAY_THE = "THAY_THE"
-    SUA_DOI = "SUA_DOI"
-    HUONG_DAN = "HUONG_DAN"
-    DAN_CHIEU = "DAN_CHIEU"
-
-
-# ── Shared blocks ─────────────────────────────────────────────
-
-
-class MetadataQdrant(BaseModel):
-    chunk_id: str | None = None
-    ngu_canh_nghiep_vu: str | None = None
-    loai_thong_tin: str | None = None
-    model_config = ConfigDict(extra="allow")
-
-
-class DocumentInfo(BaseModel):
     document_id: str
-    loai_van_ban: str
-    so_hieu: str
-    co_quan_ban_hanh: str | None = None
-    ngay_ban_hanh: str | None = None
-    ngay_hieu_luc: str | None = None
-    nguoi_ky: str | None = None
-    trich_yeu: str | None = Field(None, alias="chu_de")
-    model_config = ConfigDict(populate_by_name=True)
+
+    document_type: DocumentType
+
+    document_number: str
+
+    summary: str | None = None
+
+    issuing_authority: str | None = None
+
+    signer: str | None = None
+
+    issued_date: date | None = None
+
+    effective_date: date | None = None
+
+    model_config = ConfigDict(
+        extra="ignore",
+        str_strip_whitespace=True,
+    )
 
 
-class Relationship(BaseModel):
-    loai_quan_he: RelationshipType
-    van_ban_dich: str
+class DocumentRelationship(BaseModel):
+    relationship_type: RelationshipType
+
+    target_document: str
+
+    note: str | None = None
+
+class Point(BaseModel):
+    """
+    Point (a, b, c, ...)
+    """
+
+    point_number: str
+
+    content: str
 
 
-# ── Content hierarchy ─────────────────────────────────────────
+class Clause(BaseModel):
+    """
+    Clause (Khoản)
+    """
+
+    clause_number: str | None = None
+
+    content: str
+
+    points: list[Point] = Field(default_factory=list)
 
 
-class Diem(BaseModel):
-    diem_so: str
-    noi_dung: str
-    metadata_cho_qdrant: MetadataQdrant | None = None
+class Article(BaseModel):
+    """
+    Article (Điều)
+    """
+
+    article_number: str
+
+    title: str | None = None
+
+    introductory_content: str | None = None
+
+    clauses: list[Clause] = Field(default_factory=list)
 
 
-class Khoan(BaseModel):
-    khoan_so: str | None = None
-    noi_dung: str
-    diem: list[Diem] = Field(default_factory=list)
-    metadata_cho_qdrant: MetadataQdrant | None = None
+class Section(BaseModel):
+    """
+    Section (Mục)
+    """
+
+    section_number: str = Field(..., min_length=1)
+    title: str = Field(..., min_length=1)
+    articles: list[Article] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def validate_has_articles(self):
+        if not self.articles:
+            raise ValueError("Section must contain at least one article")
+        return self
 
 
-class Dieu(BaseModel):
-    dieu_so: str
-    dieu_ten: str | None = None
-    noi_dung_truoc_khoan: str | None = None
-    khoan: list[Khoan] = Field(default_factory=list)
+class Chapter(BaseModel):
+    """
+    Chapter (Chương)
+
+    A Chapter can contain either:
+    - Multiple Sections (which contain Articles)
+    - Multiple Articles directly
+    - Or both (mixed structure)
+
+    At least one of sections or articles must be present.
+    """
+
+    chapter_number: str = Field(..., min_length=1)
+    title: str = Field(..., min_length=1)
+    sections: list[Section] = Field(default_factory=list)
+    articles: list[Article] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def validate_has_content(self):
+        """Ensure Chapter has at least sections or articles."""
+        if not self.sections and not self.articles:
+            raise ValueError(
+                "Chapter must contain at least one section or one article. "
+                "Current chapter has neither."
+            )
+        return self
 
 
-class Muc(BaseModel):
-    muc_so: str
-    muc_ten: str
-    dieu_luat: list[Dieu] = Field(default_factory=list)
+class Appendix(BaseModel):
+    appendix_number: str
 
+    title: str | None = None
 
-class Chuong(BaseModel):
-    chuong_so: str
-    chuong_ten: str
-    muc: list[Muc] = Field(default_factory=list)
-    dieu_luat: list[Dieu] = Field(default_factory=list)
+    introduction: str | None = None
 
+    appendix_type: AppendixType | None = None
 
-class PhuLuc(BaseModel):
-    phu_luc_so: str
-    ten_phu_luc: str | None = None
-    noi_dung_dan_nhap: str | None = None
-    kieu_du_lieu_chinh: str | None = None
-    du_lieu_bang: list[dict[str, Any]] = Field(default_factory=list)
-    du_lieu_van_ban: list[str] = Field(default_factory=list)
+    table_data: list[dict[str, Any]] = Field(default_factory=list)
 
-
-# ── Unified model (accepts any document type) ─────────────────
-
+    text_data: list[str] = Field(default_factory=list)
 
 class LegalDocument(BaseModel):
-    """Unified model that parses Nghị định, Quyết định, and Thông tư.
+    """
+    Unified legal document model supporting:
 
-    The ``content`` field (aliased as ``noi_dung`` in JSON) accepts a mixed
-    list of Chương and Điều items, covering all three document layouts.
+    - Decrees
+    - Circulars
+    - Decisions
+
+    Content can contain either:
+
+    Decision:
+        Article
+        Article
+        Article
+
+    Or:
+
+    Chapter
+        -> Article
+
+    Or:
+
+    Chapter
+        -> Section
+            -> Article
     """
 
-    document_info: DocumentInfo
-    relationships_neo4j: list[Relationship] = Field(default_factory=list)
-    content: list[Chuong | Dieu] = Field(alias="noi_dung")
-    phu_luc: list[PhuLuc] = Field(default_factory=list)
-    model_config = ConfigDict(populate_by_name=True)
+    metadata: DocumentMetadata
+
+    relationships: list[DocumentRelationship] = Field(
+        default_factory=list
+    )
+
+    content: list[Chapter | Article]
+
+    appendices: list[Appendix] = Field(
+        default_factory=list
+    )
+
+    model_config = ConfigDict(
+        extra="ignore",
+        str_strip_whitespace=True,
+    )
 
 
-def parse_legal_document(raw: dict[str, Any]) -> LegalDocument:
-    """Parse a raw JSON dict into a validated LegalDocument.
 
-    Accepts JSON with either ``noi_dung`` or ``content`` as the body key.
+class LegalPath(BaseModel):
     """
-    return LegalDocument.model_validate(raw)
+    Hierarchical position inside the legal document.
+    """
+
+    chapter: str | None = None
+
+    section: str | None = None
+
+    article: str | None = None
+
+    clause: str | None = None
+
+    point: str | None = None
+
+
+class LegalChunk(BaseModel):
+    """
+    Normalized chunk for vector databases.
+    """
+
+    chunk_id: str
+
+    document_id: str
+
+    text: str
+
+    chunk_type: str = "TEXT"
+
+    path: LegalPath
+
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+class GraphNode(BaseModel):
+    node_id: str
+
+    label: str
+
+    properties: dict[str, Any] = Field(default_factory=dict)
+
+
+class GraphRelationship(BaseModel):
+    source_id: str
+
+    target_id: str
+
+    relationship_type: str
+
+    properties: dict[str, Any] = Field(default_factory=dict)
+
+class LegalCitation(BaseModel):
+    cited_document: str
+
+    article: str | None = None
+
+    clause: str | None = None
+
+    point: str | None = None

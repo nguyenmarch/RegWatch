@@ -7,6 +7,7 @@ import time
 from datetime import datetime, timezone
 from io import BytesIO
 from pathlib import Path
+from urllib.parse import quote
 from uuid import uuid4
 
 from sqlalchemy import delete, select, update
@@ -16,14 +17,16 @@ from app.core.config import settings
 from app.core.enums import DocumentStatus, KbType
 from app.core.minio_client import get_minio_client
 from app.models.document import Document
-from app.services.chunker import split_legal_document
+from app.services.chunker import chunk_legal_document, fallback_text_chunker
+from app.services.graph_builder import graph_builder
+from app.services.law_parser import LegalDocumentParser
+from app.services.neo4j_ingestor import neo4j_ingestor
 from app.services.neo4j_service import build_chunk_graph
 from app.services.parser import parse_document
 from app.services.qdrant_service import delete_document_chunks, upsert_document_chunks
 from app.utils.text_processor import clean_legal_text
 
 logger = logging.getLogger(__name__)
-
 
 def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
@@ -101,37 +104,59 @@ class DocumentService:
             async with async_session_factory() as db:
                 await self._update_status(db, doc_id, DocumentStatus.PROCESSING)
 
-            # ── Step 1: Parse ──────────────────────────────────────────────────
+            # ── Step 1: Parse to LegalDocument ─────────────────────────────────
             t = time.monotonic()
             raw_text = await asyncio.to_thread(parse_document, filename, file_content)
-            clean_text = await asyncio.to_thread(clean_legal_text, raw_text)
-            print(f"[Pipeline] doc_id={doc_id} step=parse chars={len(clean_text)} elapsed={time.monotonic()-t:.2f}s", flush=True)
-            logger.info("[Pipeline] Step 1/3 parse — doc_id=%s, chars=%d, elapsed=%.2fs",
-                        doc_id, len(clean_text), time.monotonic() - t)
+
+            def _parse_legal_doc():
+                parser = LegalDocumentParser()
+                return parser.parse(filename, raw_text)
+
+            legal_doc = await asyncio.to_thread(_parse_legal_doc)
+            print(f"[Pipeline] doc_id={doc_id} step=parse legal_doc elapsed={time.monotonic()-t:.2f}s", flush=True)
+            logger.info("[Pipeline] Step 1/4 parse — doc_id=%s, type=%s, elapsed=%.2fs",
+                        doc_id, legal_doc.metadata.document_type.value, time.monotonic() - t)
 
             # ── Step 2: Chunk ──────────────────────────────────────────────────
             t = time.monotonic()
-            chunks = await asyncio.to_thread(split_legal_document, clean_text, doc_id, filename)
+            chunks = await asyncio.to_thread(chunk_legal_document, legal_doc)
             if not chunks:
                 raise ValueError("Chunker produced zero chunks — document may be empty or unparseable.")
             print(f"[Pipeline] doc_id={doc_id} step=chunk count={len(chunks)} elapsed={time.monotonic()-t:.2f}s", flush=True)
-            logger.info("[Pipeline] Step 2/3 chunk — doc_id=%s, chunks=%d, elapsed=%.2fs",
+            logger.info("[Pipeline] Step 2/4 chunk — doc_id=%s, chunks=%d, elapsed=%.2fs",
                         doc_id, len(chunks), time.monotonic() - t)
 
             # ── Step 3a: Embed + Qdrant ────────────────────────────────────────
             t = time.monotonic()
             await asyncio.to_thread(upsert_document_chunks, chunks, doc_id, kb_type.collection_name)
             print(f"[Pipeline] doc_id={doc_id} step=qdrant elapsed={time.monotonic()-t:.2f}s", flush=True)
-            logger.info("[Pipeline] Step 3a/3 qdrant — doc_id=%s, elapsed=%.2fs",
+            logger.info("[Pipeline] Step 3a/4 qdrant — doc_id=%s, elapsed=%.2fs",
                         doc_id, time.monotonic() - t)
 
-            # ── Step 3b: Neo4j (if applicable) ────────────────────────────────
+            # ── Step 3b: Neo4j Knowledge Graph (if applicable) ─────────────────
             if kb_type.use_neo4j:
                 t = time.monotonic()
-                await asyncio.to_thread(build_chunk_graph, doc_id, Path(filename).stem, chunks)
-                print(f"[Pipeline] doc_id={doc_id} step=neo4j elapsed={time.monotonic()-t:.2f}s", flush=True)
-                logger.info("[Pipeline] Step 3b/3 neo4j — doc_id=%s, elapsed=%.2fs",
-                            doc_id, time.monotonic() - t)
+
+                def _build_and_ingest():
+                    # Ensure Neo4j constraints exist
+                    neo4j_ingestor.ensure_constraints()
+
+                    # Build hierarchical graph from LegalDocument
+                    graph_data = graph_builder.build(legal_doc)
+                    logger.info("[Pipeline] Built graph: %s", graph_data)
+
+                    # Ingest to Neo4j
+                    neo4j_ingestor.ingest(graph_data)
+
+                    # Get statistics
+                    stats = neo4j_ingestor.get_stats(legal_doc.metadata.document_id)
+                    logger.info("[Pipeline] Neo4j stats: %s", stats)
+                    return stats
+
+                stats = await asyncio.to_thread(_build_and_ingest)
+                print(f"[Pipeline] doc_id={doc_id} step=neo4j nodes={stats.get('Document', 0)} elapsed={time.monotonic()-t:.2f}s", flush=True)
+                logger.info("[Pipeline] Step 3b/4 neo4j — doc_id=%s, stats=%s, elapsed=%.2fs",
+                            doc_id, stats, time.monotonic() - t)
 
             # ── Mark COMPLETED ─────────────────────────────────────────────────
             total = time.monotonic() - t0
@@ -164,7 +189,7 @@ class DocumentService:
             data=BytesIO(file_content),
             length=len(file_content),
             content_type=_content_type_for(filename),
-            metadata={"original-filename": filename},
+            metadata={"original-filename": quote(filename, safe="")},
         )
         logger.info("[Storage] MinIO upload done — doc_id=%s, key=%s", doc_id, object_key)
         return object_key

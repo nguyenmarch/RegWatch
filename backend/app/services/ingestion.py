@@ -7,7 +7,8 @@ from typing import Any
 from app.schemas.document import LegalDocument, parse_legal_document
 from app.services.chunker import chunk_legal_document
 from app.services.embedding_service import embed_texts
-from app.services.neo4j_service import build_document_graph
+from app.services.graph_builder import graph_builder
+from app.services.neo4j_ingestor import neo4j_ingestor
 from app.services.qdrant_service import upsert_chunks
 from app.utils.logger import logger
 
@@ -20,6 +21,7 @@ def ingest_json_file(json_path: str | Path) -> None:
 
 
 def ingest_from_dict(raw: dict[str, Any]) -> None:
+    """LEGACY: Ingest using old schema (parse_legal_document)."""
     doc = parse_legal_document(raw)
     doc_id = doc.document_info.document_id
     logger.info(f"[Pipeline] Parsed {doc.document_info.loai_van_ban} {doc.document_info.so_hieu} ({doc_id})")
@@ -27,17 +29,48 @@ def ingest_from_dict(raw: dict[str, Any]) -> None:
     chunks = chunk_legal_document(doc)
     logger.info(f"[Pipeline] {len(chunks)} chunks created.")
 
-    texts = [c.text_content for c in chunks]
+    texts = [c.text for c in chunks]
     vectors = embed_texts(texts)
     logger.info(f"[Pipeline] Embeddings generated ({len(vectors[0])}d).")
 
     upsert_chunks(chunks, vectors)
     logger.info(f"[Pipeline] Qdrant upsert complete.")
 
-    build_document_graph(doc)
-    logger.info(f"[Pipeline] Neo4j graph complete.")
-
     logger.info(f"[Pipeline] Done — {doc_id}")
+
+
+def ingest_legal_document(doc: LegalDocument) -> None:
+    """NEW: Ingest LegalDocument with full graph building.
+
+    Pipeline:
+    LegalDocument -> Chunks -> Embeddings -> Qdrant
+                  -> Graph -> Neo4j Knowledge Graph
+    """
+    doc_id = doc.metadata.document_id
+    logger.info(
+        f"[Pipeline] Processing {doc.metadata.document_type.value} {doc.metadata.document_number} ({doc_id})"
+    )
+
+    # Step 1: Chunk the document
+    chunks = chunk_legal_document(doc)
+    logger.info(f"[Pipeline] Created {len(chunks)} chunks")
+
+    # Step 2: Embed and store in Qdrant
+    texts = [c.text for c in chunks]
+    vectors = embed_texts(texts)
+    logger.info(f"[Pipeline] Generated {len(vectors)} embeddings ({len(vectors[0])}d)")
+
+    upsert_chunks(chunks, vectors)
+    logger.info(f"[Pipeline] Upserted to Qdrant")
+
+    # Step 3: Build and store knowledge graph
+    graph_data = graph_builder.build(doc)
+    logger.info(f"[Pipeline] Built graph: {graph_data}")
+
+    neo4j_ingestor.ingest(graph_data)
+    logger.info(f"[Pipeline] Ingested to Neo4j")
+
+    logger.info(f"[Pipeline] Complete — {doc_id}")
 
 
 def ingest_directory(dir_path: str | Path) -> None:

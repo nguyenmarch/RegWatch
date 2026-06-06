@@ -7,7 +7,7 @@ from qdrant_client.models import Distance, PointStruct, VectorParams
 
 from app.core.config import settings
 from app.core.qdrant_client import qdrant_client
-from app.services.chunker import SemanticChunk
+from app.schemas.document import LegalChunk
 
 logger = logging.getLogger(__name__)
 
@@ -32,7 +32,7 @@ def _point_id(document_id: str, chunk_id: str) -> str:
 
 
 def upsert_chunks(
-    chunks: list[SemanticChunk],
+    chunks: list[LegalChunk],
     vectors: list[list[float]],
     collection_name: str | None = None,
 ) -> None:
@@ -41,14 +41,15 @@ def upsert_chunks(
     points: list[PointStruct] = []
     for chunk, vector in zip(chunks, vectors):
         payload = {
-            "document_id": chunk.metadata["document_id"],
+            "document_id": chunk.document_id,
             "chunk_id": chunk.chunk_id,
-            "text": chunk.text_content,
-            **{k: v for k, v in chunk.metadata.items() if k != "document_id"},
+            "chunk_type": chunk.chunk_type,
+            "text": chunk.text,
+            **chunk.metadata,
         }
         points.append(
             PointStruct(
-                id=_point_id(chunk.metadata["document_id"], chunk.chunk_id),
+                id=_point_id(chunk.document_id, chunk.chunk_id),
                 vector=vector,
                 payload=payload,
             )
@@ -67,15 +68,15 @@ def upsert_chunks(
 
 
 def upsert_document_chunks(
-    chunks: list[SemanticChunk],
-    doc_id: int,
+    chunks: list[LegalChunk],
+    doc_id: str,
     collection_name: str,
 ) -> None:
     from app.services.embedding_service import embed_texts
 
     logger.info("[Qdrant] Embedding %d chunks — doc_id=%s, collection='%s'",
                 len(chunks), doc_id, collection_name)
-    texts = [c.text_content for c in chunks]
+    texts = [c.text for c in chunks]
     vectors = embed_texts(texts)
     logger.info("[Qdrant] Embeddings ready — %d vectors, dim=%d",
                 len(vectors), len(vectors[0]) if vectors else 0)

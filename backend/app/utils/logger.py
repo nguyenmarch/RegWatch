@@ -18,3 +18,4 @@ def _build_logger(name: str) -> logging.Logger:
 
 
 logger = _build_logger("regwatch")
+
