@@ -45,10 +45,11 @@ export interface Document {
   id: number
   title: string
   file_path: string | null
-  status: 'pending' | 'processing' | 'completed' | 'failed'
+  status: 'pending' | 'processing' | 'pending_graph' | 'completed' | 'failed'
   kb_type: KbType
   created_at: string
   processing_log?: string | null
+  staged_cypher?: string | null
 }
 
 export interface UploadResponse {
@@ -222,6 +223,18 @@ export const api = {
 
     getLog: (id: number) =>
       request<{ level: string; message: string; ts: string }[]>(`/v1/documents/${id}/log`),
+
+    getById: (id: number) =>
+      request<Document>(`/v1/documents/${id}`),
+
+    getCypherPreview: (id: number) =>
+      request<{ doc_id: number; title: string; cypher: string }>(`/v1/documents/${id}/cypher-preview`),
+
+    commitCypher: (id: number, cypher: string) =>
+      request<Document>(`/v1/documents/${id}/cypher-commit`, {
+        method: 'POST',
+        body: JSON.stringify({ cypher }),
+      }),
   },
 
   remediation: {

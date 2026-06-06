@@ -44,7 +44,7 @@ export default function Documents() {
     [user],
   )
   const kbDocs = docs.filter(d => d.kb_type === activeKb)
-  const processingCount = kbDocs.filter(d => d.status === 'pending' || d.status === 'processing').length
+  const processingCount = kbDocs.filter(d => d.status === 'pending' || d.status === 'processing' || d.status === 'pending_graph').length
 
   function addToast(type: Toast['type'], msg: string) {
     const id = ++toastSeq
@@ -103,7 +103,7 @@ export default function Documents() {
     { key: 'history', icon: <ScrollTextIcon size={14} />,  labelKey: 'documents.tabHistory' },
   ]
 
-  const allProcessing = docs.filter(d => d.status === 'pending' || d.status === 'processing').length
+  const allProcessing = docs.filter(d => d.status === 'pending' || d.status === 'processing' || d.status === 'pending_graph').length
 
   return (
     <div className="docs-page">
@@ -133,7 +133,7 @@ export default function Documents() {
         <div className="kb-selector">
           {visibleKbConfigs.map(({ type, Icon, colorClass, badgeKey }) => {
             const count = docs.filter(d => d.kb_type === type).length
-            const processing = docs.filter(d => d.kb_type === type && (d.status === 'pending' || d.status === 'processing')).length
+            const processing = docs.filter(d => d.kb_type === type && (d.status === 'pending' || d.status === 'processing' || d.status === 'pending_graph')).length
             const isActive = activeKb === type
             return (
               <button
@@ -188,7 +188,12 @@ export default function Documents() {
         {/* ── Tab content ── */}
         <div className="docs-tab-content">
           {subTab === 'manage' && (
-            <ManageTab docs={kbDocs} loading={loading} onDeleted={handleDeleted} />
+            <ManageTab
+              docs={kbDocs}
+              loading={loading}
+              onDeleted={handleDeleted}
+              onChanged={() => { void fetchDocs(true) }}
+            />
           )}
           {subTab === 'upload' && (
             <UploadTab kbType={activeKb} onUploaded={handleUploaded} />
@@ -199,6 +204,7 @@ export default function Documents() {
               loading={loading}
               openLogId={openLogId}
               onLogClose={() => setOpenLogId(null)}
+              onChanged={() => { void fetchDocs(true) }}
             />
           )}
         </div>

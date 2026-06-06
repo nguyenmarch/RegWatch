@@ -14,17 +14,19 @@ interface Props {
 
 function StatusBadge({ status }: { status: Document['status'] }) {
   const { t } = useTranslation()
-  const config = {
-    pending:    { cls: 'doc-status--pending',    Icon: ClockIcon,         spin: false },
-    processing: { cls: 'doc-status--processing', Icon: LoaderIcon,        spin: true  },
-    completed:  { cls: 'doc-status--completed',  Icon: CheckCircleIcon,   spin: false },
-    failed:     { cls: 'doc-status--failed',     Icon: AlertTriangleIcon, spin: false },
-  }[status]
+  const config = ({
+    pending:       { cls: 'doc-status--pending',    Icon: ClockIcon,         spin: false },
+    processing:    { cls: 'doc-status--processing', Icon: LoaderIcon,        spin: true  },
+    pending_graph: { cls: 'doc-status--processing', Icon: LoaderIcon,        spin: true  },
+    completed:     { cls: 'doc-status--completed',  Icon: CheckCircleIcon,   spin: false },
+    failed:        { cls: 'doc-status--failed',     Icon: AlertTriangleIcon, spin: false },
+  } as Record<string, { cls: string; Icon: typeof ClockIcon; spin: boolean }>)[status]
+    ?? { cls: 'doc-status--pending', Icon: ClockIcon, spin: false }
 
   return (
     <span className={`doc-status ${config.cls}`}>
       <config.Icon size={12} className={config.spin ? 'icon-spin' : undefined} />
-      {t(`documents.status.${status}`)}
+      {t(`documents.status.${status}`, { defaultValue: status })}
     </span>
   )
 }

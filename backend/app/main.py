@@ -58,6 +58,16 @@ async def lifespan(app: FastAPI):
     async with async_engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
 
+    # Add staged_cypher column if this is an existing database without it
+    from sqlalchemy import text
+    async with async_engine.begin() as conn:
+        try:
+            await conn.execute(
+                text("ALTER TABLE documents ADD COLUMN staged_cypher MEDIUMTEXT NULL")
+            )
+        except Exception:
+            pass  # Column already exists
+
     # Seed required demo users without touching existing accounts.
     async with async_session_factory() as db:
         from app.repositories.user import user_repo

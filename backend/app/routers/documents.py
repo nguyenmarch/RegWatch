@@ -4,6 +4,7 @@ from urllib.parse import quote
 
 from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, Query, UploadFile, status
 from fastapi.responses import StreamingResponse
+from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.db import get_db
@@ -12,6 +13,10 @@ from app.core.enums import DocumentStatus, KbType
 from app.models.user import User
 from app.schemas.document import DocumentResponse
 from app.services.document import document_service
+
+
+class CypherCommitRequest(BaseModel):
+    cypher: str
 
 router = APIRouter(prefix="/v1/documents", tags=["Documents"])
 
@@ -60,13 +65,23 @@ async def upload_document(
         await document_service._update_status(db, doc_record.id, DocumentStatus.FAILED)
         raise HTTPException(status_code=500, detail=f"Failed to store document: {exc}") from exc
 
-    background_tasks.add_task(
-        document_service.pipeline_process_and_embed_law,
-        doc_id=doc_record.id,
-        filename=file.filename,
-        file_content=file_content,
-        kb_type=kb_type,
-    )
+    if kb_type.use_neo4j:
+        # LAW: stage Cypher for user review before writing to Neo4j
+        background_tasks.add_task(
+            document_service.pipeline_stage_for_preview,
+            doc_id=doc_record.id,
+            filename=file.filename,
+            file_content=file_content,
+            kb_type=kb_type,
+        )
+    else:
+        background_tasks.add_task(
+            document_service.pipeline_process_and_embed_law,
+            doc_id=doc_record.id,
+            filename=file.filename,
+            file_content=file_content,
+            kb_type=kb_type,
+        )
 
     return doc_record
 
@@ -140,6 +155,63 @@ async def get_document_log(
     if entries is None:
         raise HTTPException(status_code=404, detail=f"Document {doc_id} not found.")
     return entries
+
+
+@router.get("/{doc_id}", response_model=DocumentResponse)
+async def get_document(
+    doc_id: int,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> DocumentResponse:
+    doc = await document_service.get_document(db=db, doc_id=doc_id)
+    if doc is None:
+        raise HTTPException(status_code=404, detail=f"Document {doc_id} not found.")
+    _ensure_kb_access(user, doc.kb_type)
+    return doc
+
+
+@router.get("/{doc_id}/cypher-preview")
+async def get_cypher_preview(
+    doc_id: int,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> dict:
+    doc = await document_service.get_document(db=db, doc_id=doc_id)
+    if doc is None:
+        raise HTTPException(status_code=404, detail=f"Document {doc_id} not found.")
+    _ensure_kb_access(user, doc.kb_type)
+    if not doc.staged_cypher:
+        raise HTTPException(
+            status_code=404,
+            detail=f"No staged Cypher for document {doc_id}. "
+                   "The document may not be in 'pending_graph' status.",
+        )
+    return {"doc_id": doc_id, "title": doc.title, "cypher": doc.staged_cypher}
+
+
+@router.post("/{doc_id}/cypher-commit", response_model=DocumentResponse)
+async def commit_cypher(
+    doc_id: int,
+    body: CypherCommitRequest,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> DocumentResponse:
+    doc = await document_service.get_document(db=db, doc_id=doc_id)
+    if doc is None:
+        raise HTTPException(status_code=404, detail=f"Document {doc_id} not found.")
+    _ensure_kb_access(user, doc.kb_type)
+    if doc.status != "pending_graph":
+        raise HTTPException(
+            status_code=400,
+            detail=f"Document {doc_id} is not in 'pending_graph' status (current: {doc.status}).",
+        )
+
+    success = await document_service.commit_staged_cypher(db=db, doc_id=doc_id, cypher_text=body.cypher)
+    if not success:
+        raise HTTPException(status_code=500, detail="Failed to commit Cypher to Neo4j.")
+
+    updated = await document_service.get_document(db=db, doc_id=doc_id)
+    return updated
 
 
 @router.delete("/{doc_id}", status_code=status.HTTP_204_NO_CONTENT)

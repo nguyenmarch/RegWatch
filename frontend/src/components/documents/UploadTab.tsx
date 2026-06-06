@@ -1,8 +1,9 @@
-import { useState, useRef, useCallback } from 'react'
+import { useState, useRef, useCallback, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { api, type KbType } from '../../lib/api'
 import { UploadCloudIcon, FileTextIcon, XIcon, LoaderIcon, CheckCircleIcon, AlertTriangleIcon } from '../Icons'
 import UploadConfirmDialog from './UploadConfirmDialog'
+import CypherPreviewDialog from './CypherPreviewDialog'
 
 interface StagedFile {
   id: string
@@ -11,6 +12,12 @@ interface StagedFile {
   progress: number
   error?: string
   docId?: number
+}
+
+interface PendingPreview {
+  docId: number
+  title: string
+  cypher: string
 }
 
 interface Props {
@@ -35,6 +42,17 @@ export default function UploadTab({ onUploaded, kbType }: Props) {
   const [showConfirm, setShowConfirm] = useState(false)
   const [uploading, setUploading] = useState(false)
 
+  // Cypher preview flow
+  const [previewQueue, setPreviewQueue] = useState<{ docId: number; title: string }[]>([])
+  const [activePreview, setActivePreview] = useState<PendingPreview | null>(null)
+  const [pollingId, setPollingId] = useState<number | null>(null)
+  const uploadedIdsRef = useRef<number[]>([])
+  const previewQueueRef = useRef(previewQueue)
+
+  useEffect(() => {
+    previewQueueRef.current = previewQueue
+  }, [previewQueue])
+
   const addFiles = useCallback((files: File[]) => {
     const valid = files.filter(f => {
       const ext = '.' + f.name.split('.').pop()?.toLowerCase()
@@ -58,7 +76,8 @@ export default function UploadTab({ onUploaded, kbType }: Props) {
   async function doUpload() {
     setShowConfirm(false)
     setUploading(true)
-    const uploadedIds: number[] = []
+    uploadedIdsRef.current = []
+    const pendingPreviews: { docId: number; title: string }[] = []
 
     for (const sf of staged) {
       setStaged(prev => prev.map(f => f.id === sf.id ? { ...f, status: 'uploading' } : f))
@@ -66,10 +85,13 @@ export default function UploadTab({ onUploaded, kbType }: Props) {
         const res = await api.documents.upload(sf.file, kbType, pct =>
           setStaged(prev => prev.map(f => f.id === sf.id ? { ...f, progress: pct } : f))
         )
-        uploadedIds.push(res.id)
+        uploadedIdsRef.current.push(res.id)
         setStaged(prev => prev.map(f => f.id === sf.id
           ? { ...f, status: 'done', progress: 100, docId: res.id } : f
         ))
+        if (kbType === 'law') {
+          pendingPreviews.push({ docId: res.id, title: res.title })
+        }
       } catch (err) {
         setStaged(prev => prev.map(f => f.id === sf.id
           ? { ...f, status: 'error', error: err instanceof Error ? err.message : 'Failed' } : f
@@ -78,11 +100,84 @@ export default function UploadTab({ onUploaded, kbType }: Props) {
     }
 
     setUploading(false)
-    if (uploadedIds.length > 0) onUploaded(uploadedIds)
+
+    if (kbType === 'law' && pendingPreviews.length > 0) {
+      // Queue for sequential preview dialogs; first one triggers polling
+      setPreviewQueue(pendingPreviews)
+      setPollingId(pendingPreviews[0].docId)
+    } else if (uploadedIdsRef.current.length > 0) {
+      onUploaded(uploadedIdsRef.current)
+    }
+  }
+
+  // Poll until a queued doc reaches pending_graph or fails
+  useEffect(() => {
+    if (pollingId === null) return
+    let stopped = false
+    const poll = async () => {
+      try {
+        const doc = await api.documents.getById(pollingId)
+        if (doc.status === 'pending_graph') {
+          const preview = await api.documents.getCypherPreview(pollingId)
+          if (stopped) return
+          const queued = previewQueueRef.current.find(p => p.docId === pollingId)
+          setActivePreview({
+            docId: pollingId,
+            title: queued?.title ?? doc.title,
+            cypher: preview.cypher,
+          })
+          setPollingId(null)
+        } else if (doc.status === 'failed') {
+          if (stopped) return
+          setPollingId(null)
+          advancePreviewQueue()
+        }
+      } catch { /* network blip — keep polling */ }
+    }
+    void poll()
+    const intervalId = setInterval(poll, 2000)
+    return () => {
+      stopped = true
+      clearInterval(intervalId)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pollingId])
+
+  function advancePreviewQueue() {
+    setPreviewQueue(prev => {
+      const next = prev.slice(1)
+      if (next.length > 0) {
+        setPollingId(next[0].docId)
+      } else {
+        // All previews handled — notify parent
+        if (uploadedIdsRef.current.length > 0) {
+          onUploaded(uploadedIdsRef.current)
+        }
+      }
+      return next
+    })
+  }
+
+  function handleCommit() {
+    setActivePreview(null)
+    advancePreviewQueue()
+  }
+
+  function handleCancelPreview() {
+    setActivePreview(null)
+    // Remove the cancelled doc from uploaded ids
+    if (activePreview) {
+      uploadedIdsRef.current = uploadedIdsRef.current.filter(id => id !== activePreview.docId)
+      setStaged(prev => prev.map(f =>
+        f.docId === activePreview.docId ? { ...f, status: 'error', error: 'Upload cancelled' } : f
+      ))
+    }
+    advancePreviewQueue()
   }
 
   const readyCount = staged.filter(f => f.status === 'staged').length
   const allDone = staged.length > 0 && staged.every(f => f.status === 'done' || f.status === 'error')
+  const waitingForPreview = previewQueue.length > 0 && !activePreview
 
   return (
     <div className="upload-tab">
@@ -132,7 +227,15 @@ export default function UploadTab({ onUploaded, kbType }: Props) {
                 )}
                 {sf.status === 'error' && <p className="staged-error">{sf.error}</p>}
                 {sf.status === 'staged' && <p className="staged-size">{formatBytes(sf.file.size)}</p>}
-                {sf.status === 'done' && <p className="staged-done">{t('documents.toast.uploadSuccess')}</p>}
+                {sf.status === 'done' && !waitingForPreview && (
+                  <p className="staged-done">{t('documents.toast.uploadSuccess')}</p>
+                )}
+                {sf.status === 'done' && waitingForPreview && sf.docId === previewQueue[0]?.docId && (
+                  <p className="staged-done" style={{ color: '#f59e0b' }}>
+                    <LoaderIcon size={11} className="icon-spin" style={{ marginRight: 4 }} />
+                    Generating Cypher graph…
+                  </p>
+                )}
               </div>
               {sf.status === 'staged' && (
                 <button className="staged-remove" onClick={() => removeFile(sf.id)}>
@@ -168,6 +271,17 @@ export default function UploadTab({ onUploaded, kbType }: Props) {
           files={staged.filter(f => f.status === 'staged')}
           onConfirm={doUpload}
           onCancel={() => setShowConfirm(false)}
+        />
+      )}
+
+      {/* Cypher preview dialog (shown after staging pipeline completes) */}
+      {activePreview && (
+        <CypherPreviewDialog
+          docId={activePreview.docId}
+          title={activePreview.title}
+          initialCypher={activePreview.cypher}
+          onCommit={handleCommit}
+          onCancel={handleCancelPreview}
         />
       )}
     </div>

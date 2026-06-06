@@ -1,24 +1,34 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { api, type Document } from '../../lib/api'
-import { FileTextIcon, TrashIcon, DownloadIcon, LoaderIcon, FolderOpenIcon } from '../Icons'
+import { FileTextIcon, TrashIcon, DownloadIcon, LoaderIcon, FolderOpenIcon, GraphNetworkIcon } from '../Icons'
 import { formatGmt7DateTime } from '../../lib/datetime'
 import DeleteDialog from './DeleteDialog'
+import CypherPreviewDialog from './CypherPreviewDialog'
 
 interface Props {
   docs: Document[]
   loading: boolean
   onDeleted: (id: number) => void
+  onChanged?: () => void
+}
+
+interface PendingPreview {
+  docId: number
+  title: string
+  cypher: string
 }
 
 function StatusBadge({ status }: { status: Document['status'] }) {
   const cls = {
-    pending:    'doc-status--pending',
-    processing: 'doc-status--processing',
-    completed:  'doc-status--completed',
-    failed:     'doc-status--failed',
+    pending:       'doc-status--pending',
+    processing:    'doc-status--processing',
+    pending_graph: 'doc-status--processing',
+    completed:     'doc-status--completed',
+    failed:        'doc-status--failed',
   }[status] ?? ''
-  return <span className={`doc-status ${cls}`}>{status}</span>
+  const { t } = useTranslation()
+  return <span className={`doc-status ${cls}`}>{t(`documents.status.${status}`, { defaultValue: status })}</span>
 }
 
 function SkeletonRow() {
@@ -33,10 +43,12 @@ function SkeletonRow() {
   )
 }
 
-export default function ManageTab({ docs, loading, onDeleted }: Props) {
+export default function ManageTab({ docs, loading, onDeleted, onChanged }: Props) {
   const { t } = useTranslation()
   const [deletingId, setDeletingId] = useState<number | null>(null)
   const [confirmDoc, setConfirmDoc] = useState<Document | null>(null)
+  const [activePreview, setActivePreview] = useState<PendingPreview | null>(null)
+  const [loadingPreviewId, setLoadingPreviewId] = useState<number | null>(null)
 
   async function handleDelete() {
     if (!confirmDoc) return
@@ -48,6 +60,25 @@ export default function ManageTab({ docs, loading, onDeleted }: Props) {
       setDeletingId(null)
       setConfirmDoc(null)
     }
+  }
+
+  async function handleReviewGraph(doc: Document) {
+    setLoadingPreviewId(doc.id)
+    try {
+      const preview = await api.documents.getCypherPreview(doc.id)
+      setActivePreview({
+        docId: doc.id,
+        title: preview.title || doc.title,
+        cypher: preview.cypher,
+      })
+    } finally {
+      setLoadingPreviewId(null)
+    }
+  }
+
+  function handlePreviewClosed() {
+    setActivePreview(null)
+    onChanged?.()
   }
 
   if (loading) return (
@@ -82,6 +113,21 @@ export default function ManageTab({ docs, loading, onDeleted }: Props) {
               </div>
             </div>
             <div className="doc-row-actions">
+              {doc.status === 'pending_graph' && (
+                <button
+                  type="button"
+                  className="btn btn-primary btn-sm"
+                  onClick={() => void handleReviewGraph(doc)}
+                  disabled={loadingPreviewId === doc.id}
+                >
+                  {loadingPreviewId === doc.id ? (
+                    <LoaderIcon size={13} className="icon-spin" />
+                  ) : (
+                    <GraphNetworkIcon size={13} />
+                  )}
+                  {loadingPreviewId === doc.id ? t('documents.reviewingGraph') : t('documents.reviewGraph')}
+                </button>
+              )}
               {doc.file_path && (
                 <button
                   type="button"
@@ -114,6 +160,16 @@ export default function ManageTab({ docs, loading, onDeleted }: Props) {
           onConfirm={handleDelete}
           onCancel={() => setConfirmDoc(null)}
           loading={deletingId === confirmDoc.id}
+        />
+      )}
+
+      {activePreview && (
+        <CypherPreviewDialog
+          docId={activePreview.docId}
+          title={activePreview.title}
+          initialCypher={activePreview.cypher}
+          onCommit={handlePreviewClosed}
+          onCancel={handlePreviewClosed}
         />
       )}
     </>

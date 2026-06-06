@@ -14,7 +14,7 @@ from app.core.enums import DocumentStatus, KbType
 from app.core.minio_client import get_minio_client
 from app.models.document import Document
 from app.services.chunker import split_legal_document
-from app.services.neo4j_service import build_document_graph
+from app.services.neo4j_service import build_document_graph, generate_cypher_strings, execute_cypher_statements
 from app.services.parser import parse_document
 from app.services.qdrant_service import upsert_document_chunks
 from app.utils.text_processor import clean_legal_text
@@ -106,6 +106,76 @@ class DocumentService:
                 await self._append_log(db, doc_id, "error", f"Pipeline failed: {err}")
                 logger.error("[Pipeline] Failed — doc_id=%s: %s", doc_id, exc, exc_info=True)
                 await self._update_status(db, doc_id, DocumentStatus.FAILED)
+
+    async def pipeline_stage_for_preview(
+        self, doc_id: int, filename: str, file_content: bytes, kb_type: KbType
+    ) -> None:
+        """Parse, chunk, embed to Qdrant, then generate Cypher WITHOUT executing on Neo4j.
+
+        Sets status=PENDING_GRAPH and stores the generated Cypher in staged_cypher.
+        The user must call commit_staged_cypher() to finalise.
+        """
+        from app.core.db import async_session_factory
+
+        async with async_session_factory() as db:
+            try:
+                await self._update_status(db, doc_id, DocumentStatus.PROCESSING)
+                await self._append_log(db, doc_id, "info", "Pipeline started — parsing document.")
+                logger.info("[Stage] Started — doc_id=%s, file=%s", doc_id, filename)
+
+                raw_text = await asyncio.to_thread(parse_document, filename, file_content)
+                clean_text = clean_legal_text(raw_text)
+                chunks = split_legal_document(clean_text)
+                msg = f"Parsed {len(chunks)} chunk(s) from document."
+                await self._append_log(db, doc_id, "info", msg)
+                logger.info("[Stage] %s — doc_id=%s", msg, doc_id)
+
+                title = Path(filename).stem
+                await asyncio.to_thread(
+                    upsert_document_chunks, chunks, doc_id, kb_type.collection_name
+                )
+                await self._append_log(
+                    db, doc_id, "info", f"Vectors upserted to Qdrant ({kb_type.collection_name})."
+                )
+
+                cypher = await asyncio.to_thread(generate_cypher_strings, doc_id, title, chunks)
+                await db.execute(
+                    update(Document).where(Document.id == doc_id).values(staged_cypher=cypher)
+                )
+                await db.commit()
+
+                await self._update_status(db, doc_id, DocumentStatus.PENDING_GRAPH)
+                await self._append_log(
+                    db, doc_id, "info",
+                    f"Cypher generated ({len(cypher.splitlines())} statements). Awaiting graph review."
+                )
+                logger.info("[Stage] pending_graph — doc_id=%s", doc_id)
+
+            except Exception as exc:
+                err = str(exc)
+                await self._append_log(db, doc_id, "error", f"Staging failed: {err}")
+                logger.error("[Stage] Failed — doc_id=%s: %s", doc_id, exc, exc_info=True)
+                await self._update_status(db, doc_id, DocumentStatus.FAILED)
+
+    async def commit_staged_cypher(
+        self, db: AsyncSession, doc_id: int, cypher_text: str
+    ) -> bool:
+        """Execute user-reviewed Cypher on Neo4j and mark the document COMPLETED."""
+        try:
+            await asyncio.to_thread(execute_cypher_statements, cypher_text)
+            await db.execute(
+                update(Document).where(Document.id == doc_id).values(staged_cypher=None)
+            )
+            await db.commit()
+            await self._update_status(db, doc_id, DocumentStatus.COMPLETED)
+            await self._append_log(db, doc_id, "success", "Graph committed to Neo4j. Pipeline completed.")
+            logger.info("[Commit] Completed — doc_id=%s", doc_id)
+            await self._auto_generate_analyses(doc_id)
+            return True
+        except Exception as exc:
+            await self._append_log(db, doc_id, "error", f"Cypher commit failed: {exc}")
+            logger.error("[Commit] Failed — doc_id=%s: %s", doc_id, exc, exc_info=True)
+            return False
 
     # ── Queries ──────────────────────────────────────────────
 

@@ -5,6 +5,127 @@ from app.utils.reference_extractor import extract_article_numbers
 _ALLOWED_REFERENCE_TYPES = frozenset({"REFERENCES", "AMENDS", "SUPERSEDES", "IMPLEMENTS"})
 
 
+def _esc(s) -> str:
+    return str(s).replace("\\", "\\\\").replace("'", "\\'").replace("\n", " ").replace("\r", "")
+
+
+def generate_cypher_strings(document_id: int, title: str, chunks: list[dict]) -> str:
+    """Generate all Cypher statements needed to build the document graph.
+
+    Returns a multi-line string where each non-comment line is one executable
+    Cypher statement.  Does NOT execute anything on Neo4j.
+    """
+    lines: list[str] = []
+
+    # Document node
+    lines.append("// Document node")
+    lines.append(
+        f"MERGE (d:Document {{document_id: {document_id}}}) "
+        f"SET d.title = '{_esc(title)}'"
+    )
+
+    # Article nodes
+    articles: dict[int, str] = {}
+    for chunk in chunks:
+        art_num = chunk.get("article_number")
+        if art_num is not None:
+            articles.setdefault(art_num, chunk.get("header", f"Điều {art_num}"))
+
+    if articles:
+        lines.append("")
+        lines.append("// Article nodes — linked to their Document")
+        for art_num in sorted(articles):
+            header = articles[art_num]
+            article_id = f"doc:{document_id}:art:{art_num}"
+            lines.append(
+                f"MATCH (d:Document {{document_id: {document_id}}}) "
+                f"MERGE (a:Article {{article_id: '{_esc(article_id)}'}}) "
+                f"SET a.document_id = {document_id}, a.article_number = {art_num}, "
+                f"a.header = '{_esc(header)}' "
+                f"MERGE (d)-[:HAS_ARTICLE]->(a)"
+            )
+
+    # Clause nodes
+    lines.append("")
+    lines.append("// Clause nodes — linked to Article (or Document when article unknown)")
+    for chunk in chunks:
+        chunk_id = chunk["chunk_id"]
+        art_num = chunk.get("article_number")
+        text = _esc(chunk["text_content"][:200])
+        if art_num is not None:
+            lines.append(
+                f"MATCH (a:Article {{document_id: {document_id}, article_number: {art_num}}}) "
+                f"MERGE (c:Clause {{chunk_id: '{_esc(chunk_id)}', document_id: {document_id}}}) "
+                f"SET c.text_content = '{text}', c.article_number = {art_num} "
+                f"MERGE (a)-[:HAS_CLAUSE]->(c)"
+            )
+        else:
+            lines.append(
+                f"MATCH (d:Document {{document_id: {document_id}}}) "
+                f"MERGE (c:Clause {{chunk_id: '{_esc(chunk_id)}', document_id: {document_id}}}) "
+                f"SET c.text_content = '{text}' "
+                f"MERGE (d)-[:HAS_CLAUSE]->(c)"
+            )
+
+    # NEXT_CLAUSE edges
+    chunk_by_article: dict[int, list[dict]] = {}
+    for chunk in chunks:
+        art = chunk.get("article_number")
+        if art is not None:
+            chunk_by_article.setdefault(art, []).append(chunk)
+
+    next_lines: list[str] = []
+    for art_num in sorted(chunk_by_article):
+        art_chunks = sorted(chunk_by_article[art_num], key=lambda c: c["chunk_id"])
+        for i in range(len(art_chunks) - 1):
+            cid1 = _esc(art_chunks[i]["chunk_id"])
+            cid2 = _esc(art_chunks[i + 1]["chunk_id"])
+            next_lines.append(
+                f"MATCH (c1:Clause {{chunk_id: '{cid1}', document_id: {document_id}}}), "
+                f"(c2:Clause {{chunk_id: '{cid2}', document_id: {document_id}}}) "
+                f"MERGE (c1)-[:NEXT_CLAUSE]->(c2)"
+            )
+
+    if next_lines:
+        lines.append("")
+        lines.append("// Sequential links (NEXT_CLAUSE)")
+        lines.extend(next_lines)
+
+    # REFERENCES edges
+    ref_lines: list[str] = []
+    for chunk in chunks:
+        cited_nums = list(set(extract_article_numbers(chunk["text_content"])))
+        cited_nums = [n for n in cited_nums if n in articles]
+        for art_num in cited_nums:
+            cid = _esc(chunk["chunk_id"])
+            ref_lines.append(
+                f"MATCH (c:Clause {{chunk_id: '{cid}', document_id: {document_id}}}), "
+                f"(a:Article {{document_id: {document_id}, article_number: {art_num}}}) "
+                f"MERGE (c)-[:REFERENCES]->(a)"
+            )
+
+    if ref_lines:
+        lines.append("")
+        lines.append("// Cross-reference links (REFERENCES)")
+        lines.extend(ref_lines)
+
+    return "\n".join(lines)
+
+
+def execute_cypher_statements(cypher_text: str) -> None:
+    """Execute each non-comment, non-empty line of cypher_text as a separate statement."""
+    statements = [
+        line.strip()
+        for line in cypher_text.splitlines()
+        if line.strip() and not line.strip().startswith("//")
+    ]
+    driver = get_neo4j_driver()
+    with driver.session() as session:
+        for stmt in statements:
+            session.run(stmt)
+    logger.info("execute_cypher_statements: executed %d statements.", len(statements))
+
+
 def build_document_graph(document_id: int, title: str, chunks: list[dict]) -> None:
     driver = get_neo4j_driver()
     with driver.session() as session:

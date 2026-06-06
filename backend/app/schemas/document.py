@@ -16,5 +16,6 @@ class DocumentResponse(BaseModel):
     kb_type: str = "law"
     created_at: datetime
     processing_log: Optional[str] = None
+    staged_cypher: Optional[str] = None
 
     model_config = {"from_attributes": True}

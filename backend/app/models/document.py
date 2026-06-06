@@ -15,3 +15,4 @@ class Document(Base):
     kb_type        = Column(String(50), default="law", nullable=False)
     created_at     = Column(DateTime, default=datetime.utcnow, nullable=False)
     processing_log = Column(Text, nullable=True, default=None)
+    staged_cypher  = Column(Text, nullable=True, default=None)

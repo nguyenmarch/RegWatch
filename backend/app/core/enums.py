@@ -4,6 +4,7 @@ from enum import Enum
 class DocumentStatus(str, Enum):
     PENDING = "pending"
     PROCESSING = "processing"
+    PENDING_GRAPH = "pending_graph"
     COMPLETED = "completed"
     FAILED = "failed"
 
