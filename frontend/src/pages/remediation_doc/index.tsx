@@ -21,6 +21,7 @@ interface GroupedDocEntry {
     refinementOpen?: boolean;
     refinementPrompt?: string;
     isGenerating: boolean;
+    selectedDraftId?: number | null;
 }
 
 // ── Main Component ───────────────────────────────────────────────────────────
@@ -36,6 +37,8 @@ export default function Remediation() {
     const [isLoading, setIsLoading] = useState(true);
     const [uploadState, setUploadState] = useState<UploadState>('idle');
     const [uploadMsg, setUploadMsg] = useState('');
+    // Map docName → selected draft ID for announcement generation
+    const [selectedDraftsByDoc, setSelectedDraftsByDoc] = useState<Map<string, number>>(new Map());
     const uploadInputRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => { fetchActionPlans(); }, []);
@@ -118,9 +121,39 @@ export default function Remediation() {
     const allSelected = allTasks.length > 0 && selectedTaskIds.size === allTasks.length;
     const someSelected = selectedTaskIds.size > 0;
 
+    // Task names whose document comment has been ticked (resolved) — drives the
+    // green "Đã xử lý" state on the left task list.
+    const resolvedTaskNames = new Set<string>();
+    docMap.forEach(entry => {
+        entry.parsed?.comments?.forEach((c: any) => {
+            if (c.resolved && c.task_name) resolvedTaskNames.add(c.task_name);
+        });
+    });
+
+    // Compute selected groups for draft check
+    const selectedGroups = new Map<string, any[]>();
+    selectedTaskIds.forEach(tid => {
+        const task = allTasks.find((t: any) => t.id === tid);
+        if (!task) return;
+        const docName = task.impacted_internal_doc || "Văn bản đào tạo / chưa phân loại";
+        if (!selectedGroups.has(docName)) {
+            selectedGroups.set(docName, []);
+        }
+        selectedGroups.get(docName)!.push(task);
+    });
+
+    // Check if all selected groups have draft selected for announcement generation
+    const allGroupsHaveDraft = selectedGroups.size === 0 ||
+        Array.from(selectedGroups.keys()).every(docName => selectedDraftsByDoc.has(docName));
+
     const toggleSelectAll = () => {
         if (allSelected) setSelectedTaskIds(new Set());
         else setSelectedTaskIds(new Set(allTasks.map((t: any) => t.id)));
+    };
+
+    // ── Set selected draft for announcement generation ──────────────────────────
+    const handleSelectDraft = (docName: string, draftId: number) => {
+        setSelectedDraftsByDoc(prev => new Map(prev).set(docName, draftId));
     };
 
     // ── Batch generate (grouped by document) ──────────────────────────────────
@@ -137,13 +170,25 @@ export default function Remediation() {
             groups[docName].push(tid);
         });
 
+        // For announcement mode: check all groups have draft selected
+        if (type === 'announcement') {
+            for (const docName of Object.keys(groups)) {
+                if (!selectedDraftsByDoc.has(docName)) {
+                    alert(`Vui lòng chọn bản nháp cho "${docName}" trước`);
+                    return;
+                }
+            }
+        }
+
         setGeneratingIds(new Set(selectedTaskIds));
 
         // Call group generation in parallel for each unique document group
         const results = await Promise.allSettled(
             Object.keys(groups).map(async (docName) => {
                 const tids = groups[docName];
-                const docs = await api.remediation.generateGroupDocument(tids, undefined, type);
+                // For announcement, pass selected draft ID instead of undefined
+                const refinementPrompt = type === 'announcement' ? `Dùng bản nháp ID ${selectedDraftsByDoc.get(docName)}` : undefined;
+                const docs = await api.remediation.generateGroupDocument(tids, refinementPrompt, type);
                 return docs;
             })
         );
@@ -392,6 +437,7 @@ export default function Remediation() {
                 refinementOpen: matchedRefinementOpen,
                 refinementPrompt: matchedRefinementPrompt,
                 isGenerating,
+                selectedDraftId: selectedDraftsByDoc.get(docName) ?? null,
             });
         });
     }
@@ -488,8 +534,8 @@ export default function Remediation() {
                             id="btn-generate-training"
                             className={`${styles.generateBtn} ${styles.generateBtnAlt}`}
                             onClick={() => handleGenerateSelected('announcement')}
-                            disabled={!someSelected || generatingIds.size > 0}
-                            title="Sinh văn bản đào tạo nội bộ"
+                            disabled={!someSelected || generatingIds.size > 0 || !allGroupsHaveDraft}
+                            title={!allGroupsHaveDraft ? "Chọn bản nháp trước khi sinh VB đào tạo" : "Sinh văn bản đào tạo nội bộ"}
                         >
                             🎓 Sinh VB Đào tạo
                         </button>
@@ -541,10 +587,11 @@ export default function Remediation() {
                                     const checked = selectedTaskIds.has(task.id);
                                     const hasDoc = docMap.has(task.id);
                                     const isGen = generatingIds.has(task.id);
+                                    const isResolved = resolvedTaskNames.has(task.task_name);
                                     return (
                                         <label
                                             key={task.id}
-                                            className={`${styles.taskItem} ${checked ? styles.taskItemChecked : ''} ${isGen ? styles.taskItemGenerating : ''}`}
+                                            className={`${styles.taskItem} ${checked ? styles.taskItemChecked : ''} ${isGen ? styles.taskItemGenerating : ''} ${isResolved ? styles.taskItemResolved : ''}`}
                                         >
                                             <input
                                                 type="checkbox"
@@ -562,6 +609,9 @@ export default function Remediation() {
                                                 <p className={styles.taskItemName}>{task.task_name}</p>
                                                 {task.impacted_internal_doc && (
                                                     <p className={styles.taskItemDoc}>→ {task.impacted_internal_doc}</p>
+                                                )}
+                                                {isResolved && (
+                                                    <p className={styles.taskItemResolvedNote}>✓ Đã xử lý</p>
                                                 )}
                                             </div>
                                         </label>
@@ -597,6 +647,7 @@ export default function Remediation() {
                                         onExport={exportDoc}
                                         onToggleRefinement={toggleRefinement}
                                         onSetRefinementPrompt={setRefinementPrompt}
+                                        onSelectDraft={handleSelectDraft}
                                     />
                                 ))
                             )}
@@ -618,22 +669,23 @@ interface DocSectionProps {
     onExport: (taskIds: number[]) => void;
     onToggleRefinement: (taskIds: number[]) => void;
     onSetRefinementPrompt: (taskIds: number[], prompt: string) => void;
+    onSelectDraft: (docName: string, draftId: number) => void;
 }
 
 function DocSection({
     group,
     onSave, onSaveDraft, onApprove, onRefine, onExport,
-    onToggleRefinement, onSetRefinementPrompt,
+    onToggleRefinement, onSetRefinementPrompt, onSelectDraft,
 }: DocSectionProps) {
     const [approveRole, setApproveRole] = useState('product');
     const [localComments, setLocalComments] = useState<any[]>([]);
     // Draft history
     const [drafts, setDrafts] = useState<any[]>([]);
     const [showDrafts, setShowDrafts] = useState(false);
-    
+
     // View mode: switch between document and announcement
     const [viewMode, setViewMode] = useState<'document' | 'announcement'>('document');
-    
+
     // top offset (px) of each mark, measured from top of scrollContainer
     const [commentTops, setCommentTops] = useState<Record<string, number>>({});
     const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -814,11 +866,22 @@ function DocSection({
                     <div className={styles.draftsTitle}>Lịch sử bản nháp</div>
                     <div className={styles.draftsList}>
                         {drafts.map((d: any, idx: number) => (
-                            <div key={d.id} className={styles.draftItem}>
+                            <div key={d.id} className={`${styles.draftItem} ${group.selectedDraftId === d.id ? styles.draftItemSelected : ''}`}>
                                 <span className={styles.draftTime}>{new Date(d.created_at).toLocaleString('vi-VN')}</span>
                                 {idx === 0 && <span className={styles.draftBadge}>Mới nhất</span>}
-                                <button className={styles.draftRestoreBtn} onClick={() => doRestoreDraft(d.content)}>
+                                <button
+                                    className={styles.draftRestoreBtn}
+                                    onClick={() => doRestoreDraft(d.content)}
+                                    title="Khôi phục bản nháp này để chỉnh sửa"
+                                >
                                     Khôi phục
+                                </button>
+                                <button
+                                    className={`${styles.draftSelectBtn} ${group.selectedDraftId === d.id ? styles.draftSelectBtnActive : ''}`}
+                                    onClick={() => onSelectDraft(group.docName, d.id)}
+                                    title="Chọn bản nháp này để sinh VB đào tạo"
+                                >
+                                    {group.selectedDraftId === d.id ? '✓ Đã chọn' : 'Chọn'}
                                 </button>
                             </div>
                         ))}
@@ -901,11 +964,10 @@ function DocSection({
                         {/* Right: comment overlay — no independent scroll, absolute cards */}
                         <div className={styles.annotationSidebar} style={{ minHeight: sidebarMinHeight }}>
                             {localComments.map((comment: any) => {
-                                const commentTask = group.tasks.find((t: any) => t.task_name === comment.task_name) || group.tasks[0];
                                 return (
                                 <div
                                     key={comment.id}
-                                    className={styles.commentCard}
+                                    className={`${styles.commentCard} ${comment.resolved ? styles.commentCardResolved : ''}`}
                                     style={commentTops[comment.id] !== undefined
                                         ? { top: commentTops[comment.id] }
                                         : { position: 'relative' }
@@ -915,27 +977,13 @@ function DocSection({
                                 >
                                     <div className={styles.commentCardHeader}>
                                         <label className={styles.commentTickWrap} onClick={(e) => e.stopPropagation()}>
-                                            <input 
-                                                type="checkbox" 
-                                                checked={comment.resolved || false} 
-                                                onChange={() => toggleCommentResolved(comment.id)} 
+                                            <input
+                                                type="checkbox"
+                                                checked={comment.resolved || false}
+                                                onChange={() => toggleCommentResolved(comment.id)}
                                             />
                                             <span className={styles.commentTickMark}></span>
                                         </label>
-                                        <div className={styles.commentCardMeta}>
-                                            <div className={styles.commentCardTopMeta}>
-                                                <span className={styles.taskDeptBadge}>{commentTask?.target_department || 'IT'}</span>
-                                                {comment.resolved && (
-                                                    <span className={styles.commentResolvedStatus}>✓</span>
-                                                )}
-                                            </div>
-                                            <span className={`${styles.commentTaskName} ${comment.resolved ? styles.commentResolvedText : ''}`}>
-                                                {comment.task_name || 'Đề xuất thay đổi'}
-                                            </span>
-                                            <span className={styles.commentDocName}>
-                                                &rarr; {commentTask?.impacted_internal_doc || 'Quy chế bảo mật thông tin nội bộ'}
-                                            </span>
-                                        </div>
                                     </div>
                                     <textarea
                                         className={styles.commentReasonInput}

@@ -513,6 +513,20 @@
   white-space: nowrap;
 }
 
+/* Resolved task — comment đã được tick: cam → xanh + dòng "Đã xử lý" */
+.taskItemResolved,
+.taskItemResolved.taskItemChecked {
+  background: #F0FDF4;
+  border-left-color: #10B981;
+}
+
+.taskItemResolvedNote {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #10B981;
+  margin: 4px 0 0;
+}
+
 /* Footer */
 .taskPanelFooter {
   padding: 10px 16px;
@@ -828,6 +842,12 @@
   box-shadow: 0 4px 6px rgba(0,0,0,0.08);
   border-color: #F59E0B;
   background-color: #FEF9E7;
+}
+
+/* Comment đã tick (resolved) — viền + nền xanh nhạt */
+.commentCardResolved {
+  border-color: #10B981;
+  background-color: #F0FDF4;
 }
 
 .commentCard:hover::before {
@@ -1237,6 +1257,32 @@
 
 .draftRestoreBtn:hover {
   background: #D97706;
+}
+
+.draftSelectBtn {
+  background: #10B981;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.draftSelectBtn:hover {
+  background: #059669;
+}
+
+.draftSelectBtnActive {
+  background: #065F46;
+  font-weight: 700;
+}
+
+.draftItemSelected {
+  border-color: #10B981;
+  background: #F0FDF4;
 }
 
 /* ═══════════════════════════════════════════════════════════
