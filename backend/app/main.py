@@ -30,6 +30,27 @@ _ADMIN_USERNAME = "admin"
 _ADMIN_EMAIL    = "admin@regwatch.com"
 _ADMIN_PASSWORD = "Admin@123"
 
+_SEED_USERS = [
+    {
+        "username": _ADMIN_USERNAME,
+        "email": _ADMIN_EMAIL,
+        "password": _ADMIN_PASSWORD,
+        "role": "admin",
+    },
+    {
+        "username": "compliance",
+        "email": "compliance@regwatch.com",
+        "password": "1",
+        "role": "compliance",
+    },
+    {
+        "username": "product",
+        "email": "product@regwatch.com",
+        "password": "1",
+        "role": "product",
+    },
+]
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -37,18 +58,18 @@ async def lifespan(app: FastAPI):
     async with async_engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
 
-    # Seed admin user if no users exist
+    # Seed required demo users without touching existing accounts.
     async with async_session_factory() as db:
         from app.repositories.user import user_repo
-        if not await user_repo.exists_any(db):
-            await user_repo.create(
+        for seed in _SEED_USERS:
+            await user_repo.ensure_seed_user(
                 db,
-                username=_ADMIN_USERNAME,
-                email=_ADMIN_EMAIL,
-                password=_ADMIN_PASSWORD,
-                role="admin",
+                username=seed["username"],
+                email=seed["email"],
+                password=seed["password"],
+                role=seed["role"],
             )
-            logger.info("Admin user seeded: username=admin")
+            logger.info("User ensured: username=%s role=%s", seed["username"], seed["role"])
 
     get_neo4j_driver()
     ensure_minio_bucket()

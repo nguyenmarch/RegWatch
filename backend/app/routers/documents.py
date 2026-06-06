@@ -7,7 +7,9 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.db import get_db
+from app.core.deps import can_access_kb, get_current_user
 from app.core.enums import DocumentStatus, KbType
+from app.models.user import User
 from app.schemas.document import DocumentResponse
 from app.services.document import document_service
 
@@ -16,13 +18,24 @@ router = APIRouter(prefix="/v1/documents", tags=["Documents"])
 _ALLOWED_EXTENSIONS = {".pdf", ".docx", ".doc"}
 
 
+def _ensure_kb_access(user: User, kb_type: str) -> None:
+    if not can_access_kb(user.role, kb_type):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have permission to access this knowledge base",
+        )
+
+
 @router.post("/upload", response_model=DocumentResponse, status_code=status.HTTP_202_ACCEPTED)
 async def upload_document(
     background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
     kb_type: KbType = Form(KbType.LAW),
     db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
 ) -> DocumentResponse:
+    _ensure_kb_access(user, kb_type.value)
+
     ext = Path(file.filename).suffix.lower()
     if ext not in _ALLOWED_EXTENSIONS:
         raise HTTPException(
@@ -73,10 +86,15 @@ def _download_filename(title: str, object_key: str | None) -> str:
 
 
 @router.get("/{doc_id}/download")
-async def download_document(doc_id: int, db: AsyncSession = Depends(get_db)) -> StreamingResponse:
+async def download_document(
+    doc_id: int,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> StreamingResponse:
     doc = await document_service.get_document(db=db, doc_id=doc_id)
     if doc is None or not doc.file_path:
         raise HTTPException(status_code=404, detail=f"Document {doc_id} not found.")
+    _ensure_kb_access(user, doc.kb_type)
 
     try:
         file_obj = document_service.open_original_file(doc.file_path)
@@ -97,12 +115,27 @@ async def download_document(doc_id: int, db: AsyncSession = Depends(get_db)) -> 
 async def list_documents(
     kb_type: KbType | None = Query(None),
     db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
 ) -> List[DocumentResponse]:
-    return await document_service.get_all_documents(db=db, kb_type=kb_type)
+    if kb_type is not None:
+        _ensure_kb_access(user, kb_type.value)
+        return await document_service.get_all_documents(db=db, kb_type=kb_type)
+
+    documents = await document_service.get_all_documents(db=db)
+    return [doc for doc in documents if can_access_kb(user.role, doc.kb_type)]
 
 
 @router.get("/{doc_id}/log")
-async def get_document_log(doc_id: int, db: AsyncSession = Depends(get_db)) -> list[dict]:
+async def get_document_log(
+    doc_id: int,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> list[dict]:
+    doc = await document_service.get_document(db=db, doc_id=doc_id)
+    if doc is None:
+        raise HTTPException(status_code=404, detail=f"Document {doc_id} not found.")
+    _ensure_kb_access(user, doc.kb_type)
+
     entries = await document_service.get_log(db=db, doc_id=doc_id)
     if entries is None:
         raise HTTPException(status_code=404, detail=f"Document {doc_id} not found.")
@@ -110,7 +143,19 @@ async def get_document_log(doc_id: int, db: AsyncSession = Depends(get_db)) -> l
 
 
 @router.delete("/{doc_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_document(doc_id: int, db: AsyncSession = Depends(get_db)) -> None:
+async def delete_document(
+    doc_id: int,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> None:
+    doc = await document_service.get_document(db=db, doc_id=doc_id)
+    if doc is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Document {doc_id} not found.",
+        )
+    _ensure_kb_access(user, doc.kb_type)
+
     success = await document_service.delete_document_pipeline(db=db, doc_id=doc_id)
     if not success:
         raise HTTPException(

@@ -83,16 +83,14 @@ export default function ManageTab({ docs, loading, onDeleted }: Props) {
             </div>
             <div className="doc-row-actions">
               {doc.file_path && (
-                <a
-                  href={api.documents.downloadUrl(doc.id)}
+                <button
+                  type="button"
                   className="btn btn-outline btn-sm"
-                  target="_blank"
-                  rel="noreferrer"
-                  download
+                  onClick={() => api.documents.download(doc.id, doc.title)}
                 >
                   <DownloadIcon size={13} />
                   {t('documents.download')}
-                </a>
+                </button>
               )}
               <button
                 className="btn btn-sm doc-delete-btn"

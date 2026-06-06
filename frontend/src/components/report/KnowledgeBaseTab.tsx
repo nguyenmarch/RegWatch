@@ -166,6 +166,7 @@ export default function KnowledgeBaseTab({
                         <button
                           className="action-btn action-download"
                           title={t('report.download') || 'Download'}
+                          onClick={() => api.documents.download(doc.id, doc.title)}
                         >
                           <DownloadIcon size={16} />
                         </button>

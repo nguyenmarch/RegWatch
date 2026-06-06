@@ -194,6 +194,32 @@ export const api = {
     downloadUrl: (id: number) =>
       `${BASE_URL}/v1/documents/${id}/download`,
 
+    download: async (id: number, fallbackName = 'document') => {
+      const token = localStorage.getItem('access_token')
+      const res = await fetch(`${BASE_URL}/v1/documents/${id}/download`, {
+        headers: {
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+      })
+      if (!res.ok) {
+        const error = await res.json().catch(() => ({ detail: res.statusText }))
+        throw new Error(error.detail ?? 'Download failed')
+      }
+
+      const blob = await res.blob()
+      const disposition = res.headers.get('content-disposition') || ''
+      const encodedName = disposition.match(/filename\*=UTF-8''([^;]+)/)?.[1]
+      const filename = encodedName ? decodeURIComponent(encodedName) : fallbackName
+      const url = URL.createObjectURL(blob)
+      const anchor = document.createElement('a')
+      anchor.href = url
+      anchor.download = filename
+      document.body.appendChild(anchor)
+      anchor.click()
+      anchor.remove()
+      URL.revokeObjectURL(url)
+    },
+
     getLog: (id: number) =>
       request<{ level: string; message: string; ts: string }[]>(`/v1/documents/${id}/log`),
   },

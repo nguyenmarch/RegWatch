@@ -1,6 +1,8 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { api, type Document, type KbType } from '../lib/api'
+import { useAuth } from '../context/AuthContext'
+import { canAccessKb } from '../lib/permissions'
 import ManageTab from '../components/documents/ManageTab'
 import UploadTab from '../components/documents/UploadTab'
 import HistoryTab from '../components/documents/HistoryTab'
@@ -29,6 +31,7 @@ const KB_CONFIGS: KbConfig[] = [
 
 export default function Documents() {
   const { t } = useTranslation()
+  const { user } = useAuth()
   const [activeKb, setActiveKb] = useState<KbType>('law')
   const [subTab, setSubTab] = useState<SubTab>('manage')
   const [docs, setDocs] = useState<Document[]>([])
@@ -36,6 +39,10 @@ export default function Documents() {
   const [toasts, setToasts] = useState<Toast[]>([])
   const [openLogId, setOpenLogId] = useState<number | null>(null)
 
+  const visibleKbConfigs = useMemo(
+    () => KB_CONFIGS.filter(config => canAccessKb(user, config.type)),
+    [user],
+  )
   const kbDocs = docs.filter(d => d.kb_type === activeKb)
   const processingCount = kbDocs.filter(d => d.status === 'pending' || d.status === 'processing').length
 
@@ -57,6 +64,13 @@ export default function Documents() {
   }, [t])
 
   useEffect(() => { fetchDocs() }, [fetchDocs])
+
+  useEffect(() => {
+    if (visibleKbConfigs.length === 0) return
+    if (!visibleKbConfigs.some(config => config.type === activeKb)) {
+      setActiveKb(visibleKbConfigs[0].type)
+    }
+  }, [activeKb, visibleKbConfigs])
 
   useEffect(() => {
     if (!processingCount) return
@@ -117,7 +131,7 @@ export default function Documents() {
 
         {/* ── KB Type Selector ── */}
         <div className="kb-selector">
-          {KB_CONFIGS.map(({ type, Icon, colorClass, badgeKey }) => {
+          {visibleKbConfigs.map(({ type, Icon, colorClass, badgeKey }) => {
             const count = docs.filter(d => d.kb_type === type).length
             const processing = docs.filter(d => d.kb_type === type && (d.status === 'pending' || d.status === 'processing')).length
             const isActive = activeKb === type

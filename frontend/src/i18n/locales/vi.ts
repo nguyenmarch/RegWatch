@@ -37,7 +37,7 @@ const vi = {
     submit: 'Đăng nhập',
     submitting: 'Đang đăng nhập...',
     error: 'Tên đăng nhập hoặc mật khẩu không đúng',
-    hint: 'Tài khoản mặc định: admin / Admin@123',
+    hint: 'Tai khoan: admin / Admin@123, compliance / 1, product / 1',
   },
   home: {
     badge: 'Hybrid Graph-RAG · Tài chính & Ngân hàng',
@@ -137,6 +137,11 @@ const vi = {
     desc: 'Không có route nào khớp với <code>{{path}}</code>. Trang này có thể đã được chuyển đi hoặc chưa từng tồn tại.',
     goHome: 'Về trang chủ',
     healthTest: 'Kiểm tra API',
+  },
+  unauthorized: {
+    title: 'B\u1ea1n kh\u00f4ng c\u00f3 quy\u1ec1n truy c\u1eadp',
+    desc: 'T\u00e0i kho\u1ea3n hi\u1ec7n t\u1ea1i kh\u00f4ng \u0111\u01b0\u1ee3c ph\u00e9p m\u1edf khu v\u1ef1c n\u00e0y. Vui l\u00f2ng li\u00ean h\u1ec7 Admin n\u1ebfu c\u1ea7n c\u1ea5p quy\u1ec1n.',
+    goHome: 'V\u1ec1 trang ch\u1ee7',
   },
   documents: {
     title: 'Kho Tri thức',

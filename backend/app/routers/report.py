@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.deps import get_db, get_current_user
+from app.core.deps import REPORT_ROLES, get_db, require_roles
 from app.models.user import User
 from app.schemas.report import (
     AnalysesUpsertRequest,
@@ -37,7 +37,7 @@ router = APIRouter(prefix="/report", tags=["report"])
 @router.get("/analyses", response_model=list[AnalysesResponse])
 async def list_analyses(
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_roles(*REPORT_ROLES)),
 ) -> list[AnalysesResponse]:
     """
     List all compliance analyses.
@@ -49,7 +49,7 @@ async def list_analyses(
 async def upsert_analyses(
     request: AnalysesUpsertRequest,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_roles(*REPORT_ROLES)),
 ) -> AnalysesResponse:
     """
     Receive an analyses alert from the Analysis pipeline and expose it in Report.
@@ -64,7 +64,7 @@ async def upsert_analyses(
 async def upsert_analyses_alert(
     request: AnalysesUpsertRequest,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_roles(*REPORT_ROLES)),
 ) -> AnalysesResponse:
     """
     Backward-compatible alias for Analysis flows that still send an alert payload.
@@ -83,7 +83,7 @@ async def upsert_analyses_alert(
 async def get_report_items(
     analyses_id: int,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_roles(*REPORT_ROLES)),
 ) -> list[ReportItemResponse]:
     """
     Get report items for a specific analyses.
@@ -96,7 +96,7 @@ async def save_report_items(
     analyses_id: int,
     request: ReportItemsUpdate,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_roles(*REPORT_ROLES)),
 ) -> ReportItemsSaveResponse:
     """
     Save/update report items for a specific analyses.
@@ -117,7 +117,7 @@ async def save_report_items(
 async def get_report(
     analyses_id: int,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_roles(*REPORT_ROLES)),
 ) -> ReportResponse:
     """
     Get the full Report dossier for an analyses.
@@ -133,7 +133,7 @@ async def update_report(
     analyses_id: int,
     request: ReportUpdate,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_roles(*REPORT_ROLES)),
 ) -> ReportResponse:
     """
     Update risk report, CEO approval, issued-plan metadata, workflow, or action items.
@@ -155,7 +155,7 @@ async def update_report(
 async def finalize_report(
     analyses_id: int,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_roles(*REPORT_ROLES)),
 ) -> FinalizedReportResponse:
     """
     Finalize (lock) an report for a specific analyses.
@@ -182,7 +182,7 @@ async def generate_llm_recommendations(
     analyses_id: int,
     request: RecommendationRequest,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_roles(*REPORT_ROLES)),
 ) -> RecommendationResponse:
     """
     Generate LLM recommendations using Gemini based on analyses and user prompt.

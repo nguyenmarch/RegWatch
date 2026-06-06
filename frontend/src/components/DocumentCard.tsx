@@ -108,13 +108,14 @@ export default function DocumentCard({ doc, onDelete }: Props) {
           ) : (
             <div className="doc-card-actions">
               {hasStoredFile && (
-                <a
+                <button
+                  type="button"
                   className="btn btn-outline btn-sm doc-file-btn"
-                  href={api.documents.downloadUrl(doc.id)}
+                  onClick={() => api.documents.download(doc.id, doc.title)}
                 >
                   <DownloadIcon size={13} />
                   {t('documents.download')}
-                </a>
+                </button>
               )}
               <button
                 className="btn btn-ghost btn-sm doc-delete-btn"

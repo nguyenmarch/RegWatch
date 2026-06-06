@@ -2,6 +2,7 @@ import { Link, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useTheme } from '../context/ThemeContext'
 import { useAuth } from '../context/AuthContext'
+import { ROLES, hasRole } from '../lib/permissions'
 import {
   RegWatchLogoIcon, HomeIcon, SparklesIcon, FileTextIcon,
   ActivityIcon, ChartIcon, ScrollTextIcon, WorkflowIcon,
@@ -21,8 +22,8 @@ const NAV = [
   { to: '/', icon: HomeIcon, labelKey: 'header.home', exact: true, authOnly: false },
   { to: '/chat', icon: SparklesIcon, labelKey: 'header.chat', exact: false, authOnly: true },
   { to: '/documents', icon: FileTextIcon, labelKey: 'header.documents', exact: false, authOnly: true },
-  { to: '/analyses', icon: ChartIcon, labelKey: 'header.analyses', exact: false, authOnly: true },
-  { to: '/report', icon: ScrollTextIcon, labelKey: 'header.report', exact: false, authOnly: true },
+  { to: '/analyses', icon: ChartIcon, labelKey: 'header.analyses', exact: false, authOnly: true, roles: [ROLES.admin, ROLES.compliance] },
+  { to: '/report', icon: ScrollTextIcon, labelKey: 'header.report', exact: false, authOnly: true, roles: [ROLES.admin] },
   { to: '/remediation', icon: WorkflowIcon, labelKey: 'header.remediation', exact: false, authOnly: true },
   { to: '/test', icon: ActivityIcon, labelKey: 'header.apiTest', exact: false, authOnly: false },
 ] as const
@@ -50,7 +51,9 @@ export default function AppSidebar({ collapsed, onToggleCollapse, mobileOpen, on
     return exact ? pathname === to : pathname.startsWith(to)
   }
 
-  const visibleNav = NAV.filter(n => !n.authOnly || isAuthenticated)
+  const visibleNav = NAV.filter(n =>
+    (!n.authOnly || isAuthenticated) && (!('roles' in n) || hasRole(user, n.roles))
+  )
 
   /* ── Shared nav markup ──────────────────────────────── */
   function NavLinks({ labels }: { labels: boolean }) {

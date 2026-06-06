@@ -10,6 +10,7 @@ from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
 
 from app.core.db import get_db
+from app.core.deps import get_current_user
 
 from app.models.remediation_doc import RemediationDoc, DraftVersion
 from app.models.report import Report
@@ -32,7 +33,11 @@ from app.services.llm_generation import (
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/remediation", tags=["Remediation"])
+router = APIRouter(
+    prefix="/remediation",
+    tags=["Remediation"],
+    dependencies=[Depends(get_current_user)],
+)
 
 class TaskProxy:
     """Helper class to pass task dicts to LLM generation functions."""

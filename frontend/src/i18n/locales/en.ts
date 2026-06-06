@@ -37,7 +37,7 @@ const en = {
     submit: 'Sign in',
     submitting: 'Signing in...',
     error: 'Incorrect username or password',
-    hint: 'Default credentials: admin / Admin@123',
+    hint: 'Accounts: admin / Admin@123, compliance / 1, product / 1',
   },
   home: {
     badge: 'Hybrid Graph-RAG · Fintech & Banking',
@@ -137,6 +137,11 @@ const en = {
     desc: 'No route matches <code>{{path}}</code>. The page may have been moved or never existed.',
     goHome: 'Go home',
     healthTest: 'Health test',
+  },
+  unauthorized: {
+    title: 'You do not have access',
+    desc: 'Your current account is not allowed to open this area. Contact an Admin if you need access.',
+    goHome: 'Go home',
   },
   documents: {
     title: 'Knowledge Base',

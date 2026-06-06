@@ -3,6 +3,7 @@ import { Link, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useTheme } from '../context/ThemeContext'
 import { useAuth } from '../context/AuthContext'
+import { canAccessReport } from '../lib/permissions'
 import {
   RegWatchLogoIcon, SunIcon, MoonIcon, GlobeIcon,
   ActivityIcon, HomeIcon, FileTextIcon, MenuIcon, XIcon,
@@ -25,6 +26,7 @@ export default function Header() {
   }
 
   const isVI = i18n.language === 'vi'
+  const showReport = canAccessReport(user)
 
   return (
     <header className="header">
@@ -51,9 +53,11 @@ export default function Header() {
             <Link to="/documents" className={`nav-link ${pathname === '/documents' ? 'active' : ''}`}>
               {t('header.documents')}
             </Link>
-            <Link to="/report" className={`nav-link ${pathname === '/report' ? 'active' : ''}`}>
-              {t('header.report') || 'Report'}
-            </Link>
+            {showReport && (
+              <Link to="/report" className={`nav-link ${pathname === '/report' ? 'active' : ''}`}>
+                {t('header.report') || 'Report'}
+              </Link>
+            )}
             <Link to="/test" className={`nav-link ${pathname === '/test' ? 'active' : ''}`}>
               {t('header.apiTest')}
             </Link>
@@ -132,14 +136,16 @@ export default function Header() {
                 <span className="mobile-nav-icon"><FileTextIcon size={17} /></span>
                 {t('header.documents')}
               </Link>
-              <Link
-                to="/report"
-                className={`mobile-nav-link ${pathname === '/report' ? 'active' : ''}`}
-                onClick={closeMenu}
-              >
-                <span className="mobile-nav-icon"><CheckCircleIcon size={17} /></span>
-                {t('header.report') || 'Report'}
-              </Link>
+              {showReport && (
+                <Link
+                  to="/report"
+                  className={`mobile-nav-link ${pathname === '/report' ? 'active' : ''}`}
+                  onClick={closeMenu}
+                >
+                  <span className="mobile-nav-icon"><CheckCircleIcon size={17} /></span>
+                  {t('header.report') || 'Report'}
+                </Link>
+              )}
               <Link
                 to="/test"
                 className={`mobile-nav-link ${pathname === '/test' ? 'active' : ''}`}

@@ -15,6 +15,10 @@ class UserRepository:
         result = await db.execute(select(User).where(User.id == user_id))
         return result.scalar_one_or_none()
 
+    async def exists_username(self, db: AsyncSession, username: str) -> bool:
+        result = await db.execute(select(User.id).where(User.username == username).limit(1))
+        return result.scalar_one_or_none() is not None
+
     async def create(
         self,
         db: AsyncSession,
@@ -31,6 +35,31 @@ class UserRepository:
             is_active=True,
         )
         db.add(user)
+        await db.commit()
+        await db.refresh(user)
+        return user
+
+    async def ensure_seed_user(
+        self,
+        db: AsyncSession,
+        username: str,
+        email: str,
+        password: str,
+        role: str,
+    ) -> User:
+        user = await self.get_by_username(db, username)
+        if user is None:
+            return await self.create(
+                db,
+                username=username,
+                email=email,
+                password=password,
+                role=role,
+            )
+
+        user.hashed_password = hash_password(password)
+        user.role = role
+        user.is_active = True
         await db.commit()
         await db.refresh(user)
         return user

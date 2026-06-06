@@ -14,6 +14,7 @@ import AnalysisRunDetail from './pages/AnalysisRunDetail'
 import TestHealth from './pages/TestHealth'
 import NotFound from './pages/NotFound'
 import Remediation from './pages/remediation_doc';
+import { ROLES } from './lib/permissions'
 
 function AppShell() {
   const { pathname } = useLocation()
@@ -48,13 +49,13 @@ function AppShell() {
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/report" element={
-            <ProtectedRoute><Report /></ProtectedRoute>
+            <ProtectedRoute allowedRoles={[ROLES.admin]}><Report /></ProtectedRoute>
           } />
           <Route path="/chat" element={<ProtectedRoute><Chat /></ProtectedRoute>} />
           <Route path="/documents" element={<ProtectedRoute><Documents /></ProtectedRoute>} />
-          <Route path="/analyses" element={<ProtectedRoute><Analyses /></ProtectedRoute>} />
-          <Route path="/analyses/history/:runKey" element={<ProtectedRoute><AnalysisRunDetail /></ProtectedRoute>} />
-          <Route path="/analyses/:id" element={<ProtectedRoute><AnalysisDetail /></ProtectedRoute>} />
+          <Route path="/analyses" element={<ProtectedRoute allowedRoles={[ROLES.admin, ROLES.compliance]}><Analyses /></ProtectedRoute>} />
+          <Route path="/analyses/history/:runKey" element={<ProtectedRoute allowedRoles={[ROLES.admin, ROLES.compliance]}><AnalysisRunDetail /></ProtectedRoute>} />
+          <Route path="/analyses/:id" element={<ProtectedRoute allowedRoles={[ROLES.admin, ROLES.compliance]}><AnalysisDetail /></ProtectedRoute>} />
           <Route path="/test" element={<TestHealth />} />
           <Route path="*" element={<NotFound />} />
           <Route path="/remediation" element={
