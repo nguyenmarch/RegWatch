@@ -10,6 +10,7 @@ export interface Analyses {
   due_date: string
   estimated_impact: string
   created_at: string
+  status: 'processed' | 'finalized' | string
 }
 
 export interface ReportItem {
@@ -76,6 +77,27 @@ export interface IssuedPlan {
   issue_note: string
 }
 
+export interface ReportActionPlanTask {
+  task_id?: string
+  task_name?: string
+  priority?: string
+  target_department?: string
+  action_required?: string
+  impacted_internal_doc?: string
+  output_type?: string
+  deadline?: string
+  estimated_budget?: number
+  estimated_budget_vnd?: number
+  task_status?: string
+}
+
+export interface ReportActionPlan {
+  action_plan_id?: string
+  associated_law?: Record<string, unknown>
+  metadata?: Record<string, unknown>
+  tasks?: ReportActionPlanTask[]
+}
+
 export interface ReportDossier {
   analyses_id: number
   workflow_status: ReportWorkflowStatus
@@ -83,6 +105,7 @@ export interface ReportDossier {
   ceo_approval: CeoApproval
   issued_plan: IssuedPlan
   report_items: ReportItem[]
+  action_plan?: ReportActionPlan | null
 }
 
 export type ReportUpdate = Partial<{
@@ -91,6 +114,7 @@ export type ReportUpdate = Partial<{
   ceo_approval: CeoApproval
   issued_plan: IssuedPlan
   report_items: ReportItem[]
+  action_plan: ReportActionPlan | null
 }>
 
 export interface FinalizedReport {
@@ -103,8 +127,9 @@ export interface FinalizedReport {
   risk_report: RiskReport
   ceo_approval: CeoApproval
   issued_plan: IssuedPlan
+  action_plan?: ReportActionPlan | null
 }
 
 export interface RecommendationResponse {
-  recommendations: string[]
+  recommendations: ReportItem[]
 }

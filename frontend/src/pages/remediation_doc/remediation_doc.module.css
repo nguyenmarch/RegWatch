@@ -1378,6 +1378,253 @@
 }
 
 /* ═══════════════════════════════════════════════════════════
+   PAGE TABS
+   ═══════════════════════════════════════════════════════════ */
+.pageTabs {
+  display: flex;
+  gap: 4px;
+  background: rgba(0,0,0,.18);
+  border-radius: 8px;
+  padding: 3px;
+}
+
+.pageTab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 14px;
+  border-radius: 6px;
+  border: none;
+  background: transparent;
+  color: rgba(255,255,255,.65);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background .15s, color .15s;
+  white-space: nowrap;
+}
+
+.pageTab:hover {
+  background: rgba(255,255,255,.08);
+  color: #fff;
+}
+
+.pageTabActive {
+  background: rgba(255,255,255,.15);
+  color: #fff;
+  box-shadow: 0 1px 3px rgba(0,0,0,.25);
+}
+
+.pageTabBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 9px;
+  background: #6366f1;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   SIGNED DOCUMENTS PAGE
+   ═══════════════════════════════════════════════════════════ */
+.signedPage {
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  height: 100%;
+  overflow-y: auto;
+}
+
+.signedHeader {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+}
+
+.signedTitle {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-primary, #111);
+  margin: 0;
+}
+
+.signedCount {
+  font-size: 13px;
+  color: var(--text-muted, #6b7280);
+}
+
+.signedTableWrap {
+  background: var(--bg-card, #fff);
+  border: 1px solid var(--border-color, #e5e7eb);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.signedTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.signedTable thead tr {
+  background: var(--bg-subtle, #f9fafb);
+  border-bottom: 1px solid var(--border-color, #e5e7eb);
+}
+
+.signedTable th {
+  padding: 10px 14px;
+  text-align: left;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  color: var(--text-muted, #6b7280);
+  white-space: nowrap;
+}
+
+.signedTable td {
+  padding: 12px 14px;
+  vertical-align: middle;
+  border-bottom: 1px solid var(--border-color, #e5e7eb);
+}
+
+.signedTable tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.signedTable tbody tr:hover {
+  background: var(--bg-subtle, #f9fafb);
+}
+
+.signedPlanCode {
+  display: block;
+  font-weight: 600;
+  color: var(--text-primary, #111);
+  font-size: 13px;
+}
+
+.signedLawId {
+  display: block;
+  font-size: 11px;
+  color: var(--text-muted, #6b7280);
+  margin-top: 2px;
+}
+
+.signedDocName {
+  display: block;
+  font-weight: 500;
+  color: var(--text-primary, #111);
+}
+
+.signedTaskCode {
+  display: block;
+  font-size: 11px;
+  color: var(--text-muted, #6b7280);
+  margin-top: 2px;
+}
+
+.signedDept {
+  display: inline-flex;
+  padding: 3px 8px;
+  border-radius: 4px;
+  background: rgba(99,102,241,.1);
+  color: #6366f1;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.signedStatus {
+  display: inline-flex;
+  padding: 3px 10px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+}
+
+.signedStatusApproved {
+  background: rgba(16,185,129,.12);
+  color: #059669;
+}
+
+.signedStatusPartial {
+  background: rgba(245,158,11,.12);
+  color: #d97706;
+}
+
+.signedApprovalDots {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.signedDot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--border-color, #e5e7eb);
+  border: 2px solid transparent;
+  transition: background .2s;
+}
+
+.signedDotOk {
+  background: #10b981;
+}
+
+.signedExportBtn {
+  padding: 5px 12px;
+  border-radius: 6px;
+  border: 1px solid var(--border-color, #e5e7eb);
+  background: transparent;
+  color: var(--text-primary, #374151);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background .15s, border-color .15s;
+}
+
+.signedExportBtn:hover:not(:disabled) {
+  background: var(--bg-subtle, #f3f4f6);
+  border-color: #6366f1;
+  color: #6366f1;
+}
+
+.signedExportBtn:disabled {
+  opacity: .4;
+  cursor: not-allowed;
+}
+
+.signedLoadingDots {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  justify-content: center;
+}
+
+.signedLoadingDots span {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #6366f1;
+  animation: signedDotBounce .9s infinite ease-in-out;
+}
+
+.signedLoadingDots span:nth-child(2) { animation-delay: .15s; }
+.signedLoadingDots span:nth-child(3) { animation-delay: .3s; }
+
+@keyframes signedDotBounce {
+  0%, 80%, 100% { transform: scale(.6); opacity: .4; }
+  40% { transform: scale(1); opacity: 1; }
+}
+
+/* ═══════════════════════════════════════════════════════════
    RESPONSIVE
    ═══════════════════════════════════════════════════════════ */
 @media (max-width: 1024px) {

@@ -6,13 +6,14 @@ import ReportTab from '../components/report/ReportTab'
 import LLMRecommendTab from '../components/report/LLMRecommendTab'
 import { FileTextIcon, SparklesIcon, LoaderIcon } from '../components/Icons'
 import type { Document } from '../lib/api'
-import type { ReportItem, Analyses } from '../types/report'
+import type { ReportDossier, ReportItem, Analyses } from '../types/report'
 
 export default function Report() {
   const { t } = useTranslation()
 
   const [analyses, setAnalyses] = useState<Analyses[]>([])
   const [selectedAnalyses, setSelectedAnalyses] = useState<Analyses | null>(null)
+  const [reportDossier, setReportDossier] = useState<ReportDossier | null>(null)
   const [reportItems, setReportItems] = useState<ReportItem[]>([])
   const [kbDocuments, setKbDocuments] = useState<Document[]>([])
   const [loading, setLoading] = useState(false)
@@ -20,10 +21,10 @@ export default function Report() {
   const autoSelectedRef = useRef(false)
 
   const totalAnalyses = analyses.length
-  const needsAction = analyses.filter(a => a.severity === 'HIGH' || a.severity === 'CRITICAL').length
-  const inProgress = reportItems.filter(ap => ap.status === 'Đang xử lý').length
-  const completed = reportItems.filter(ap => ap.status === 'Đã chốt').length
-  const totalBudget = reportItems.reduce((sum, ap) => sum + ap.estimated_budget, 0)
+  const finalizedAnalyses = analyses.filter(a => a.status === 'finalized').length
+  const needsAction = analyses.filter(a => a.status !== 'finalized').length
+  const completed = finalizedAnalyses
+  const reportLocked = selectedAnalyses?.status === 'finalized' || reportDossier?.workflow_status === 'issued'
 
   const fetchAnalyses = useCallback(async () => {
     setLoading(true)
@@ -45,9 +46,11 @@ export default function Report() {
   const fetchReport = useCallback(async (analysesId: number) => {
     try {
       const data = await api.report.getReport(analysesId)
+      setReportDossier(data)
       setReportItems(data.report_items)
     } catch (err) {
       console.error('Failed to fetch report:', err)
+      setReportDossier(null)
       setReportItems([])
     }
   }, [])
@@ -77,7 +80,8 @@ export default function Report() {
     setSaving(true)
     try {
       if (selectedAnalyses) {
-        await api.analyses.saveReportItems(selectedAnalyses.id, items)
+        if (reportLocked) return
+        await api.report.saveReportItems(selectedAnalyses.id, items)
         setReportItems(items)
         window.alert(t('report.toast.saveSucess') || 'Report saved successfully')
       }
@@ -91,9 +95,10 @@ export default function Report() {
 
   const handleFinalizeReport = async () => {
     if (!selectedAnalyses) return
+    if (reportLocked) return
     setSaving(true)
     try {
-      const data = await api.analyses.finalizeReport(selectedAnalyses.id)
+      const data = await api.report.finalizeReport(selectedAnalyses.id)
       const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json;charset=utf-8;' })
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
@@ -106,8 +111,21 @@ export default function Report() {
       a.remove()
       URL.revokeObjectURL(url)
       window.alert(t('report.toast.finalizeSuccess') || 'Report finalized successfully')
-      fetchAnalyses()
-      fetchReport(selectedAnalyses.id)
+      setReportItems(data.report_items)
+      setReportDossier({
+        analyses_id: selectedAnalyses.id,
+        workflow_status: data.workflow_status,
+        risk_report: data.risk_report,
+        ceo_approval: data.ceo_approval,
+        issued_plan: data.issued_plan,
+        report_items: data.report_items,
+        action_plan: data.action_plan ?? null,
+      })
+      setSelectedAnalyses(prev => prev ? { ...prev, status: 'finalized' } : prev)
+      setAnalyses(prev => prev.map(item =>
+        item.id === selectedAnalyses.id ? { ...item, status: 'finalized' } : item
+      ))
+      await Promise.all([fetchAnalyses(), fetchReport(selectedAnalyses.id)])
     } catch (err) {
       console.error('Failed to finalize report:', err)
       window.alert(t('report.toast.finalizeError') || 'Failed to finalize Report')
@@ -134,26 +152,10 @@ export default function Report() {
       ),
     },
     {
-      label: 'Đang xử lý', value: inProgress, mod: 'amber', d: '140ms',
-      icon: (
-        <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-          <circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" />
-        </svg>
-      ),
-    },
-    {
-      label: 'Đã chốt Report', value: completed, mod: 'green', d: '170ms',
+      label: 'Đã chốt Report', value: completed, mod: 'green', d: '140ms',
       icon: (
         <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
           <polyline points="20 6 9 17 4 12" />
-        </svg>
-      ),
-    },
-    {
-      label: 'Ước tính dự trù', value: `${(totalBudget / 1e9).toFixed(1)}T`, mod: 'violet', d: '200ms',
-      icon: (
-        <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-          <line x1="12" y1="1" x2="12" y2="23" /><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
         </svg>
       ),
     },
@@ -217,6 +219,8 @@ export default function Report() {
               onSave={handleSaveReport}
               onFinalize={handleFinalizeReport}
               saving={saving}
+              locked={reportLocked}
+              actionPlan={reportDossier?.action_plan ?? null}
             />
           </div>
 

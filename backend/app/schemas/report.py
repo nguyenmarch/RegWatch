@@ -13,6 +13,7 @@ class AnalysesResponse(BaseModel):
     due_date: str
     estimated_impact: str
     created_at: str
+    status: str = ""
 
 
 class AnalysesUpsertRequest(BaseModel):
@@ -174,4 +175,4 @@ class RecommendationRequest(BaseModel):
 
 
 class RecommendationResponse(BaseModel):
-    recommendations: list[str]
+    recommendations: list[ReportItemResponse]

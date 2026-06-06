@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
-import type { Analyses, ReportItem } from '../../types/report'
+import type { Analyses, ReportActionPlan, ReportItem } from '../../types/report'
 import { TrashIcon, PlusIcon, SaveIcon, CheckIcon, DownloadIcon, FileTextIcon } from '../Icons'
 
 interface ReportTabProps {
@@ -9,11 +9,13 @@ interface ReportTabProps {
   onSave: (items: ReportItem[]) => Promise<void>
   onFinalize: () => Promise<void>
   saving: boolean
+  locked: boolean
+  actionPlan?: ReportActionPlan | null
 }
 
 const DEPARTMENTS = [
   'Khối Công nghệ', 'Khối Vận hành', 'Khối Pháp chế',
-  'Khối BoD (HR)', 'Khối Marketing',
+  'Khối BoD', 'Khối Marketing',
 ]
 const RISK_LEVELS = ['Cao', 'Trung bình', 'Thấp']
 
@@ -49,18 +51,42 @@ const formatDate = (value: string) => {
   return date.toLocaleDateString('vi-VN')
 }
 
+const formatBudget = (value?: number) => {
+  const amount = Number(value || 0)
+  if (!amount) return '—'
+  return `${amount.toLocaleString()} VND`
+}
+
 export default function ReportTab({
   selectedAnalyses,
   items,
   onSave,
   onFinalize,
   saving,
+  locked,
+  actionPlan,
 }: ReportTabProps) {
   const { t } = useTranslation()
   const [editedItems, setEditedItems] = useState<ReportItem[]>(items)
   const [isEditing, setIsEditing] = useState(false)
 
   useEffect(() => { setEditedItems(items) }, [items])
+
+  const itemComplete = (item: ReportItem) =>
+    Boolean(
+      item.report_description.trim() &&
+      item.responsible_department.trim() &&
+      item.target_date.trim() &&
+      item.estimated_budget > 0 &&
+      item.estimated_risk.trim() &&
+      item.code.trim() &&
+      item.status.trim() &&
+      item.deliverable_type.trim() &&
+      item.owner_role.trim()
+    )
+
+  const allItemsComplete = editedItems.length > 0 && editedItems.every(itemComplete)
+  const actionPlanTasks = actionPlan?.tasks ?? []
 
   const handleAddRow = () => {
     const newItem: ReportItem = {
@@ -95,6 +121,7 @@ export default function ReportTab({
     )
 
   const handleSave = async () => {
+    if (locked) return
     await onSave(editedItems)
     setIsEditing(false)
   }
@@ -106,20 +133,75 @@ export default function ReportTab({
 
   const handleExportCSV = () => {
     try {
-      const header = [
-        'Report Description', 'Department', 'Target Date',
-        'Estimated Budget', 'Risk Level', 'Code', 'Status',
+      const delimiter = '\t'
+      const exportedAt = new Date().toLocaleString('vi-VN')
+      const headers = [
+        'STT',
+        'Mã phân tích',
+        'Tiêu đề phân tích',
+        'Mức độ phân tích',
+        'Mô tả report',
+        'Bộ phận phụ trách',
+        'Ngày mục tiêu',
+        'Ngân sách ước tính (VND)',
+        'Mức rủi ro',
+        'Mã hành động',
+        'Trạng thái',
+        'Loại deliverable',
+        'Vai trò owner',
+        'Vai trò co-owner',
+        'Phụ thuộc',
+        'Tài liệu bằng chứng',
       ]
-      const rows = editedItems.map(it => [
-        it.report_description, it.responsible_department, it.target_date,
-        it.estimated_budget, it.estimated_risk, it.code, it.status,
+      const rows = editedItems.map((it, idx) => [
+        idx + 1,
+        selectedAnalyses?.analyses_code || '',
+        selectedAnalyses?.title || '',
+        selectedAnalyses?.severity || '',
+        it.report_description,
+        it.responsible_department,
+        formatDate(it.target_date),
+        it.estimated_budget,
+        it.estimated_risk,
+        it.code,
+        it.status,
+        it.deliverable_type,
+        it.owner_role,
+        it.co_owner_role,
+        it.dependency,
+        it.evidence_document,
       ])
-      const esc = (v: string | number) => {
+      const esc = (v: string | number | null | undefined) => {
         const s = (v ?? '').toString()
-        return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s
+        return s.includes(delimiter) || s.includes('"') || /[\r\n]/.test(s)
+          ? `"${s.replace(/"/g, '""')}"`
+          : s
       }
-      const csv = [header.join(','), ...rows.map(r => r.map(esc).join(','))].join('\n')
-      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+      const encodeUtf16Le = (text: string) => {
+        const buffer = new ArrayBuffer(text.length * 2 + 2)
+        const view = new DataView(buffer)
+        view.setUint16(0, 0xfeff, true)
+        for (let i = 0; i < text.length; i += 1) {
+          view.setUint16((i + 1) * 2, text.charCodeAt(i), true)
+        }
+        return buffer
+      }
+      const metadata = [
+        ['REGWATCH REPORT EXPORT'],
+        ['Mã phân tích', selectedAnalyses?.analyses_code || ''],
+        ['Tiêu đề phân tích', selectedAnalyses?.title || ''],
+        ['Mức độ phân tích', selectedAnalyses?.severity || ''],
+        ['Ngày xuất file', exportedAt],
+        ['Số dòng report', editedItems.length],
+        [],
+      ]
+      const csv = [
+        `sep=${delimiter}`,
+        ...metadata.map(r => r.map(esc).join(delimiter)),
+        headers.map(esc).join(delimiter),
+        ...rows.map(r => r.map(esc).join(delimiter)),
+      ].join('\r\n')
+      const blob = new Blob([encodeUtf16Le(csv)], { type: 'text/csv;charset=utf-16le;' })
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
@@ -167,7 +249,7 @@ export default function ReportTab({
           <div className={`rpt-toolbar${isEditing ? ' rpt-toolbar--edit' : ''}`}>
             {!isEditing ? (
               <>
-                <button className="rpt-btn rpt-btn--primary" onClick={() => setIsEditing(true)}>
+                <button className="rpt-btn rpt-btn--primary" onClick={() => setIsEditing(true)} disabled={locked}>
                   <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
                     <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
                     <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
@@ -175,9 +257,9 @@ export default function ReportTab({
                   Chỉnh sửa
                 </button>
                 <div className="rpt-toolbar-spacer" />
-                <button className="rpt-btn rpt-btn--success" onClick={onFinalize} disabled={saving}>
+                <button className="rpt-btn rpt-btn--success" onClick={onFinalize} disabled={saving || locked || !allItemsComplete}>
                   <CheckIcon size={13} />
-                  {saving ? 'Đang xử lý...' : 'Chốt Report'}
+                  {saving ? 'Đang xử lý...' : locked ? 'Đã chốt Report' : 'Chốt Report'}
                 </button>
                 <button className="rpt-btn rpt-btn--teal" onClick={handleExportCSV}>
                   <DownloadIcon size={13} />
@@ -205,6 +287,17 @@ export default function ReportTab({
               </>
             )}
           </div>
+
+          {!locked && !allItemsComplete && (
+            <div className="rpt-validation-note">
+              Vui lòng điền đủ mô tả, bộ phận, ngày mục tiêu, ngân sách, mức rủi ro, mã và trạng thái trước khi chốt Report.
+            </div>
+          )}
+          {locked && (
+            <div className="rpt-lock-note">
+              Report đã được chốt. Không thể chỉnh sửa hoặc chốt lại.
+            </div>
+          )}
 
           {/* Info strip */}
           <div className="rpt-editor-info">
@@ -237,15 +330,17 @@ export default function ReportTab({
                     <tr key={item.id}>
                       <td>
                         {isEditing ? (
-                          <input
-                            className="rpt-input"
-                            type="text"
+                          <textarea
+                            className="rpt-input rpt-desc-textarea"
                             value={item.report_description}
                             onChange={e => handleFieldChange(item.id, 'report_description', e.target.value)}
+                            rows={4}
                             placeholder="Mô tả hành động"
                           />
                         ) : (
-                          <span>{item.report_description || <span className="rpt-text-muted">—</span>}</span>
+                          <div className="rpt-desc-scroll">
+                            {item.report_description || <span className="rpt-text-muted">—</span>}
+                          </div>
                         )}
                       </td>
                       <td>
@@ -352,6 +447,61 @@ export default function ReportTab({
               </table>
             </div>
           </div>
+
+          {locked && actionPlanTasks.length > 0 && (
+            <div className="rpt-action-plan">
+              <div className="rpt-action-plan-head">
+                <div>
+                  <p className="rpt-section-label">Action Plan</p>
+                  <h3>{actionPlan?.action_plan_id || 'Finalized action plan'}</h3>
+                </div>
+                <span className="rpt-status">Read-only</span>
+              </div>
+              <div className="rpt-table-scroll">
+                <table className="rpt-table rpt-action-table">
+                  <thead>
+                    <tr>
+                      <th>{t('report.reportDescription') || 'Mô tả'}</th>
+                      <th>{t('report.department') || 'Bộ phận'}</th>
+                      <th>{t('report.targetDate') || 'Ngày'}</th>
+                      <th>{t('report.budget') || 'Ngân sách'}</th>
+                      <th>{t('report.riskLevel') || 'Rủi ro'}</th>
+                      <th>{t('report.code') || 'Mã'}</th>
+                      <th>{t('report.status') || 'Trạng thái'}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {actionPlanTasks.map((task, idx) => {
+                      const budget = task.estimated_budget ?? task.estimated_budget_vnd ?? editedItems[idx]?.estimated_budget
+                      return (
+                        <tr key={task.task_id || idx}>
+                          <td>
+                            <div className="rpt-desc-scroll">
+                              {task.action_required || <span className="rpt-text-muted">—</span>}
+                            </div>
+                          </td>
+                          <td><span className="rpt-dept">{task.target_department || '—'}</span></td>
+                          <td>{formatDate(task.deadline || '')}</td>
+                          <td>
+                            {budget ? (
+                              <span className="rpt-budget">
+                                {formatBudget(budget)}
+                              </span>
+                            ) : (
+                              <span className="rpt-text-muted">—</span>
+                            )}
+                          </td>
+                          <td><span className={`rpt-risk ${riskClass(task.priority)}`}>{task.priority || '—'}</span></td>
+                          <td>{task.task_name || task.task_id || '—'}</td>
+                          <td><span className="rpt-status">{task.task_status || 'OPEN'}</span></td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
         </>
       )}
     </>

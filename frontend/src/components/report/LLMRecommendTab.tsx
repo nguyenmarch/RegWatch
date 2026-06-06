@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { Document } from '../../lib/api'
-import type { Analyses } from '../../types/report'
+import type { Analyses, ReportItem } from '../../types/report'
 import { SparklesIcon } from '../Icons'
 import { api } from '../../lib/api'
 import { formatGmt7DateTime } from '../../lib/datetime'
@@ -14,8 +14,15 @@ interface LLMRecommendTabProps {
 export default function LLMRecommendTab({ selectedAnalyses, kbDocuments }: LLMRecommendTabProps) {
   const { t } = useTranslation()
   const [prompt, setPrompt] = useState('')
-  const [recommendations, setRecommendations] = useState<string[]>([])
+  const [recommendations, setRecommendations] = useState<ReportItem[]>([])
   const [loading, setLoading] = useState(false)
+
+  const formatDate = (value: string) => {
+    if (!value) return '—'
+    const date = new Date(value)
+    if (Number.isNaN(date.getTime())) return value
+    return date.toLocaleDateString('vi-VN')
+  }
 
   const handleGenerate = async () => {
     if (!selectedAnalyses) return
@@ -38,9 +45,12 @@ export default function LLMRecommendTab({ selectedAnalyses, kbDocuments }: LLMRe
         prompt.trim() ? prompt.trim() : '(không có)',
         '',
         '### Yêu cầu đầu ra',
-        'Hãy đề xuất các gợi ý/chương hành động cụ thể, ưu tiên tính khả thi và tuân thủ.',
+        'Hãy đề xuất bảng action plan để bộ phận phụ trách tham khảo.',
+        'Mỗi dòng phải có: report_description, responsible_department, target_date, estimated_budget, estimated_risk, code, status, deliverable_type, owner_role, co_owner_role, dependency, evidence_document.',
+        'responsible_department chỉ được dùng đúng một trong các giá trị: Khối Công nghệ, Khối Vận hành, Khối Pháp chế, Khối BoD, Khối Marketing.',
+        'estimated_risk chỉ được dùng đúng một trong các giá trị: Cao, Trung bình, Thấp.',
       ].join('\n')
-      const result = await api.analyses.generateLLMRecommendations(selectedAnalyses.id, finalPrompt)
+      const result = await api.report.generateLLMRecommendations(selectedAnalyses.id, finalPrompt)
       setRecommendations(result.recommendations)
     } catch (err) {
       console.error('Failed to generate recommendations:', err)
@@ -74,7 +84,7 @@ export default function LLMRecommendTab({ selectedAnalyses, kbDocuments }: LLMRe
         <button
           className="rpt-btn rpt-gen-btn"
           onClick={handleGenerate}
-          disabled={loading || !prompt.trim()}
+          disabled={loading}
         >
           <SparklesIcon size={15} />
           {loading ? 'Đang xử lý...' : 'Tạo gợi ý'}
@@ -85,17 +95,37 @@ export default function LLMRecommendTab({ selectedAnalyses, kbDocuments }: LLMRe
       {recommendations.length > 0 && (
         <div>
           <p className="rpt-section-label">{t('report.recommendations') || 'Gợi ý từ AI'}</p>
-          <div className="rpt-rec-list">
-            {recommendations.map((rec, idx) => (
-              <div
-                key={idx}
-                className="rpt-rec"
-                style={{ '--d': `${idx * 60}ms` } as React.CSSProperties}
-              >
-                <div className="rpt-rec-n">{idx + 1}</div>
-                <div className="rpt-rec-t">{rec}</div>
-              </div>
-            ))}
+          <div className="rpt-table-scroll rpt-ai-table-wrap">
+            <table className="rpt-table rpt-ai-table">
+              <thead>
+                <tr>
+                  <th>{t('report.reportDescription') || 'Mô tả'}</th>
+                  <th>{t('report.department') || 'Bộ phận'}</th>
+                  <th>{t('report.targetDate') || 'Ngày'}</th>
+                  <th>{t('report.budget') || 'Ngân sách'}</th>
+                  <th>{t('report.riskLevel') || 'Rủi ro'}</th>
+                  <th>{t('report.code') || 'Mã'}</th>
+                  <th>{t('report.status') || 'Trạng thái'}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {recommendations.map((rec, idx) => (
+                  <tr key={rec.code || idx} style={{ '--d': `${idx * 60}ms` } as React.CSSProperties}>
+                    <td>
+                      <div className="rpt-desc-scroll">
+                        {rec.report_description || <span className="rpt-text-muted">—</span>}
+                      </div>
+                    </td>
+                    <td><span className="rpt-dept">{rec.responsible_department || '—'}</span></td>
+                    <td>{formatDate(rec.target_date)}</td>
+                    <td><span className="rpt-budget">{Number(rec.estimated_budget || 0).toLocaleString()} VND</span></td>
+                    <td><span className="rpt-risk">{rec.estimated_risk || '—'}</span></td>
+                    <td>{rec.code || '—'}</td>
+                    <td><span className="rpt-status">{rec.status || 'Cần xử lý'}</span></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </div>
       )}

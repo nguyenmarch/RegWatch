@@ -270,22 +270,6 @@ export const api = {
 
     updateReport: (analysesId: number, data: ReportUpdate) =>
       request<ReportDossier>(`/report/analyses/${analysesId}/report`, {
-        method: 'PUT',
-        body: JSON.stringify(data),
-      }),
-  },
-  analyses: {
-    list: () =>
-      request<AnalysisSummary[]>('/v1/analyses'),
-
-    get: (id: number) =>
-      request<AnalysisDetail>(`/v1/analyses/${id}`),
-
-    pending: () =>
-      request<{ pending: number }>('/v1/analyses/pending'),
-
-    patch: (id: number, data: AnalysisUpdate) =>
-      request<AnalysisDetail>(`/v1/analyses/${id}`, {
         method: 'PATCH',
         body: JSON.stringify(data),
       }),
@@ -306,6 +290,23 @@ export const api = {
         method: 'POST',
         body: JSON.stringify({ prompt }),
       }),
+  },
+  analyses: {
+    list: () =>
+      request<AnalysisSummary[]>('/v1/analyses'),
+
+    get: (id: number) =>
+      request<AnalysisDetail>(`/v1/analyses/${id}`),
+
+    pending: () =>
+      request<{ pending: number }>('/v1/analyses/pending'),
+
+    patch: (id: number, data: AnalysisUpdate) =>
+      request<AnalysisDetail>(`/v1/analyses/${id}`, {
+        method: 'PATCH',
+        body: JSON.stringify(data),
+      }),
+
     publish: (id: number) =>
       request<AnalysisDetail>(`/v1/analyses/${id}/publish`, { method: 'POST' }),
 

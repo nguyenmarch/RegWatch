@@ -21,6 +21,8 @@ from app.schemas.report import (
 from app.services.report import (
     AnalysesNotFoundError,
     EmptyReportError,
+    IncompleteReportError,
+    ReportLockedError,
     report_service,
 )
 
@@ -103,6 +105,8 @@ async def save_report_items(
         count = await report_service.save_report_items(db, analyses_id, request.items)
     except AnalysesNotFoundError:
         raise HTTPException(status_code=404, detail="Compliance analyses not found")
+    except ReportLockedError:
+        raise HTTPException(status_code=409, detail="Report is finalized and cannot be edited")
     return {
         "message": "Report items saved successfully",
         "count": count,
@@ -142,6 +146,8 @@ async def update_report(
         )
     except AnalysesNotFoundError:
         raise HTTPException(status_code=404, detail="Compliance analyses not found")
+    except ReportLockedError:
+        raise HTTPException(status_code=409, detail="Report is finalized and cannot be edited")
 
 
 @router.post("/analyses/{analyses_id}/finalize", response_model=FinalizedReportResponse)
@@ -161,6 +167,10 @@ async def finalize_report(
         raise HTTPException(status_code=404, detail="Compliance analyses not found")
     except EmptyReportError:
         raise HTTPException(status_code=400, detail="Report is empty. Please add items before finalizing.")
+    except IncompleteReportError:
+        raise HTTPException(status_code=400, detail="Please fill all required report fields before finalizing.")
+    except ReportLockedError:
+        raise HTTPException(status_code=409, detail="Report is already finalized.")
 
 
 # ────────────────────────────────────────────────────────────────────────────────
