@@ -14,6 +14,11 @@ from app.models import analysis_job as _analysis_job_model
 from app.models import conversation as _conversation_model
 from app.models import document as _document_model
 from app.models import user as _user_model
+from app.models import analysis as _compliance_analyses_model
+from app.models import report as _report_model
+from app.models import action_plan as _action_plan_model
+
+from app.routers import auth, chat, documents, users, report
 from app.routers import analyses, auth, chat, documents, users
 from app.services.analysis_retry import analysis_retry_loop
 
@@ -77,9 +82,17 @@ app.include_router(auth.router)
 app.include_router(users.router)
 app.include_router(chat.router)
 app.include_router(documents.router)
+app.include_router(report.router)
+
+
+# Ensure model metadata is registered
+_ = _action_plan_model
+
+
 app.include_router(analyses.router)
 
 
 @app.get("/health", tags=["Health"])
+
 async def health_check() -> dict:
     return {"status": "ok", "service": "RegWatch"}

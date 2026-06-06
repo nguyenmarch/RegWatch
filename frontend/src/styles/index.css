@@ -4004,6 +4004,247 @@ code {
   border-right: 1px solid var(--border);
   display: flex;
   flex-direction: column;
+}
+
+/* ══════════════════════════════════════════════════════════
+   REPORT PAGE
+   ══════════════════════════════════════════════════════════ */
+.report-page {
+  padding: 32px 0;
+}
+
+.report-header {
+  margin-bottom: 32px;
+}
+
+.report-title {
+  font-family: var(--font-display);
+  font-size: 2rem;
+  font-weight: 800;
+  margin-bottom: 8px;
+  color: var(--text-1);
+}
+
+.report-subtitle {
+  color: var(--text-2);
+  font-size: 0.9375rem;
+}
+
+/* ── Stats Section ── */
+.report-stats-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+  margin-bottom: 32px;
+}
+
+.stat-card {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 20px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-glass);
+  border: 1px solid var(--border);
+  backdrop-filter: blur(8px);
+  transition: all var(--t-fast);
+}
+
+.stat-card:hover {
+  background: var(--bg-glass-h);
+  border-color: var(--border-h);
+  transform: translateY(-2px);
+}
+
+.stat-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  border-radius: var(--radius-xs);
+  flex-shrink: 0;
+  font-size: 24px;
+}
+
+.stat-icon-1 { background: rgba(243, 112, 33, 0.12); color: #f37021; }
+.stat-icon-2 { background: rgba(245, 158, 11, 0.12); color: #f59e0b; }
+.stat-icon-3 { background: rgba(236, 72, 153, 0.12); color: #ec4899; }
+.stat-icon-4 { background: rgba(16, 185, 129, 0.12); color: #10b981; }
+.stat-icon-5 { background: rgba(59, 130, 246, 0.12); color: #3b82f6; }
+
+.stat-content {
+  flex: 1;
+}
+
+.stat-value {
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: var(--text-1);
+  line-height: 1.2;
+}
+
+.stat-label {
+  font-size: 0.8125rem;
+  color: var(--text-3);
+  margin-top: 4px;
+}
+
+/* ── 3-Column Grid Layout ── */
+.report-grid {
+  display: grid;
+  grid-template-columns: 350px 1fr 380px;
+  gap: 24px;
+  min-height: 600px;
+}
+
+.report-left {
+  border-radius: var(--radius-sm);
+  background: var(--bg-glass);
+  border: 1px solid var(--border);
+  backdrop-filter: blur(8px);
+  overflow-y: auto;
+  max-height: 700px;
+}
+
+.report-center {
+  border-radius: var(--radius-sm);
+  background: var(--bg-glass);
+  border: 1px solid var(--border);
+  backdrop-filter: blur(8px);
+  overflow: auto;
+  max-height: 700px;
+}
+
+.report-right {
+  border-radius: var(--radius-sm);
+  background: var(--bg-glass);
+  border: 1px solid var(--border);
+  backdrop-filter: blur(8px);
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  max-height: 700px;
+}
+
+/* Right sidebar tabs */
+.right-tabs {
+  display: flex;
+  gap: 0;
+  border-bottom: 1px solid var(--border);
+  padding: 12px;
+  flex-shrink: 0;
+  background: var(--bg);
+}
+
+.right-tab {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 10px 14px;
+  border-radius: var(--radius-xs);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--text-2);
+  background: transparent;
+  transition: all var(--t-fast);
+  cursor: pointer;
+}
+
+.right-tab:hover {
+  color: var(--text-1);
+  background: var(--bg-glass);
+}
+
+.right-tab.active {
+  color: var(--indigo);
+  background: rgba(243, 112, 33, 0.12);
+}
+
+.right-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+}
+
+/* ── Report Table ── */
+.report-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+}
+
+.report-table thead {
+  background: var(--bg-3);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.report-table th {
+  padding: 12px 8px;
+  text-align: left;
+  color: var(--text-2);
+  font-weight: 600;
+  border-bottom: 1px solid var(--border);
+}
+
+.report-table td {
+  padding: 12px 8px;
+  border-bottom: 1px solid var(--border-h);
+  color: var(--text-1);
+}
+
+.report-table tbody tr:hover {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+/* Column widths for report table */
+.col-report { width: 30%; }
+.col-dept { width: 15%; }
+.col-date { width: 12%; }
+.col-budget { width: 12%; }
+.col-risk { width: 12%; }
+.col-code { width: 10%; }
+.col-status { width: 9%; }
+
+/* ── Responsive ── */
+@media (max-width: 1400px) {
+  .report-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .report-left,
+  .report-center,
+  .report-right {
+    max-height: 400px;
+  }
+}
+
+@media (max-width: 768px) {
+  .report-stats-row {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+  }
+  
+  .stat-card {
+    padding: 16px;
+    gap: 12px;
+  }
+  
+  .stat-icon {
+    width: 48px;
+    height: 48px;
+  }
+  
+  .stat-value {
+    font-size: 1.5rem;
+  }
+}
+
+.app-sidebar {
   z-index: 300;
   transition: width var(--t-base);
   overflow: hidden;
@@ -4069,6 +4310,101 @@ code {
   font-size: 1.05rem;
   font-weight: 800;
   white-space: nowrap;
+}
+
+/* ── Report global rendering fixes ──
+   Prevent painting artifacts (vertical stripes) caused by backdrop-filter,
+   background/border transitions and mixed semi-transparent stacking.
+   These rules are scoped under `.report-page` only so they don't affect
+   the rest of the app. */
+.report-page,
+.report-page * {
+  /* disable backdrop-filter usage inside report (can cause repaints) */
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+  /* avoid animating background / border which causes repaints/stripes */
+  transition-property: transform, box-shadow !important;
+}
+
+/* Promote heavy-hover elements to their own layer to avoid subpixel artifacts */
+.report-page .report-stat-card,
+.report-page .report-table,
+.report-page .report-left,
+.report-page .report-center,
+.report-page .report-right {
+  will-change: transform, box-shadow, opacity !important;
+  backface-visibility: hidden !important;
+  -webkit-transform: translateZ(0) !important;
+}
+
+/* Keep selection styling predictable inside Report */
+.report-page ::selection {
+  background: rgba(243,112,33,0.22) !important;
+  color: inherit !important;
+}
+
+/* Disable text selection on stat cards (keeps them from producing selection artifacts)
+   but allow selection on titles and table content */
+.report-page .report-stats-row,
+.report-page .report-stats-row > div,
+.report-page .report-stats-row > div > * {
+  -webkit-user-select: none !important;
+  -moz-user-select: none !important;
+  -ms-user-select: none !important;
+  user-select: none !important;
+}
+
+/* Table hover: apply background to row only (not each cell) to avoid vertical banding */
+.report-page .report-table tbody td {
+  background-color: transparent !important;
+}
+.report-page .report-table tbody tr:hover {
+  background-color: rgba(255,255,255,0.02) !important;
+}
+
+/* ── REPORT STAT CARDS FIX ── */
+.report-stats-row,
+.report-stats-row > div {
+  animation: none !important;
+}
+
+.report-stat-card,
+.report-stat-card > * {
+  -webkit-user-select: none !important;
+  -moz-user-select: none !important;
+  -ms-user-select: none !important;
+  user-select: none !important;
+}
+
+.report-stat-card {
+  background: rgba(8, 35, 63, 0.5) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  opacity: 1 !important;
+  transition: transform 0.15s ease, box-shadow 0.15s ease !important;
+  cursor: pointer;
+}
+
+.report-stat-card:hover,
+.report-stat-card:focus,
+.report-stat-card:active {
+  background: rgba(8, 35, 63, 0.5) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  opacity: 1 !important;
+  transform: scale(1.05) translateY(-2px) !important;
+  box-shadow: 0 8px 16px rgba(243, 112, 33, 0.2) !important;
+}
+
+/* Fix vết sọc khi bôi đen text */
+.report-stats-row::selection,
+.report-stats-row *::selection {
+  background: rgba(243, 112, 33, 0.3) !important;
+  color: inherit !important;
+}
+
+.report-title::selection,
+.report-subtitle::selection {
+  background: rgba(243, 112, 33, 0.3) !important;
+  color: inherit !important;
 }
 
 .sb-brand-accent {
@@ -4462,13 +4798,13 @@ code {
   background: rgba(243, 112, 33, 0.12);
 }
 
-/* Action plan — cyan/teal */
-.kb-card.kb-action.kb-card--active {
+/* Report — cyan/teal */
+.kb-card.kb-report.kb-card--active {
   border-color: #14b8a6;
   background: rgba(20, 184, 166, 0.08);
   box-shadow: 0 0 0 1px #14b8a6, 0 6px 24px rgba(20, 184, 166, 0.2);
 }
-.kb-action-icon {
+.kb-report-icon {
   color: #14b8a6;
   background: rgba(20, 184, 166, 0.12);
 }
@@ -4536,7 +4872,7 @@ code {
 }
 
 .kb-law-badge    { background: rgba(243,112,33,0.18); color: #fb923c; }
-.kb-action-badge { background: rgba(20,184,166,0.18); color: #2dd4bf; }
+.kb-report-badge { background: rgba(20,184,166,0.18); color: #2dd4bf; }
 .kb-internal-badge { background: rgba(129,140,248,0.18); color: #a5b4fc; }
 
 .kb-count {
@@ -4559,7 +4895,7 @@ code {
 }
 
 .kb-law.kb-card--active     .kb-card-check { color: #f37021; }
-.kb-action.kb-card--active  .kb-card-check { color: #14b8a6; }
+.kb-report.kb-card--active  .kb-card-check { color: #14b8a6; }
 .kb-internal.kb-card--active .kb-card-check { color: #818cf8; }
 
 /* light-mode overrides */
@@ -4572,7 +4908,7 @@ code {
   border-color: #d1d5db;
 }
 [data-theme="light"] .kb-card.kb-law.kb-card--active     { background: rgba(243,112,33,0.05);   border-color: #f37021; }
-[data-theme="light"] .kb-card.kb-action.kb-card--active  { background: rgba(20,184,166,0.05);   border-color: #14b8a6; }
+[data-theme="light"] .kb-card.kb-report.kb-card--active  { background: rgba(20,184,166,0.05);   border-color: #14b8a6; }
 [data-theme="light"] .kb-card.kb-internal.kb-card--active{ background: rgba(129,140,248,0.05);  border-color: #818cf8; }
 
 /* ════════════════════════════════════════════════════════════════════

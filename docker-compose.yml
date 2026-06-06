@@ -7,7 +7,7 @@ services:
       dockerfile: Dockerfile
     container_name: regwatch_frontend
     ports:
-      - "80:80"
+      - "127.0.0.1:80:80"
     depends_on:
       - app
     restart: unless-stopped
@@ -19,20 +19,22 @@ services:
       dockerfile: Dockerfile
     container_name: regwatch_app
     ports:
-      - "8000:8000"
+      - "127.0.0.1:8000:8000"
     env_file:
       - ./backend/.env
     environment:
       MYSQL_SERVER: mysql
-      MYSQL_PORT: "3306"
+      MYSQL_PORT: 3306
+      MYSQL_USER: root
+      MYSQL_PASSWORD: password # Should match MYSQL_ROOT_PASSWORD in mysql service
+      MYSQL_DATABASE: law_db
       QDRANT_HOST: qdrant
-      QDRANT_PORT: "6333"
+      QDRANT_PORT: 6333
       NEO4J_URI: bolt://neo4j:7687
+      NEO4J_USER: neo4j
+      NEO4J_PASSWORD: password # Should match NEO4J_AUTH in neo4j service
       MINIO_ENDPOINT: minio:9000
-      MINIO_ACCESS_KEY: regwatch
-      MINIO_SECRET_KEY: regwatch123
       MINIO_BUCKET: regwatch-documents
-      MINIO_SECURE: "false"
     depends_on:
       mysql:
         condition: service_healthy
@@ -46,12 +48,12 @@ services:
 
   # ── MinIO (object storage) ──────────────────────────────────
   minio:
-    image: minio/minio:RELEASE.2025-04-22T22-12-26Z
+    image: minio/minio:latest
     container_name: regwatch_minio
-    command: server /data --console-address ":9001"
+    command: server /data --console-address ":9001" --address ":9000"
     ports:
-      - "9000:9000"
-      - "9001:9001"
+      - "127.0.0.1:9005:9000"
+      - "127.0.0.1:9001:9001"
     environment:
       MINIO_ROOT_USER: regwatch
       MINIO_ROOT_PASSWORD: regwatch123
@@ -69,7 +71,7 @@ services:
     image: mysql:8.4
     container_name: regwatch_mysql
     ports:
-      - "3307:3306"
+      - "127.0.0.1:3307:3306"
     environment:
       MYSQL_ROOT_PASSWORD: password
       MYSQL_DATABASE: law_db
@@ -87,8 +89,8 @@ services:
     image: qdrant/qdrant:v1.12.1
     container_name: regwatch_qdrant
     ports:
-      - "6333:6333"
-      - "6334:6334"
+      - "127.0.0.1:6333:6333"
+      - "127.0.0.1:6334:6334"
     volumes:
       - qdrant_data:/qdrant/storage
     restart: unless-stopped
@@ -98,8 +100,8 @@ services:
     image: neo4j:5
     container_name: regwatch_neo4j
     ports:
-      - "7474:7474"
-      - "7687:7687"
+      - "127.0.0.1:7474:7474"
+      - "127.0.0.1:7687:7687"
     environment:
       NEO4J_AUTH: neo4j/password
     volumes:
