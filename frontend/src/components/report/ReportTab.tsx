@@ -1,12 +1,12 @@
 import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
-import type { Alert, ActionPlanItem } from '../../types/actionplan'
+import type { Analyses, ReportItem } from '../../types/report'
 import { TrashIcon, PlusIcon, SaveIcon, CheckIcon, DownloadIcon } from '../Icons'
 
-interface ActionPlanTabProps {
-  selectedAlert: Alert | null
-  items: ActionPlanItem[]
-  onSave: (items: ActionPlanItem[]) => Promise<void>
+interface ReportTabProps {
+  selectedAnalyses: Analyses | null
+  items: ReportItem[]
+  onSave: (items: ReportItem[]) => Promise<void>
   onFinalize: () => Promise<void>
   saving: boolean
 }
@@ -21,22 +21,22 @@ const DEPARTMENTS = [
 
 const RISK_LEVELS = ['Cao', 'Trung bình', 'Thấp']
 
-export default function ActionPlanTab({
-  selectedAlert,
+export default function ReportTab({
+  selectedAnalyses,
   items,
   onSave,
   onFinalize,
   saving,
-}: ActionPlanTabProps) {
+}: ReportTabProps) {
   const { t } = useTranslation()
-  const [editedItems, setEditedItems] = useState<ActionPlanItem[]>(items)
+  const [editedItems, setEditedItems] = useState<ReportItem[]>(items)
   const [isEditing, setIsEditing] = useState(false)
 
   const handleAddRow = () => {
-    const newItem: ActionPlanItem = {
+    const newItem: ReportItem = {
       id: Math.max(0, ...editedItems.map(i => i.id), 0) + 1,
-      alert_id: selectedAlert?.id || 0,
-      action_description: '',
+      analyses_id: selectedAnalyses?.id || 0,
+      report_description: '',
       responsible_department: '',
       target_date: '',
       estimated_budget: 0,
@@ -58,8 +58,8 @@ export default function ActionPlanTab({
 
   const handleFieldChange = (
     id: number,
-    field: keyof ActionPlanItem,
-    value: ActionPlanItem[keyof ActionPlanItem],
+    field: keyof ReportItem,
+    value: ReportItem[keyof ReportItem],
   ) => {
     setEditedItems(
       editedItems.map(item =>
@@ -85,7 +85,7 @@ export default function ActionPlanTab({
   const handleExportCSV = () => {
     try {
       const header = [
-        'Action Description',
+        'Report Description',
         'Department',
         'Target Date',
         'Estimated Budget',
@@ -95,7 +95,7 @@ export default function ActionPlanTab({
       ]
 
       const rows = editedItems.map(it => [
-        it.action_description,
+        it.report_description,
         it.responsible_department,
         it.target_date,
         it.estimated_budget,
@@ -120,9 +120,9 @@ export default function ActionPlanTab({
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
-      const name = selectedAlert?.alert_code
-        ? `${selectedAlert.alert_code}_action_plan.csv`
-        : 'action_plan.csv'
+      const name = selectedAnalyses?.analyses_code
+        ? `${selectedAnalyses.analyses_code}_report.csv`
+        : 'report.csv'
       a.download = name
       document.body.appendChild(a)
       a.click()
@@ -130,7 +130,7 @@ export default function ActionPlanTab({
       URL.revokeObjectURL(url)
     } catch (e) {
       console.error('Export CSV failed:', e)
-      alert('Không xuất được CSV')
+      window.alert('Không xuất được CSV')
     }
   }
 
@@ -159,30 +159,30 @@ export default function ActionPlanTab({
   }
 
   return (
-    <div className="actionplan-tab">
-      {!selectedAlert ? (
-        <div className="empty-alert-state">
-          <p>{t('actionPlan.selectAlertFirst') || 'Vui lòng chọn một cảnh báo'}</p>
+    <div className="report-tab">
+      {!selectedAnalyses ? (
+        <div className="empty-analyses-state">
+          <p>{t('report.selectAnalysesFirst') || 'Vui lòng chọn một Analyses'}</p>
         </div>
       ) : (
         <>
-          <div className="actionplan-alert-info">
-            <h3>{selectedAlert.title}</h3>
-            <p className="alert-code">{selectedAlert.alert_code}</p>
-            <p className="alert-desc">{selectedAlert.description}</p>
+          <div className="report-analyses-info">
+            <h3>{selectedAnalyses.title}</h3>
+            <p className="analyses-code">{selectedAnalyses.analyses_code}</p>
+            <p className="analyses-desc">{selectedAnalyses.description}</p>
           </div>
 
-          <div className="actionplan-table-wrapper">
-            <table className="actionplan-table">
+          <div className="report-table-wrapper">
+            <table className="report-table">
               <thead>
                 <tr>
-                  <th className="col-action">{t('actionPlan.actionDescription') || 'Hàng mui bản hành động'}</th>
-                  <th className="col-dept">{t('actionPlan.department') || 'Chọn bộ phận'}</th>
-                  <th className="col-date">{t('actionPlan.targetDate') || 'Ngày'}</th>
-                  <th className="col-budget">{t('actionPlan.budget') || 'Hạn bảo hành'}</th>
-                  <th className="col-risk">{t('actionPlan.riskLevel') || 'Ước tính rủi ro'}</th>
-                  <th className="col-code">{t('actionPlan.code') || 'Mã tiêu'}</th>
-                  <th className="col-status">{t('actionPlan.status') || 'Trạng thái'}</th>
+                  <th className="col-report">{t('report.reportDescription') || 'Mô tả report'}</th>
+                  <th className="col-dept">{t('report.department') || 'Chọn bộ phận'}</th>
+                  <th className="col-date">{t('report.targetDate') || 'Ngày'}</th>
+                  <th className="col-budget">{t('report.budget') || 'Hạn bảo hành'}</th>
+                  <th className="col-risk">{t('report.riskLevel') || 'Ước tính rủi ro'}</th>
+                  <th className="col-code">{t('report.code') || 'Mã tiêu'}</th>
+                  <th className="col-status">{t('report.status') || 'Trạng thái'}</th>
                 </tr>
               </thead>
               <tbody>
@@ -192,13 +192,13 @@ export default function ActionPlanTab({
                       {isEditing ? (
                         <input
                           type="text"
-                          value={item.action_description}
-                          onChange={e => handleFieldChange(item.id, 'action_description', e.target.value)}
+                          value={item.report_description}
+                          onChange={e => handleFieldChange(item.id, 'report_description', e.target.value)}
                           className="input-field"
                           placeholder="Mô tả hành động"
                         />
                       ) : (
-                        <span>{item.action_description}</span>
+                        <span>{item.report_description}</span>
                       )}
                     </td>
                     <td>
@@ -320,7 +320,7 @@ export default function ActionPlanTab({
             </table>
           </div>
 
-          <div className="actionplan-actions">
+          <div className="report-actions">
             {!isEditing ? (
               <>
                 <button
@@ -335,7 +335,7 @@ export default function ActionPlanTab({
                   disabled={saving}
                 >
                   <CheckIcon size={16} />
-                  {saving ? 'Đang xử lý...' : 'Chốt Action Plan'}
+                  {saving ? 'Đang xử lý...' : 'Chốt Report'}
                 </button>
                 <button
                   className="btn btn-export"
@@ -384,13 +384,13 @@ export default function ActionPlanTab({
       )}
 
       <style>{`
-        .empty-alert-state {
+        .empty-analyses-state {
           padding: 60px 20px;
           text-align: center;
           color: #999;
         }
 
-        .actionplan-tab {
+        .report-tab {
           background: var(--bg-glass);
           border: 1px solid var(--border);
           border-radius: 8px;
@@ -398,71 +398,71 @@ export default function ActionPlanTab({
         }
 
         /* Dark-mode readability tweaks */
-        [data-theme="dark"] .actionplan-tab {
+        [data-theme="dark"] .report-tab {
           background: transparent;
           border-color: rgba(255, 255, 255, 0.08);
         }
 
-        [data-theme="dark"] .actionplan-alert-info {
+        [data-theme="dark"] .report-analyses-info {
           border-bottom: 1px solid var(--border);
         }
 
-        [data-theme="dark"] .actionplan-alert-info h3 {
+        [data-theme="dark"] .report-analyses-info h3 {
           color: var(--text-1);
         }
 
-        [data-theme="dark"] .alert-code,
-        [data-theme="dark"] .alert-desc {
+        [data-theme="dark"] .analyses-code,
+        [data-theme="dark"] .analyses-desc {
           color: #a8b7ca;
         }
 
-        [data-theme="dark"] .actionplan-alert-info {
+        [data-theme="dark"] .report-analyses-info {
           border-bottom-color: var(--border);
         }
 
-        [data-theme="dark"] .actionplan-alert-info h3,
-        [data-theme="dark"] .alert-code,
-        [data-theme="dark"] .alert-desc {
+        [data-theme="dark"] .report-analyses-info h3,
+        [data-theme="dark"] .analyses-code,
+        [data-theme="dark"] .analyses-desc {
           color: #cbd5e1;
         }
 
-        [data-theme="dark"] .actionplan-alert-info h3 {
+        [data-theme="dark"] .report-analyses-info h3 {
           color: #f8fafc;
         }
 
-        .actionplan-alert-info {
+        .report-analyses-info {
           margin-bottom: 20px;
           padding-bottom: 20px;
           border-bottom: 1px solid #e0e0e0;
         }
 
-        .actionplan-alert-info h3 {
+        .report-analyses-info h3 {
           margin: 0 0 8px 0;
           font-size: 18px;
           font-weight: 600;
           color: #1a1a1a;
         }
 
-        .alert-code {
+        .analyses-code {
           margin: 0 0 8px 0;
           font-size: 14px;
           font-weight: 500;
           color: #666;
         }
 
-        .alert-desc {
+        .analyses-desc {
           margin: 0;
           font-size: 14px;
           color: #666;
           line-height: 1.6;
         }
 
-        .actionplan-table-wrapper {
+        .report-table-wrapper {
           overflow-x: auto;
           margin-bottom: 20px;
         }
 
-        .actionplan-table {
+        .report-table {
           width: 100%;
           border-collapse: collapse;
           font-size: 13px;
@@ -470,97 +470,97 @@ export default function ActionPlanTab({
           min-width: 1020px;
         }
 
-        .actionplan-table thead {
+        .report-table thead {
           background: #f5f5f5;
         }
 
-        [data-theme="dark"] .actionplan-table thead {
+        [data-theme="dark"] .report-table thead {
           background: rgba(255, 255, 255, 0.06);
         }
 
-        [data-theme="dark"] .actionplan-table th {
+        [data-theme="dark"] .report-table th {
           color: #cbd5e1;
           border-bottom-color: rgba(255, 255, 255, 0.12);
         }
 
-        [data-theme="dark"] .actionplan-table td {
+        [data-theme="dark"] .report-table td {
           border-bottom-color: rgba(255, 255, 255, 0.06);
           color: #e5edf6;
         }
 
-        [data-theme="dark"] .actionplan-table .row-alt {
+        [data-theme="dark"] .report-table .row-alt {
           background: rgba(255, 255, 255, 0.025);
         }
 
         /* Fix bug: sọc trắng dọc khi di chuột (table hover/banding) */
-        .actionplan-table tbody td {
+        .report-table tbody td {
           background-color: transparent;
         }
 
-        .actionplan-table tbody tr:hover {
+        .report-table tbody tr:hover {
           background-color: rgba(255, 255, 255, 0.04);
         }
 
-        [data-theme="dark"] .actionplan-table tbody tr:hover {
+        [data-theme="dark"] .report-table tbody tr:hover {
           background-color: rgba(255, 255, 255, 0.055);
         }
 
 
-        .actionplan-table th,
-        .actionplan-table td {
+        .report-table th,
+        .report-table td {
           padding: 12px 10px;
           text-align: center;
         }
 
-        .actionplan-table th {
+        .report-table th {
           font-weight: 600;
           color: #333;
           border-bottom: 2px solid #e0e0e0;
         }
 
-        .actionplan-table .col-action {
+        .report-table .col-report {
           width: 18%;
           min-width: 140px;
         }
 
-        .actionplan-table .col-dept {
+        .report-table .col-dept {
           width: 18%;
           min-width: 150px;
         }
 
-        .actionplan-table .col-date {
+        .report-table .col-date {
           width: 15%;
           min-width: 150px;
         }
 
-        .actionplan-table .col-budget {
+        .report-table .col-budget {
           width: 15%;
           min-width: 160px;
         }
 
-        .actionplan-table .col-risk {
+        .report-table .col-risk {
           width: 14%;
           min-width: 140px;
         }
 
-        .actionplan-table .col-code {
+        .report-table .col-code {
           width: 8%;
           min-width: 90px;
         }
 
-        .actionplan-table .col-status {
+        .report-table .col-status {
           width: 13%;
           min-width: 145px;
         }
 
-        .actionplan-table td {
+        .report-table td {
           padding: 12px 10px;
           border-bottom: 1px solid #f0f0f0;
           word-break: break-word;
           overflow-wrap: anywhere;
         }
 
-        .actionplan-table .row-alt {
+        .report-table .row-alt {
           background: #fafafa;
         }
 
@@ -833,7 +833,7 @@ export default function ActionPlanTab({
           color: #991b1b;
         }
 
-        .actionplan-actions {
+        .report-actions {
           display: flex;
           gap: 10px;
           flex-wrap: wrap;

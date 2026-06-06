@@ -1,20 +1,20 @@
 import { useTranslation } from 'react-i18next'
-import type { Alert } from '../../types/actionplan'
+import type { Analyses } from '../../types/report'
 import { LoaderIcon } from '../Icons'
 
-interface AlertHistoryTabProps {
-  alerts: Alert[]
-  selectedAlert: Alert | null
-  onSelectAlert: (alert: Alert) => void
+interface AnalysesHistoryTabProps {
+  analyses: Analyses[]
+  selectedAnalyses: Analyses | null
+  onSelectAnalyses: (analyses: Analyses) => void
   loading: boolean
 }
 
-export default function AlertHistoryTab({
-  alerts,
-  selectedAlert,
-  onSelectAlert,
+export default function AnalysesHistoryTab({
+  analyses,
+  selectedAnalyses,
+  onSelectAnalyses,
   loading,
-}: AlertHistoryTabProps) {
+}: AnalysesHistoryTabProps) {
   const { t } = useTranslation()
 
   const normalizeSeverity = (severity: string) => {
@@ -34,96 +34,96 @@ export default function AlertHistoryTab({
   }
 
   return (
-    <div className="alert-history-tab">
-      <div className="alert-history-list">
-        <div className="alert-list-header">
-          <h3>{t('actionPlan.alertHistory') || 'Tất cả cảnh báo'}</h3>
+    <div className="analyses-history-tab">
+      <div className="analyses-history-list">
+        <div className="analyses-list-header">
+          <h3>{t('report.analysesHistory') || 'Tất cả Analyses'}</h3>
           {loading && <LoaderIcon size={16} className="icon-spin" />}
         </div>
 
-        <div className="alert-items">
-          {alerts.map(alert => {
-            const severity = normalizeSeverity(alert.severity)
+        <div className="analyses-items">
+          {analyses.map(analyses => {
+            const severity = normalizeSeverity(analyses.severity)
             return (
               <div
-                key={alert.id}
-                className={`alert-item ${selectedAlert?.id === alert.id ? 'alert-item--selected' : ''}`}
-                onClick={() => onSelectAlert(alert)}
+                key={analyses.id}
+                className={`analyses-item ${selectedAnalyses?.id === analyses.id ? 'analyses-item--selected' : ''}`}
+                onClick={() => onSelectAnalyses(analyses)}
               >
-                <div className="alert-item-header">
-                  <div className={`alert-badge alert-badge--${severity.toLowerCase()}`}>
+                <div className="analyses-item-header">
+                  <div className={`analyses-badge analyses-badge--${severity.toLowerCase()}`}>
                     {severity}
                   </div>
-                  <span className="alert-code">{alert.alert_code}</span>
+                  <span className="analyses-code">{analyses.analyses_code}</span>
                 </div>
-                <div className="alert-item-title">{alert.title}</div>
-                <div className="alert-item-dates">
-                  <span className="date-label">{t('actionPlan.issuedDate') || 'Ngày phát hành'}:</span>
-                  <span>{formatDate(alert.issued_date)}</span>
+                <div className="analyses-item-title">{analyses.title}</div>
+                <div className="analyses-item-dates">
+                  <span className="date-label">{t('report.issuedDate') || 'Ngày phát hành'}:</span>
+                  <span>{formatDate(analyses.issued_date)}</span>
                 </div>
-                <div className="alert-item-dates">
-                  <span className="date-label">{t('actionPlan.dueDate') || 'Hạn cuối'}:</span>
-                  <span>{formatDate(alert.due_date)}</span>
+                <div className="analyses-item-dates">
+                  <span className="date-label">{t('report.dueDate') || 'Hạn cuối'}:</span>
+                  <span>{formatDate(analyses.due_date)}</span>
                 </div>
               </div>
             )
           })}
         </div>
 
-        {alerts.length === 0 && !loading && (
+        {analyses.length === 0 && !loading && (
           <div className="empty-state">
-            <p>{t('actionPlan.noAlerts') || 'Không có cảnh báo nào'}</p>
+            <p>{t('report.noAnalyses') || 'Không có Analyses nào'}</p>
           </div>
         )}
       </div>
 
       <style>{`
-        .alert-history-tab {
+        .analyses-history-tab {
           display: grid;
           grid-template-columns: 350px 1fr;
           gap: 20px;
         }
 
-        .alert-history-list {
+        .analyses-history-list {
           background: white;
           border: 1px solid #e0e0e0;
           border-radius: 8px;
           overflow: hidden;
         }
 
-        [data-theme="dark"] .alert-history-list {
+        [data-theme="dark"] .analyses-history-list {
           background: transparent;
           border-color: rgba(255, 255, 255, 0.10);
         }
 
-        [data-theme="dark"] .alert-list-header {
+        [data-theme="dark"] .analyses-list-header {
           border-bottom-color: var(--border);
         }
 
-        [data-theme="dark"] .alert-list-header h3 {
+        [data-theme="dark"] .analyses-list-header h3 {
           color: var(--text-1);
         }
 
-        [data-theme="dark"] .alert-item {
+        [data-theme="dark"] .analyses-item {
           border-bottom-color: rgba(255, 255, 255, 0.06);
           color: var(--text-1);
         }
 
-        [data-theme="dark"] .alert-item:hover {
+        [data-theme="dark"] .analyses-item:hover {
           background: rgba(255, 255, 255, 0.06);
         }
 
-        [data-theme="dark"] .alert-item--selected {
+        [data-theme="dark"] .analyses-item--selected {
           background: rgba(37, 99, 235, 0.18);
           border-left-color: #60a5fa;
         }
 
-        [data-theme="dark"] .alert-code,
-        [data-theme="dark"] .alert-item-title {
+        [data-theme="dark"] .analyses-code,
+        [data-theme="dark"] .analyses-item-title {
           color: var(--text-1);
         }
 
-        [data-theme="dark"] .alert-item-dates {
+        [data-theme="dark"] .analyses-item-dates {
           color: #a8b7ca;
         }
 
@@ -135,7 +135,7 @@ export default function AlertHistoryTab({
           color: #94a3b8;
         }
 
-        .alert-list-header {
+        .analyses-list-header {
           padding: 16px;
           border-bottom: 1px solid #e0e0e0;
           display: flex;
@@ -143,59 +143,59 @@ export default function AlertHistoryTab({
           align-items: center;
         }
 
-        .alert-list-header h3 {
+        .analyses-list-header h3 {
           margin: 0;
           font-size: 16px;
           font-weight: 600;
           color: #333;
         }
 
-        .alert-badge--critical {
+        .analyses-badge--critical {
           background-color: #dc2626;
         }
 
-        .alert-badge--high {
+        .analyses-badge--high {
           background-color: #ea580c;
         }
 
-        .alert-badge--medium {
+        .analyses-badge--medium {
           background-color: #f59e0b;
         }
 
-        .alert-badge--low {
+        .analyses-badge--low {
           background-color: #10b981;
         }
 
-        .alert-items {
+        .analyses-items {
           max-height: 600px;
           overflow-y: auto;
         }
 
-        .alert-item {
+        .analyses-item {
           padding: 12px 16px;
           border-bottom: 1px solid #f0f0f0;
           cursor: pointer;
           transition: all 0.2s ease;
         }
 
-        .alert-item:hover {
+        .analyses-item:hover {
           background: #f9f9f9;
         }
 
-        .alert-item--selected {
+        .analyses-item--selected {
           background: #eff6ff;
           border-left: 3px solid #2563eb;
           padding-left: 13px;
         }
 
-        .alert-item-header {
+        .analyses-item-header {
           display: flex;
           align-items: center;
           gap: 8px;
           margin-bottom: 8px;
         }
 
-        .alert-badge {
+        .analyses-badge {
           padding: 3px 8px;
           border-radius: 4px;
           font-size: 11px;
@@ -204,13 +204,13 @@ export default function AlertHistoryTab({
           text-transform: uppercase;
         }
 
-        .alert-code {
+        .analyses-code {
           font-size: 13px;
           font-weight: 600;
           color: #1a1a1a;
         }
 
-        .alert-item-title {
+        .analyses-item-title {
           font-size: 13px;
           font-weight: 500;
           color: #333;
@@ -218,7 +218,7 @@ export default function AlertHistoryTab({
           line-height: 1.4;
         }
 
-        .alert-item-dates {
+        .analyses-item-dates {
           font-size: 12px;
           color: #666;
           margin-bottom: 3px;
@@ -237,11 +237,11 @@ export default function AlertHistoryTab({
         }
 
         @media (max-width: 1024px) {
-          .alert-history-tab {
+          .analyses-history-tab {
             grid-template-columns: 1fr;
           }
 
-          .alert-history-list {
+          .analyses-history-list {
             max-height: 300px;
           }
         }

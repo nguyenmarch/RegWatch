@@ -1,9 +1,9 @@
-export type AlertSeverity = 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW'
+export type AnalysesSeverity = 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW'
 
-export interface Alert {
+export interface Analyses {
   id: number
-  alert_code: string
-  severity: AlertSeverity
+  analyses_code: string
+  severity: AnalysesSeverity
   title: string
   description: string
   issued_date: string
@@ -12,10 +12,10 @@ export interface Alert {
   created_at: string
 }
 
-export interface ActionPlanItem {
+export interface ReportItem {
   id: number
-  alert_id: number
-  action_description: string
+  analyses_id: number
+  report_description: string
   responsible_department: string
   target_date: string
   estimated_budget: number
@@ -29,12 +29,12 @@ export interface ActionPlanItem {
   evidence_document: string
 }
 
-export interface ActionPlanItemsSaveResponse {
+export interface ReportItemsSaveResponse {
   message: string
   count: number
 }
 
-export type ActionPlanWorkflowStatus =
+export type ReportWorkflowStatus =
   | 'draft'
   | 'submitted_to_ceo'
   | 'approved_by_ceo'
@@ -76,30 +76,30 @@ export interface IssuedPlan {
   issue_note: string
 }
 
-export interface ActionPlanDossier {
-  alert_id: number
-  workflow_status: ActionPlanWorkflowStatus
+export interface ReportDossier {
+  analyses_id: number
+  workflow_status: ReportWorkflowStatus
   risk_report: RiskReport
   ceo_approval: CeoApproval
   issued_plan: IssuedPlan
-  action_items: ActionPlanItem[]
+  report_items: ReportItem[]
 }
 
-export type ActionPlanUpdate = Partial<{
-  workflow_status: ActionPlanWorkflowStatus
+export type ReportUpdate = Partial<{
+  workflow_status: ReportWorkflowStatus
   risk_report: RiskReport
   ceo_approval: CeoApproval
   issued_plan: IssuedPlan
-  action_items: ActionPlanItem[]
+  report_items: ReportItem[]
 }>
 
-export interface FinalizedActionPlan {
-  alert_code: string | null
-  alert_title: string
-  alert_severity: string | null
+export interface FinalizedReport {
+  analyses_code: string | null
+  analyses_title: string
+  analyses_severity: string | null
   finalized_at: string
-  action_plan_items: ActionPlanItem[]
-  workflow_status: ActionPlanWorkflowStatus
+  report_items: ReportItem[]
+  workflow_status: ReportWorkflowStatus
   risk_report: RiskReport
   ceo_approval: CeoApproval
   issued_plan: IssuedPlan

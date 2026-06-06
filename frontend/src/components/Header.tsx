@@ -51,8 +51,8 @@ export default function Header() {
             <Link to="/documents" className={`nav-link ${pathname === '/documents' ? 'active' : ''}`}>
               {t('header.documents')}
             </Link>
-            <Link to="/actionplan" className={`nav-link ${pathname === '/actionplan' ? 'active' : ''}`}>
-              {t('header.actionPlan') || 'Action Plan'}
+            <Link to="/report" className={`nav-link ${pathname === '/report' ? 'active' : ''}`}>
+              {t('header.report') || 'Report'}
             </Link>
             <Link to="/test" className={`nav-link ${pathname === '/test' ? 'active' : ''}`}>
               {t('header.apiTest')}
@@ -133,12 +133,12 @@ export default function Header() {
                 {t('header.documents')}
               </Link>
               <Link
-                to="/actionplan"
-                className={`mobile-nav-link ${pathname === '/actionplan' ? 'active' : ''}`}
+                to="/report"
+                className={`mobile-nav-link ${pathname === '/report' ? 'active' : ''}`}
                 onClick={closeMenu}
               >
                 <span className="mobile-nav-icon"><CheckCircleIcon size={17} /></span>
-                {t('header.actionPlan') || 'Action Plan'}
+                {t('header.report') || 'Report'}
               </Link>
               <Link
                 to="/test"

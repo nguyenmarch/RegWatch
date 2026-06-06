@@ -1,6 +1,8 @@
 from pathlib import Path
+
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from sqlalchemy import URL
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
@@ -44,10 +46,14 @@ class Settings(BaseSettings):
     GEMINI_EMBEDDING_MODEL: str = "gemini-embedding-001"
 
     @property
-    def DATABASE_URL(self) -> str:
-        return (
-            f"mysql+pymysql://{self.MYSQL_USER}:{self.MYSQL_PASSWORD}"
-            f"@{self.MYSQL_SERVER}:{self.MYSQL_PORT}/{self.MYSQL_DATABASE}"
+    def DATABASE_URL(self) -> URL:
+        return URL.create(
+            "mysql+pymysql",
+            username=self.MYSQL_USER,
+            password=self.MYSQL_PASSWORD,
+            host=self.MYSQL_SERVER,
+            port=self.MYSQL_PORT,
+            database=self.MYSQL_DATABASE,
         )
     
     @property

@@ -1,12 +1,12 @@
 import type {
-  ActionPlanItem,
-  ActionPlanItemsSaveResponse,
-  ActionPlanDossier,
-  ActionPlanUpdate,
-  Alert,
-  FinalizedActionPlan,
+  ReportItem,
+  ReportItemsSaveResponse,
+  ReportDossier,
+  ReportUpdate,
+  Analyses,
+  FinalizedReport,
   RecommendationResponse,
-} from '../types/actionplan'
+} from '../types/report'
 
 const BASE_URL = '/api'
 
@@ -38,7 +38,7 @@ export interface User {
   created_at: string
 }
 
-export type KbType = 'law' | 'action_plan' | 'internal'
+export type KbType = 'law' | 'report' | 'internal'
 
 export interface Document {
   id: number
@@ -197,35 +197,35 @@ export const api = {
       request<{ level: string; message: string; ts: string }[]>(`/v1/documents/${id}/log`),
   },
 
-  actionPlan: {
-    listAlerts: () =>
-      request<Alert[]>('/actionplan/alerts'),
+  report: {
+    listAnalyses: () =>
+      request<Analyses[]>('/report/analyses'),
 
-    getActionPlanItems: (alertId: number) =>
-      request<ActionPlanItem[]>(`/actionplan/alerts/${alertId}/items`),
+    getReportItems: (analysesId: number) =>
+      request<ReportItem[]>(`/report/analyses/${analysesId}/items`),
 
-    getActionPlan: (alertId: number) =>
-      request<ActionPlanDossier>(`/actionplan/alerts/${alertId}/plan`),
+    getReport: (analysesId: number) =>
+      request<ReportDossier>(`/report/analyses/${analysesId}/report`),
 
-    updateActionPlan: (alertId: number, data: ActionPlanUpdate) =>
-      request<ActionPlanDossier>(`/actionplan/alerts/${alertId}/plan`, {
+    updateReport: (analysesId: number, data: ReportUpdate) =>
+      request<ReportDossier>(`/report/analyses/${analysesId}/report`, {
         method: 'PATCH',
         body: JSON.stringify(data),
       }),
 
-    saveActionPlanItems: (alertId: number, items: ActionPlanItem[]) =>
-      request<ActionPlanItemsSaveResponse>(`/actionplan/alerts/${alertId}/items`, {
+    saveReportItems: (analysesId: number, items: ReportItem[]) =>
+      request<ReportItemsSaveResponse>(`/report/analyses/${analysesId}/items`, {
         method: 'POST',
         body: JSON.stringify({ items }),
       }),
 
-    finalizeActionPlan: (alertId: number) =>
-      request<FinalizedActionPlan>(`/actionplan/alerts/${alertId}/finalize`, {
+    finalizeReport: (analysesId: number) =>
+      request<FinalizedReport>(`/report/analyses/${analysesId}/finalize`, {
         method: 'POST',
       }),
 
-    generateLLMRecommendations: (alertId: number, prompt: string) =>
-      request<RecommendationResponse>(`/actionplan/alerts/${alertId}/recommendations`, {
+    generateLLMRecommendations: (analysesId: number, prompt: string) =>
+      request<RecommendationResponse>(`/report/analyses/${analysesId}/recommendations`, {
         method: 'POST',
         body: JSON.stringify({ prompt }),
       }),

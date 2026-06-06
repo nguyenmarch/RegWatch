@@ -48,30 +48,30 @@ export default function KnowledgeBaseTab({
     setUploading(true)
     try {
       for (const file of files) {
-        await api.documents.upload(file, 'action_plan')
+        await api.documents.upload(file, 'report')
       }
-      alert(t('actionPlan.toast.uploadSuccess') || 'Upload thành công')
+      window.alert(t('report.toast.uploadSuccess') || 'Upload thành công')
       await onRefresh()
     } catch (err) {
       console.error('Upload failed:', err)
-      alert(t('actionPlan.toast.uploadError') || 'Upload thất bại')
+      window.alert(t('report.toast.uploadError') || 'Upload thất bại')
     } finally {
       setUploading(false)
     }
   }
 
   const handleDelete = async (docId: number) => {
-    if (!confirm(t('actionPlan.confirmDelete') || 'Bạn có chắc chắn muốn xóa?')) {
+    if (!window.confirm(t('report.confirmDelete') || 'Bạn có chắc chắn muốn xóa?')) {
       return
     }
 
     try {
       await api.documents.delete(docId)
-      alert(t('actionPlan.toast.deleteSuccess') || 'Xóa thành công')
+      window.alert(t('report.toast.deleteSuccess') || 'Xóa thành công')
       await onRefresh()
     } catch (err) {
       console.error('Delete failed:', err)
-      alert(t('actionPlan.toast.deleteError') || 'Xóa thất bại')
+      window.alert(t('report.toast.deleteError') || 'Xóa thất bại')
     }
   }
 
@@ -88,7 +88,7 @@ export default function KnowledgeBaseTab({
     <div className="kb-tab">
       {/* Upload Section */}
       <div className="kb-section">
-        <h3>{t('actionPlan.uploadDocuments') || 'Upload Tài Liệu'}</h3>
+        <h3>{t('report.uploadDocuments') || 'Upload Tài Liệu'}</h3>
 
         <div
           className={`upload-zone ${isDragOver ? 'upload-zone--dragover' : ''}`}
@@ -98,8 +98,8 @@ export default function KnowledgeBaseTab({
         >
           <div className="upload-zone-content">
             <UploadCloudIcon size={40} className="upload-icon" />
-            <h4>{t('actionPlan.dragDropFiles') || 'Kéo thả tệp vào đây'}</h4>
-            <p>{t('actionPlan.dragDropDesc') || 'hoặc'}</p>
+            <h4>{t('report.dragDropFiles') || 'Kéo thả tệp vào đây'}</h4>
+            <p>{t('report.dragDropDesc') || 'hoặc'}</p>
             <label className="file-input-label">
               {uploading ? (
                 <>
@@ -121,7 +121,7 @@ export default function KnowledgeBaseTab({
               />
             </label>
             <p className="file-types">
-              {t('actionPlan.supportedFormats') || 'PDF, Word, Excel được hỗ trợ'}
+              {t('report.supportedFormats') || 'PDF, Word, Excel được hỗ trợ'}
             </p>
           </div>
         </div>
@@ -130,14 +130,14 @@ export default function KnowledgeBaseTab({
       {/* Documents List */}
       <div className="kb-section">
         <div className="kb-section-header">
-          <h3>{t('actionPlan.uploadedDocuments') || 'Tài Liệu Đã Upload'}</h3>
+          <h3>{t('report.uploadedDocuments') || 'Tài Liệu Đã Upload'}</h3>
           <button
             className="btn btn-outline btn-sm"
             onClick={handleRefresh}
             disabled={refreshing}
           >
             <RefreshIcon size={14} className={refreshing ? 'icon-spin' : ''} />
-            {refreshing ? 'Đang cập nhật...' : t('actionPlan.refresh') || 'Làm mới'}
+            {refreshing ? 'Đang cập nhật...' : t('report.refresh') || 'Làm mới'}
           </button>
         </div>
 
@@ -146,9 +146,9 @@ export default function KnowledgeBaseTab({
             <table>
               <thead>
                 <tr>
-                  <th style={{ width: '40%' }}>{t('actionPlan.filename') || 'Tên tệp'}</th>
-                  <th style={{ width: '20%' }}>{t('actionPlan.uploadedDate') || 'Ngày upload'}</th>
-                  <th style={{ width: '30%' }}>{t('actionPlan.actions') || 'Hành động'}</th>
+                  <th style={{ width: '40%' }}>{t('report.filename') || 'Tên tệp'}</th>
+                  <th style={{ width: '20%' }}>{t('report.uploadedDate') || 'Ngày upload'}</th>
+                  <th style={{ width: '30%' }}>{t('report.actions') || 'Hành động'}</th>
                 </tr>
               </thead>
               <tbody>
@@ -165,13 +165,13 @@ export default function KnowledgeBaseTab({
                       <div className="doc-actions">
                         <button
                           className="action-btn action-download"
-                          title={t('actionPlan.download') || 'Download'}
+                          title={t('report.download') || 'Download'}
                         >
                           <DownloadIcon size={16} />
                         </button>
                         <button
                           className="action-btn action-delete"
-                          title={t('actionPlan.delete') || 'Delete'}
+                          title={t('report.delete') || 'Delete'}
                           onClick={() => handleDelete(doc.id)}
                         >
                           <TrashIcon size={16} />
@@ -185,7 +185,7 @@ export default function KnowledgeBaseTab({
           </div>
         ) : (
           <div className="empty-documents">
-            <p>{t('actionPlan.noDocumentsUploaded') || 'Chưa có tài liệu nào được upload'}</p>
+            <p>{t('report.noDocumentsUploaded') || 'Chưa có tài liệu nào được upload'}</p>
           </div>
         )}
       </div>

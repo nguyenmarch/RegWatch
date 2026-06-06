@@ -1,18 +1,18 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { Document } from '../../lib/api'
-import type { Alert } from '../../types/actionplan'
+import type { Analyses } from '../../types/report'
 import { SparklesIcon } from '../Icons'
 import { api } from '../../lib/api'
 import { formatGmt7DateTime } from '../../lib/datetime'
 
 interface LLMRecommendTabProps {
-  selectedAlert: Alert | null
+  selectedAnalyses: Analyses | null
   kbDocuments: Document[]
 }
 
 export default function LLMRecommendTab({
-  selectedAlert,
+  selectedAnalyses,
   kbDocuments,
 }: LLMRecommendTabProps) {
   const { t } = useTranslation()
@@ -21,7 +21,7 @@ export default function LLMRecommendTab({
   const [loading, setLoading] = useState(false)
 
   const handleGenerateRecommendations = async () => {
-    if (!selectedAlert) return
+    if (!selectedAnalyses) return
 
     setLoading(true)
     try {
@@ -32,13 +32,13 @@ export default function LLMRecommendTab({
         .join('\n')
 
       const finalPrompt = [
-        'Bạn là trợ lý giúp xây dựng Action Plan cho CEO.',
+        'Bạn là trợ lý giúp xây dựng Report cho CEO.',
         '',
-        '### Thông tin cảnh báo (Alert)',
-        `- Mã cảnh báo: ${selectedAlert.alert_code}`,
-        `- Mức độ: ${selectedAlert.severity}`,
-        `- Tiêu đề: ${selectedAlert.title}`,
-        `- Mô tả: ${selectedAlert.description}`,
+        '### Thông tin Analyses',
+        `- Mã Analyses: ${selectedAnalyses.analyses_code}`,
+        `- Mức độ: ${selectedAnalyses.severity}`,
+        `- Tiêu đề: ${selectedAnalyses.title}`,
+        `- Mô tả: ${selectedAnalyses.description}`,
         '',
         '### Knowledge Base của CEO',
         kbDocuments.length ? kbText : '- (Chưa có tài liệu tham khảo)',
@@ -50,20 +50,20 @@ export default function LLMRecommendTab({
         'Hãy đề xuất các gợi ý/chương hành động cụ thể, ưu tiên tính khả thi và tuân thủ.',
       ].join('\n')
 
-      const result = await api.actionPlan.generateLLMRecommendations(selectedAlert.id, finalPrompt)
+      const result = await api.report.generateLLMRecommendations(selectedAnalyses.id, finalPrompt)
       setRecommendations(result.recommendations)
     } catch (err) {
       console.error('Failed to generate recommendations:', err)
-      alert(t('actionPlan.toast.llmError') || 'Failed to generate recommendations')
+      window.alert(t('report.toast.llmError') || 'Failed to generate recommendations')
     } finally {
       setLoading(false)
     }
   }
 
-  if (!selectedAlert) {
+  if (!selectedAnalyses) {
     return (
-      <div className="empty-alert-state">
-        <p>{t('actionPlan.selectAlertFirst') || 'Vui lòng chọn một cảnh báo'}</p>
+      <div className="empty-analyses-state">
+        <p>{t('report.selectAnalysesFirst') || 'Vui lòng chọn một Analyses'}</p>
       </div>
     )
   }
@@ -73,12 +73,12 @@ export default function LLMRecommendTab({
       <div className="llm-container">
         {/* Prompt Section */}
         <div className="llm-section">
-          <h3>{t('actionPlan.llmPrompt') || 'Prompt cho LLM'}</h3>
+          <h3>{t('report.llmPrompt') || 'Prompt cho LLM'}</h3>
           <div className="prompt-area">
             <textarea
               value={prompt}
               onChange={e => setPrompt(e.target.value)}
-              placeholder={t('actionPlan.llmPromptPlaceholder') || 'Nhập yêu cầu hoặc câu hỏi cho AI...'}
+              placeholder={t('report.llmPromptPlaceholder') || 'Nhập yêu cầu hoặc câu hỏi cho AI...'}
               className="prompt-input"
               rows={5}
             />
@@ -96,7 +96,7 @@ export default function LLMRecommendTab({
         {/* Recommendations Section */}
         {recommendations.length > 0 && (
           <div className="llm-section recommendations">
-            <h3>{t('actionPlan.recommendations') || 'Gợi ý từ LLM'}</h3>
+            <h3>{t('report.recommendations') || 'Gợi ý từ LLM'}</h3>
             <div className="recommendations-list">
               {recommendations.map((rec, idx) => (
                 <div key={idx} className="recommendation-item">
@@ -110,7 +110,7 @@ export default function LLMRecommendTab({
 
         {/* Knowledge Base Documents */}
         <div className="llm-section">
-          <h3>{t('actionPlan.kbDocuments') || 'Tài liệu tham khảo (Knowledge Base)'}</h3>
+          <h3>{t('report.kbDocuments') || 'Tài liệu tham khảo (Knowledge Base)'}</h3>
           
           {kbDocuments.length > 0 ? (
             <div className="kb-docs-list">
@@ -130,14 +130,14 @@ export default function LLMRecommendTab({
             </div>
           ) : (
             <p className="empty-docs">
-              {t('actionPlan.noKbDocuments') || 'Chưa có tài liệu nào'}
+              {t('report.noKbDocuments') || 'Chưa có tài liệu nào'}
             </p>
           )}
         </div>
       </div>
 
       <style>{`
-        .empty-alert-state {
+        .empty-analyses-state {
           padding: 60px 20px;
           text-align: center;
           color: #999;

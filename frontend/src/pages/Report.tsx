@@ -1,91 +1,60 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import { api } from '../lib/api'
-import AlertHistoryTab from '../components/actionplan/AlertHistoryTab'
-import ActionPlanTab from '../components/actionplan/ActionPlanTab'
-import LLMRecommendTab from '../components/actionplan/LLMRecommendTab'
+import AnalysesHistoryTab from '../components/report/AnalysesHistoryTab'
+import ReportTab from '../components/report/ReportTab'
+import LLMRecommendTab from '../components/report/LLMRecommendTab'
 import { FileTextIcon, SparklesIcon } from '../components/Icons'
 import type { Document } from '../lib/api'
-import type { ActionPlanItem, Alert } from '../types/actionplan'
+import type { ReportItem, Analyses } from '../types/report'
 
-export default function ActionPlan() {
+export default function Report() {
   const { t } = useTranslation()
   const [rightTab, setRightTab] = useState<'llmRecommend'>('llmRecommend')
 
-  const [alerts, setAlerts] = useState<Alert[]>([])
-  const [selectedAlert, setSelectedAlert] = useState<Alert | null>(null)
-  const [actionPlanItems, setActionPlanItems] = useState<ActionPlanItem[]>([])
+  const [analyses, setAnalyses] = useState<Analyses[]>([])
+  const [selectedAnalyses, setSelectedAnalyses] = useState<Analyses | null>(null)
+  const [reportItems, setReportItems] = useState<ReportItem[]>([])
   const [kbDocuments, setKbDocuments] = useState<Document[]>([])
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
 
-  const totalAlerts = alerts.length
-  const needsAction = alerts.filter(a => a.severity === 'HIGH' || a.severity === 'CRITICAL').length
-  const inProgress = actionPlanItems.filter(ap => ap.status === 'Đang xử lý').length
-  const completed = actionPlanItems.filter(ap => ap.status === 'Đã chốt').length
-  const totalBudget = actionPlanItems.reduce((sum, ap) => sum + ap.estimated_budget, 0)
+  const totalAnalyses = analyses.length
+  const needsAction = analyses.filter(a => a.severity === 'HIGH' || a.severity === 'CRITICAL').length
+  const inProgress = reportItems.filter(ap => ap.status === 'Đang xử lý').length
+  const completed = reportItems.filter(ap => ap.status === 'Đã chốt').length
+  const totalBudget = reportItems.reduce((sum, ap) => sum + ap.estimated_budget, 0)
 
-  const fetchAlerts = useCallback(async () => {
+  const fetchAnalyses = useCallback(async () => {
     setLoading(true)
     try {
-      const data = await api.actionPlan.listAlerts()
-      setAlerts(data)
-      if (data.length > 0 && !selectedAlert) {
-        setSelectedAlert(data[0])
+      const data = await api.report.listAnalyses()
+      setAnalyses(data)
+      if (data.length > 0 && !selectedAnalyses) {
+        setSelectedAnalyses(data[0])
       }
     } catch (err) {
-      console.error('Failed to fetch alerts:', err)
-      const mockAlerts: Alert[] = [
-        {
-          id: 1,
-          alert_code: 'ALERT-2025-00024',
-          severity: 'CRITICAL',
-          title: 'Thông tư 50/2024/TT-NHNN',
-          description: 'Yêu cầu mới về xác minh danh tính khách hàng',
-          issued_date: '2025-01-15',
-          due_date: '2025-06-15',
-          estimated_impact: '28.7 tỷ',
-          created_at: '2025-01-15T10:00:00',
-        },
-      ]
-      setAlerts(mockAlerts)
-      if (mockAlerts.length > 0 && !selectedAlert) setSelectedAlert(mockAlerts[0])
+      console.error('Failed to fetch analyses:', err)
+      setAnalyses([])
+      setSelectedAnalyses(null)
     } finally {
       setLoading(false)
     }
-  }, [selectedAlert])
+  }, [selectedAnalyses])
 
-  const fetchActionPlan = useCallback(async (alertId: number) => {
+  const fetchReport = useCallback(async (analysesId: number) => {
     try {
-      const data = await api.actionPlan.getActionPlan(alertId)
-      setActionPlanItems(data.action_items)
+      const data = await api.report.getReport(analysesId)
+      setReportItems(data.report_items)
     } catch (err) {
-      console.error('Failed to fetch action plan:', err)
-      const mockItems: ActionPlanItem[] = [
-        {
-          id: 1,
-          alert_id: alertId,
-          action_description: 'Cập nhật hệ thống nhận dạng khách hàng (KYC)',
-          responsible_department: 'Khối Công nghệ',
-          target_date: '25/08/2025',
-          estimated_budget: 12000000000,
-          estimated_risk: 'Cao',
-          code: 'AP-001',
-          status: 'Cần xử lý',
-          deliverable_type: 'process_update',
-          owner_role: 'Compliance Department / Risk Manager',
-          co_owner_role: 'Product / IT / PO',
-          dependency: '',
-          evidence_document: '',
-        },
-      ]
-      setActionPlanItems(mockItems)
+      console.error('Failed to fetch report:', err)
+      setReportItems([])
     }
   }, [])
 
   const fetchKnowledgeBase = useCallback(async () => {
     try {
-      const data = await api.documents.list('action_plan')
+      const data = await api.documents.list('report')
       setKbDocuments(data)
     } catch (err) {
       console.error('Failed to fetch knowledge base:', err)
@@ -94,87 +63,87 @@ export default function ActionPlan() {
   }, [])
 
   useEffect(() => {
-    fetchAlerts()
+    fetchAnalyses()
     fetchKnowledgeBase()
-  }, [fetchAlerts, fetchKnowledgeBase])
+  }, [fetchAnalyses, fetchKnowledgeBase])
 
   useEffect(() => {
-    if (selectedAlert) fetchActionPlan(selectedAlert.id)
-  }, [selectedAlert, fetchActionPlan])
+    if (selectedAnalyses) fetchReport(selectedAnalyses.id)
+  }, [selectedAnalyses, fetchReport])
 
-  const handleSelectAlert = (alert: Alert) => {
-    setSelectedAlert(alert)
+  const handleSelectAnalyses = (analyses: Analyses) => {
+    setSelectedAnalyses(analyses)
   }
 
-  const handleSaveActionPlan = async (items: ActionPlanItem[]) => {
+  const handleSaveReport = async (items: ReportItem[]) => {
     setSaving(true)
     try {
-      if (selectedAlert) {
-        await api.actionPlan.saveActionPlanItems(selectedAlert.id, items)
-        setActionPlanItems(items)
-        alert(t('actionPlan.toast.saveSucess') || 'Action Plan saved successfully')
+      if (selectedAnalyses) {
+        await api.report.saveReportItems(selectedAnalyses.id, items)
+        setReportItems(items)
+        window.alert(t('report.toast.saveSucess') || 'Report saved successfully')
       }
     } catch (err) {
-      console.error('Failed to save action plan:', err)
-      alert(t('actionPlan.toast.saveError') || 'Failed to save Action Plan')
+      console.error('Failed to save report:', err)
+      window.alert(t('report.toast.saveError') || 'Failed to save Report')
     } finally {
       setSaving(false)
     }
   }
 
-  const handleFinalizeActionPlan = async () => {
-    if (!selectedAlert) return
+  const handleFinalizeReport = async () => {
+    if (!selectedAnalyses) return
     setSaving(true)
     try {
-      const data = await api.actionPlan.finalizeActionPlan(selectedAlert.id)
+      const data = await api.report.finalizeReport(selectedAnalyses.id)
       
-      // Generate and download JSON file of the finalized action plan
+      // Generate and download JSON file of the finalized report
       const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json;charset=utf-8;' })
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
-      const name = selectedAlert?.alert_code
-        ? `${selectedAlert.alert_code}_action_plan.json`
-        : 'action_plan.json'
+      const name = selectedAnalyses?.analyses_code
+        ? `${selectedAnalyses.analyses_code}_report.json`
+        : 'report.json'
       a.download = name
       document.body.appendChild(a)
       a.click()
       a.remove()
       URL.revokeObjectURL(url)
 
-      alert(t('actionPlan.toast.finalizeSuccess') || 'Action Plan finalized successfully')
-      fetchAlerts()
-      fetchActionPlan(selectedAlert.id)
+      window.alert(t('report.toast.finalizeSuccess') || 'Report finalized successfully')
+      fetchAnalyses()
+      fetchReport(selectedAnalyses.id)
     } catch (err) {
-      console.error('Failed to finalize action plan:', err)
-      alert(t('actionPlan.toast.finalizeError') || 'Failed to finalize Action Plan')
+      console.error('Failed to finalize report:', err)
+      window.alert(t('report.toast.finalizeError') || 'Failed to finalize Report')
     } finally {
       setSaving(false)
     }
   }
 
   return (
-    <div className="actionplan-page">
+    <div className="report-page">
       <div className="container">
-        <div className="actionplan-header">
+        <div className="report-header">
           <div>
-            <h1 className="actionplan-title">{t('actionPlan.title') || 'Action Plan'}</h1>
-            <p className="actionplan-subtitle">{t('actionPlan.subtitle') || 'Quản lý kế hoạch hành động dự các Alert rủi ro'}</p>
+            <h1 className="report-title">{t('report.title') || 'Report'}</h1>
+            <p className="report-subtitle">{t('report.subtitle') || 'Quản lý report dự các Analyses rủi ro'}</p>
           </div>
         </div>
 
-        <div className="actionplan-stats-row">
-          <div className="actionplan-stat-card">
+        <div className="report-stats-row">
+          <div className="report-stat-card">
             <div className="stat-icon stat-icon-1">
               <FileTextIcon size={24} />
             </div>
             <div className="stat-content">
-              <div className="stat-value">{totalAlerts}</div>
-              <div className="stat-label">Tổng Alert</div>
+              <div className="stat-value">{totalAnalyses}</div>
+              <div className="stat-label">Tổng Analyses</div>
             </div>
           </div>
 
-          <div className="actionplan-stat-card">
+          <div className="report-stat-card">
             <div className="stat-icon stat-icon-2">⚠️</div>
             <div className="stat-content">
               <div className="stat-value">{needsAction}</div>
@@ -182,7 +151,7 @@ export default function ActionPlan() {
             </div>
           </div>
 
-          <div className="actionplan-stat-card">
+          <div className="report-stat-card">
             <div className="stat-icon stat-icon-3">⏳</div>
             <div className="stat-content">
               <div className="stat-value">{inProgress}</div>
@@ -190,15 +159,15 @@ export default function ActionPlan() {
             </div>
           </div>
 
-          <div className="actionplan-stat-card">
+          <div className="report-stat-card">
             <div className="stat-icon stat-icon-4">✓</div>
             <div className="stat-content">
               <div className="stat-value">{completed}</div>
-              <div className="stat-label">Đã chốt Action Plan</div>
+              <div className="stat-label">Đã chốt Report</div>
             </div>
           </div>
 
-          <div className="actionplan-stat-card">
+          <div className="report-stat-card">
             <div className="stat-icon stat-icon-5">💰</div>
             <div className="stat-content">
               <div className="stat-value">{(totalBudget / 1e9).toFixed(1)}T</div>
@@ -207,28 +176,28 @@ export default function ActionPlan() {
           </div>
         </div>
 
-        <div className="actionplan-grid">
-          <div className="actionplan-left">
-            <AlertHistoryTab
-              alerts={alerts}
-              selectedAlert={selectedAlert}
-              onSelectAlert={handleSelectAlert}
+        <div className="report-grid">
+          <div className="report-left">
+            <AnalysesHistoryTab
+              analyses={analyses}
+              selectedAnalyses={selectedAnalyses}
+              onSelectAnalyses={handleSelectAnalyses}
               loading={loading}
             />
           </div>
 
-          <div className="actionplan-center">
-            <ActionPlanTab
-              key={selectedAlert?.id || 0}
-              selectedAlert={selectedAlert}
-              items={actionPlanItems}
-              onSave={handleSaveActionPlan}
-              onFinalize={handleFinalizeActionPlan}
+          <div className="report-center">
+            <ReportTab
+              key={selectedAnalyses?.id || 0}
+              selectedAnalyses={selectedAnalyses}
+              items={reportItems}
+              onSave={handleSaveReport}
+              onFinalize={handleFinalizeReport}
               saving={saving}
             />
           </div>
 
-          <div className="actionplan-right">
+          <div className="report-right">
             <div className="right-tabs">
               <button
                 className={`right-tab ${rightTab === 'llmRecommend' ? 'active' : ''}`}
@@ -240,7 +209,7 @@ export default function ActionPlan() {
             </div>
             <div className="right-content">
               <LLMRecommendTab
-                selectedAlert={selectedAlert}
+                selectedAnalyses={selectedAnalyses}
                 kbDocuments={kbDocuments}
               />
             </div>
@@ -249,43 +218,43 @@ export default function ActionPlan() {
       </div>
 
       <style>{`
-        @keyframes actionplan-pulse {
+        @keyframes report-pulse {
           0% { box-shadow: 0 0 0 rgba(243,112,33,0.0); transform: translateY(0); }
           50% { box-shadow: 0 0 36px rgba(243,112,33,0.22); transform: translateY(-1px); }
           100% { box-shadow: 0 0 0 rgba(243,112,33,0.0); transform: translateY(0); }
         }
 
-        .actionplan-page {
+        .report-page {
           padding: 20px 0;
           animation: fade-up 0.35s var(--ease) both;
         }
 
         @media (prefers-reduced-motion: reduce) {
-          .actionplan-page,
-          .actionplan-grid,
-          .actionplan-stats-row,
-          .actionplan-left,
-          .actionplan-center,
-          .actionplan-right {
+          .report-page,
+          .report-grid,
+          .report-stats-row,
+          .report-left,
+          .report-center,
+          .report-right {
             animation: none !important;
             transition: none !important;
           }
         }
 
 
-        .actionplan-grid,
-        .actionplan-stats-row,
-        .actionplan-left,
-        .actionplan-center,
-        .actionplan-right {
+        .report-grid,
+        .report-stats-row,
+        .report-left,
+        .report-center,
+        .report-right {
           animation: fade-up 0.45s var(--ease) both;
         }
 
-        .actionplan-grid { animation-delay: 80ms; }
-        .actionplan-stats-row { animation-delay: 30ms; }
-        .actionplan-left { animation-delay: 120ms; }
-        .actionplan-center { animation-delay: 160ms; }
-        .actionplan-right { animation-delay: 200ms; }
+        .report-grid { animation-delay: 80ms; }
+        .report-stats-row { animation-delay: 30ms; }
+        .report-left { animation-delay: 120ms; }
+        .report-center { animation-delay: 160ms; }
+        .report-right { animation-delay: 200ms; }
 
 
 
@@ -295,11 +264,11 @@ export default function ActionPlan() {
           padding: 0 20px;
         }
 
-        .actionplan-header {
+        .report-header {
           margin-bottom: 30px;
         }
 
-        .actionplan-title {
+        .report-title {
           font-size: 28px;
           font-weight: 600;
           margin: 0 0 5px 0;
@@ -307,7 +276,7 @@ export default function ActionPlan() {
         }
 
 
-        .actionplan-subtitle {
+        .report-subtitle {
           font-size: 14px;
           color: var(--text-2);
           margin: 0;
@@ -315,14 +284,14 @@ export default function ActionPlan() {
 
 
         /* Stats Section */
-        .actionplan-stats-row {
+        .report-stats-row {
           display: grid;
           grid-template-columns: repeat(5, 1fr);
           gap: 15px;
           margin-bottom: 30px;
         }
 
-        .actionplan-stat-card {
+        .report-stat-card {
           background: rgba(8, 35, 63, 0.5) !important;
           border: 1px solid rgba(255, 255, 255, 0.08) !important;
           border-radius: 12px;
@@ -336,13 +305,13 @@ export default function ActionPlan() {
           opacity: 1 !important;
         }
 
-        [data-theme="light"] .actionplan-stat-card {
+        [data-theme="light"] .report-stat-card {
           background: #ffffff !important;
           border: 1px solid #e5e7eb !important;
           box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08) !important;
         }
 
-        .actionplan-stats-row .actionplan-stat-card:hover {
+        .report-stats-row .report-stat-card:hover {
           box-shadow: 0 10px 24px rgba(0, 0, 0, 0.18) !important;
           background: rgba(8, 35, 63, 0.55) !important;
           border-color: rgba(255, 255, 255, 0.12) !important;
@@ -350,7 +319,7 @@ export default function ActionPlan() {
           opacity: 1 !important;
         }
 
-        [data-theme="light"] .actionplan-stats-row .actionplan-stat-card:hover {
+        [data-theme="light"] .report-stats-row .report-stat-card:hover {
           background: #ffffff !important;
           border-color: #d1d5db !important;
           box-shadow: 0 10px 24px rgba(0, 0, 0, 0.12) !important;
@@ -402,30 +371,30 @@ export default function ActionPlan() {
         }
 
         /* 3-Column Grid */
-        .actionplan-grid {
+        .report-grid {
           display: grid;
           grid-template-columns: 350px 1fr 380px;
           gap: 20px;
         }
 
-        .actionplan-left,
-        .actionplan-center,
-        .actionplan-right {
+        .report-left,
+        .report-center,
+        .report-right {
           background: white;
           border: 1px solid #e5e7eb;
           border-radius: 12px;
           overflow: hidden;
         }
 
-        [data-theme="dark"] .actionplan-left,
-        [data-theme="dark"] .actionplan-center,
-        [data-theme="dark"] .actionplan-right {
+        [data-theme="dark"] .report-left,
+        [data-theme="dark"] .report-center,
+        [data-theme="dark"] .report-right {
           background: rgba(8, 35, 63, 0.72);
           border-color: rgba(255, 255, 255, 0.10);
           box-shadow: 0 16px 40px rgba(0, 0, 0, 0.18);
         }
 
-        .actionplan-right {
+        .report-right {
           display: flex;
           flex-direction: column;
         }
@@ -492,17 +461,17 @@ export default function ActionPlan() {
 
         /* Responsive */
         @media (max-width: 768px) {
-          .actionplan-grid {
+          .report-grid {
             grid-template-columns: 1fr;
           }
 
-          .actionplan-stats-row {
+          .report-stats-row {
             grid-template-columns: repeat(3, 1fr);
           }
         }
 
         @media (max-width: 768px) {
-          .actionplan-stats-row {
+          .report-stats-row {
             grid-template-columns: repeat(2, 1fr);
           }
         }
@@ -510,4 +479,3 @@ export default function ActionPlan() {
     </div>
   )
 }
-

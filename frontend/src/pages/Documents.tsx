@@ -23,7 +23,7 @@ interface KbConfig {
 
 const KB_CONFIGS: KbConfig[] = [
   { type: 'law',         Icon: ScaleIcon,         colorClass: 'kb-law',     badgeKey: 'documents.kb.law.badge'        },
-  { type: 'action_plan', Icon: ClipboardListIcon,  colorClass: 'kb-action',  badgeKey: 'documents.kb.actionPlan.badge' },
+  { type: 'report', Icon: ClipboardListIcon,  colorClass: 'kb-report',  badgeKey: 'documents.kb.report.badge' },
   { type: 'internal',    Icon: BuildingIcon,       colorClass: 'kb-internal',badgeKey: 'documents.kb.internal.badge'   },
 ]
 
@@ -131,8 +131,8 @@ export default function Documents() {
                   <Icon size={22} />
                 </div>
                 <div className="kb-card-body">
-                  <div className="kb-card-title">{t(`documents.kb.${type === 'action_plan' ? 'actionPlan' : type}.label`)}</div>
-                  <div className="kb-card-desc">{t(`documents.kb.${type === 'action_plan' ? 'actionPlan' : type}.desc`)}</div>
+                  <div className="kb-card-title">{t(`documents.kb.${type === 'report' ? 'report' : type}.label`)}</div>
+                  <div className="kb-card-desc">{t(`documents.kb.${type === 'report' ? 'report' : type}.desc`)}</div>
                   <div className="kb-card-footer">
                     <span className={`kb-badge ${colorClass}-badge`}>{t(badgeKey)}</span>
                     <span className="kb-count">

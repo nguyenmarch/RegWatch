@@ -7,7 +7,7 @@ import Home from './pages/Home'
 import Login from './pages/Login'
 import Chat from './pages/Chat'
 import Documents from './pages/Documents'
-import ActionPlan from './pages/ActionPlan'
+import Report from './pages/Report'
 import TestHealth from './pages/TestHealth'
 import NotFound from './pages/NotFound'
 
@@ -50,8 +50,8 @@ function AppShell() {
           <Route path="/documents" element={
             <ProtectedRoute><Documents /></ProtectedRoute>
           } />
-          <Route path="/actionplan" element={
-            <ProtectedRoute><ActionPlan /></ProtectedRoute>
+          <Route path="/report" element={
+            <ProtectedRoute><Report /></ProtectedRoute>
           } />
           <Route path="/test" element={<TestHealth />} />
           <Route path="*" element={<NotFound />} />
