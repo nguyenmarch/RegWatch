@@ -1,4 +1,5 @@
 import logging
+import sys
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -12,6 +13,18 @@ from app.models import conversation as _conversation_model
 from app.models import document as _document_model
 from app.models import user as _user_model
 from app.routers import auth, chat, documents, users
+
+# Force the root logger to INFO so all app.* child loggers emit their messages.
+# basicConfig() is a no-op if uvicorn already added a handler, so we set the level directly.
+_root_logger = logging.getLogger()
+_root_logger.setLevel(logging.INFO)
+if not _root_logger.handlers:
+    _handler = logging.StreamHandler(sys.stdout)
+    _handler.setFormatter(logging.Formatter(
+        "%(asctime)s | %(levelname)-8s | %(name)s | %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
+    ))
+    _root_logger.addHandler(_handler)
 
 logger = logging.getLogger(__name__)
 
@@ -40,6 +53,8 @@ async def lifespan(app: FastAPI):
             logger.info("Admin user seeded: username=admin")
 
     get_neo4j_driver()
+    from app.services.neo4j_service import ensure_neo4j_constraints
+    ensure_neo4j_constraints()
     ensure_minio_bucket()
     yield
     close_neo4j_driver()

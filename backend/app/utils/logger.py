@@ -1,7 +1,7 @@
 import logging
 import sys
 
-# Need to make it a class
+
 def _build_logger(name: str) -> logging.Logger:
     log = logging.getLogger(name)
     if not log.handlers:

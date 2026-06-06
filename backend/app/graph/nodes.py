@@ -58,19 +58,47 @@ async def fetch_graph_context(question: str) -> str:
         return ""
 
     def _run_query(nums: list[int]) -> list[dict]:
+        # def _query(tx, nums: list[int]) -> list[dict]:
+        #     result = tx.run(
+        #         """
+        #         MATCH (a:Article) WHERE a.article_number IN $nums
+        #         MATCH (a)-[:HAS_CLAUSE]->(c:Clause)
+        #         OPTIONAL MATCH (c)-[:NEXT_CLAUSE]->(next:Clause)
+        #         OPTIONAL MATCH (c)-[:REFERENCES]->(ref:Article)-[:HAS_CLAUSE]->(refc:Clause)
+        #         RETURN
+        #             a.article_number AS art_num,
+        #             a.header         AS art_header,
+        #             c.text_content   AS clause_text,
+        #             collect(DISTINCT next.text_content) AS next_texts,
+        #             collect(DISTINCT refc.text_content) AS ref_texts
+        #         ORDER BY a.article_number
+        #         """,
+        #         nums=nums,
+        #     )
+        #     return [r.data() for r in result]
+
+
+        # Updated query to also fetch legal relationships of the containing document
         def _query(tx, nums: list[int]) -> list[dict]:
             result = tx.run(
                 """
                 MATCH (a:Article) WHERE a.article_number IN $nums
                 MATCH (a)-[:HAS_CLAUSE]->(c:Clause)
+                
+                // Mở rộng thêm: Lấy các mối quan hệ của văn bản chứa điều luật đó
+                OPTIONAL MATCH (doc:Document)-[:CONTAINS]->(a)
+                OPTIONAL MATCH (doc)-[rel:CAN_CU_PHAP_LY|THAY_THE|SUA_DOI|HUONG_DAN]->(target:Document)
+                
                 OPTIONAL MATCH (c)-[:NEXT_CLAUSE]->(next:Clause)
                 OPTIONAL MATCH (c)-[:REFERENCES]->(ref:Article)-[:HAS_CLAUSE]->(refc:Clause)
+                
                 RETURN
                     a.article_number AS art_num,
                     a.header         AS art_header,
                     c.text_content   AS clause_text,
                     collect(DISTINCT next.text_content) AS next_texts,
-                    collect(DISTINCT refc.text_content) AS ref_texts
+                    collect(DISTINCT refc.text_content) AS ref_texts,
+                    collect(DISTINCT type(rel) + ' -> ' + target.name) AS legal_links
                 ORDER BY a.article_number
                 """,
                 nums=nums,

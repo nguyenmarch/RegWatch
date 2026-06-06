@@ -34,10 +34,18 @@ class Settings(BaseSettings):
     CHUNK_SIZE: int = Field(default=1000, description="Size of each chunk for processing")
     CHUNK_OVERLAP: int = Field(default=100, description="Overlap between chunks")
     EMBEDDING_DIMENSION: int = Field(default=768, description="Dimension of the embedding vector")
+    QDRANT_UPSERT_BATCH_SIZE: int = Field(default=100, description="Max points per Qdrant upsert call")
+    NEO4J_CHUNK_BATCH_SIZE: int = Field(default=200, description="Max chunks per Neo4j UNWIND batch")
 
     NEO4J_URI: str = "bolt://localhost:7687"
     NEO4J_USER: str = "neo4j"
     NEO4J_PASSWORD: str = "password"
+
+    # Embedding backend: "sentence_transformers" or "ollama"
+    EMBEDDING_BACKEND: str = "sentence_transformers"
+    ST_MODEL_NAME: str = "keepitreal/vietnamese-sbert"
+    OLLAMA_BASE_URL: str = "http://localhost:11434"
+    OLLAMA_EMBED_MODEL: str = "nomic-embed-text"
 
     GEMINI_API_KEY: str = ""
     GEMINI_MODEL: str = "gemini-2.5-flash"

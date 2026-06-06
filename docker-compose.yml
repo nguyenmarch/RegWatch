@@ -33,6 +33,8 @@ services:
       MINIO_SECRET_KEY: regwatch123
       MINIO_BUCKET: regwatch-documents
       MINIO_SECURE: "false"
+    volumes:
+      - ./backend:/app
     depends_on:
       mysql:
         condition: service_healthy
