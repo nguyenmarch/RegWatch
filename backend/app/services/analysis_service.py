@@ -57,10 +57,11 @@ _SYSTEM_INSTRUCTION = (
     "2) Phạm vi ảnh hưởng: càng nhiều phòng ban/nghiệp vụ bị tác động, điểm càng cao.\n"
     "3) Mức chế tài pháp lý: hậu quả khi vi phạm càng nặng (phạt nặng, thu hồi giấy "
     "phép...) điểm càng cao.\n"
-    "Thang điểm: 80–100 = xung đột trực tiếp + ảnh hưởng rộng + chế tài nặng; "
+    "Thang điểm nghiêm trọng: 80–100 = xung đột trực tiếp + ảnh hưởng rộng + chế tài nặng; "
     "45–79 = chồng chéo/trùng lặp, ảnh hưởng vừa; 0–44 = khác biệt nhỏ, chỉ theo dõi. "
     "overall_risk.label mô tả ngắn mức rủi ro tương ứng điểm. KHÔNG tự gán mức độ "
     "khẩn cấp — hệ thống tự suy ra từ overall_risk.value."
+    "chỉ số phần trăm rủi ro phải tính toán dựa trên overall_r với công thức (phần trăm rủi ro) = (điểm nghiêm trọng x điểm xác suất / 75) x 15%"
 )
 
 

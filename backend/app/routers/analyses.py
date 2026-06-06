@@ -11,7 +11,7 @@ router = APIRouter(prefix="/v1/analyses", tags=["Analyses"])
 
 
 @router.get("", response_model=list[AnalysisSummary])
-async def list_analyses(
+async def list_analysis(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ) -> list[AnalysisSummary]:
