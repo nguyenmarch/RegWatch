@@ -4,6 +4,18 @@ from typing import List, Optional
 from pydantic import BaseModel
 
 
+class DraftVersionResponse(BaseModel):
+    """Thông tin một bản nháp đã lưu."""
+    id: int
+    remediation_doc_id: int
+    content: Optional[str] = None
+    saved_by: Optional[str] = None
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
 class RemediationDocResponse(BaseModel):
     """
     [Mục đích]: Định dạng dữ liệu trả về (Output) cho thông tin của một Văn bản Khắc phục (Sửa đổi/Đào tạo) đã được sinh ra.
@@ -48,7 +60,6 @@ class ActionPlanTaskResponse(BaseModel):
     action_required: str
     impacted_internal_doc: Optional[str] = None
     output_type: str
-    # ĐÃ ĐỔI TÊN Ở ĐÂY: Phase3DocumentResponse -> RemediationDocResponse
     document: Optional[RemediationDocResponse] = None
 
     class Config:
@@ -90,7 +101,7 @@ class DocumentGenerateRequest(BaseModel):
     """
     task_id: int
     refinement_prompt: Optional[str] = None
-    generation_type: str = "document" # "document" or "announcement"
+    generation_type: str = "document"
 
 
 class RemediationDocUpdate(BaseModel):
@@ -100,7 +111,6 @@ class RemediationDocUpdate(BaseModel):
     [Các tham số truyền vào (Body JSON)]:
     - content (str): Bắt buộc. Chuỗi nội dung mới nhất sau khi user đã sửa xong.
     """
-    # ĐÃ ĐỔI TÊN Ở ĐÂY: Phase3DocumentUpdate -> RemediationDocUpdate
     content: str
 
 
@@ -126,3 +136,9 @@ class GroupDocumentGenerateRequest(BaseModel):
     task_ids: List[int]
     refinement_prompt: Optional[str] = None
     generation_type: str = "document"
+
+
+class SaveDraftRequest(BaseModel):
+    """Nhận content khi user ấn nút Lưu bản nháp."""
+    content: str
+    saved_by: Optional[str] = None

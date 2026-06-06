@@ -72,5 +72,27 @@ class RemediationDoc(Base):
         DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False
     )
 
-    # Relationship
+    # Relationships
     task: Mapped["ActionPlanTask"] = relationship("ActionPlanTask", back_populates="document")
+    drafts: Mapped[List["DraftVersion"]] = relationship(
+        "DraftVersion",
+        back_populates="doc",
+        cascade="all, delete-orphan",
+        order_by="DraftVersion.created_at.desc()",
+    )
+
+
+class DraftVersion(Base):
+    """Lưu lịch sử các bản nháp (snapshot) của RemediationDoc mỗi khi user ấn Lưu."""
+    __tablename__ = "draft_versions"
+
+    id: Mapped[int] = mapped_column(primary_key=True, index=True, autoincrement=True)
+    remediation_doc_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("remediation_docs.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    content: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    saved_by: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+
+    # Relationship
+    doc: Mapped["RemediationDoc"] = relationship("RemediationDoc", back_populates="drafts")

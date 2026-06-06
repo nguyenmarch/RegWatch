@@ -193,6 +193,34 @@ export default function Remediation() {
         } catch (e) { console.error(e); }
     };
 
+    const handleSaveDraft = async (taskIds: number[], content: any) => {
+        try {
+            let lastDrafts: any[] = [];
+            const results = await Promise.all(
+                taskIds.map(async (tid) => {
+                    const entry = docMap.get(tid);
+                    if (entry?.doc) {
+                        const drafts = await api.remediation.saveDraft(entry.doc.id, JSON.stringify(content), "Sếp/Chuyên viên");
+                        lastDrafts = drafts;
+                        return { tid, doc: { ...entry.doc, status: 'PENDING', product_approved: false, cd_approved: false } };
+                    }
+                    return null;
+                })
+            );
+            setDocMap(prev => {
+                const next = new Map(prev);
+                results.forEach(res => {
+                    if (res) {
+                        const e = next.get(res.tid)!;
+                        next.set(res.tid, { ...e, doc: res.doc, parsed: content });
+                    }
+                });
+                return next;
+            });
+            return lastDrafts;
+        } catch(e) { console.error(e); return []; }
+    };
+
     const handleApproveDoc = async (taskIds: number[], role: string) => {
         try {
             const results = await Promise.all(
@@ -563,6 +591,7 @@ export default function Remediation() {
                                         key={group.docName}
                                         group={group}
                                         onSave={handleSaveDoc}
+                                        onSaveDraft={handleSaveDraft}
                                         onApprove={handleApproveDoc}
                                         onRefine={handleRefineDoc}
                                         onExport={exportDoc}
@@ -583,6 +612,7 @@ export default function Remediation() {
 interface DocSectionProps {
     group: GroupedDocEntry;
     onSave: (taskIds: number[], content: any) => void;
+    onSaveDraft: (taskIds: number[], content: any) => Promise<any[]>;
     onApprove: (taskIds: number[], role: string) => void;
     onRefine: (taskIds: number[], prompt: string) => void;
     onExport: (taskIds: number[]) => void;
@@ -592,11 +622,18 @@ interface DocSectionProps {
 
 function DocSection({
     group,
-    onSave, onApprove, onRefine, onExport,
+    onSave, onSaveDraft, onApprove, onRefine, onExport,
     onToggleRefinement, onSetRefinementPrompt,
 }: DocSectionProps) {
     const [approveRole, setApproveRole] = useState('product');
     const [localComments, setLocalComments] = useState<any[]>([]);
+    // Draft history
+    const [drafts, setDrafts] = useState<any[]>([]);
+    const [showDrafts, setShowDrafts] = useState(false);
+    
+    // View mode: switch between document and announcement
+    const [viewMode, setViewMode] = useState<'document' | 'announcement'>('document');
+    
     // top offset (px) of each mark, measured from top of scrollContainer
     const [commentTops, setCommentTops] = useState<Record<string, number>>({});
     const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -610,6 +647,20 @@ function DocSection({
     useEffect(() => {
         setLocalComments(parsed?.comments ?? []);
     }, [parsed?.comments]);
+
+    useEffect(() => {
+        if (!parsed?.modified_document && parsed?.announcement) {
+            setViewMode('announcement');
+        } else if (parsed?.modified_document && !parsed?.announcement) {
+            setViewMode('document');
+        }
+    }, [parsed]);
+
+    useEffect(() => {
+        if (doc) {
+            api.remediation.getDrafts(doc.id).then(setDrafts).catch(console.error);
+        }
+    }, [doc?.id]);
 
     // Measure mark positions relative to the scroll container's top edge (including scroll offset)
     const recalcPositions = useCallback(() => {
@@ -659,8 +710,32 @@ function DocSection({
         setLocalComments(prev => prev.map(c => c.id === id ? { ...c, reason: newReason } : c));
     };
 
+    const toggleCommentResolved = (id: string) => {
+        const nextComments = localComments.map(c => c.id === id ? { ...c, resolved: !c.resolved } : c);
+        setLocalComments(nextComments);
+        if (parsed) onSave(group.taskIds, { ...parsed, comments: nextComments });
+    };
+
     const handleCommentBlur = () => {
         if (parsed) onSave(group.taskIds, { ...parsed, comments: localComments });
+    };
+
+    const doSaveDraft = async () => {
+        if (parsed) {
+            const newDrafts = await onSaveDraft(group.taskIds, { ...parsed, comments: localComments });
+            if (newDrafts && newDrafts.length > 0) {
+                setDrafts(newDrafts);
+                setShowDrafts(true);
+            }
+        }
+    };
+
+    const doRestoreDraft = (draftContent: string) => {
+        if (!confirm("Khôi phục bản nháp này? Những thay đổi chưa lưu sẽ bị mất.")) return;
+        try {
+            const contentObj = JSON.parse(draftContent);
+            onSave(group.taskIds, contentObj);
+        } catch(e) { console.error(e); }
     };
 
     // modified_document contains <mark data-id="..."> highlights — show that for editing.
@@ -702,7 +777,10 @@ function DocSection({
                             >
                                 ✨
                             </button>
-                            <button className={styles.secBtn} onClick={() => onSave(group.taskIds, { ...parsed, comments: localComments })} title="Lưu bản nháp">
+                            <button className={`${styles.secBtn} ${showDrafts ? styles.secBtnActive : ''}`} onClick={() => setShowDrafts(!showDrafts)} title="Lịch sử bản nháp">
+                                🕒 {drafts.length}
+                            </button>
+                            <button className={styles.secBtn} onClick={doSaveDraft} title="Lưu bản nháp">
                                 💾
                             </button>
                             <button className={styles.secBtn} onClick={() => onExport(group.taskIds)} title="Export .doc">
@@ -730,6 +808,24 @@ function DocSection({
                 </div>
             </div>
 
+            {/* Draft History Bar */}
+            {showDrafts && drafts.length > 0 && (
+                <div className={styles.draftHistoryBar}>
+                    <div className={styles.draftsTitle}>Lịch sử bản nháp</div>
+                    <div className={styles.draftsList}>
+                        {drafts.map((d: any, idx: number) => (
+                            <div key={d.id} className={styles.draftItem}>
+                                <span className={styles.draftTime}>{new Date(d.created_at).toLocaleString('vi-VN')}</span>
+                                {idx === 0 && <span className={styles.draftBadge}>Mới nhất</span>}
+                                <button className={styles.draftRestoreBtn} onClick={() => doRestoreDraft(d.content)}>
+                                    Khôi phục
+                                </button>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
+
             {/* Refinement input */}
             {group.refinementOpen && (
                 <div className={styles.refinementBar}>
@@ -752,6 +848,24 @@ function DocSection({
                 </div>
             )}
 
+            {/* View Mode Tabs */}
+            {parsed && (parsed.modified_document || parsed.old_document) && parsed.announcement && (
+                <div className={styles.viewModeTabs}>
+                    <button 
+                        className={`${styles.tabBtn} ${viewMode === 'document' ? styles.tabBtnActive : ''}`}
+                        onClick={() => setViewMode('document')}
+                    >
+                        📝 Văn bản chỉnh sửa
+                    </button>
+                    <button 
+                        className={`${styles.tabBtn} ${viewMode === 'announcement' ? styles.tabBtnActive : ''}`}
+                        onClick={() => setViewMode('announcement')}
+                    >
+                        🎓 Thông cáo đào tạo
+                    </button>
+                </div>
+            )}
+
             {/* Document content */}
             <div className={styles.docSectionContent}>
                 {group.isGenerating ? (
@@ -761,11 +875,10 @@ function DocSection({
                             Đang gộp <strong>{group.tasks.length} tác vụ</strong> và sinh nội dung sửa đổi cho <strong>{group.docName}</strong>...
                         </p>
                     </div>
-                ) : (parsed?.modified_document || parsed?.old_document) ? (
-                    /*
-                     * Single scroll container: docBody (left) + comment cards (right, absolute).
-                     * Comments are positioned inside the same scrolling box so they move together.
-                     */
+                ) : viewMode === 'document' && (parsed?.modified_document || parsed?.old_document) ? (
+                    <>
+
+
                     <div
                         ref={scrollContainerRef}
                         className={styles.annotationLayout}
@@ -787,7 +900,9 @@ function DocSection({
 
                         {/* Right: comment overlay — no independent scroll, absolute cards */}
                         <div className={styles.annotationSidebar} style={{ minHeight: sidebarMinHeight }}>
-                            {localComments.map((comment: any) => (
+                            {localComments.map((comment: any) => {
+                                const commentTask = group.tasks.find((t: any) => t.task_name === comment.task_name) || group.tasks[0];
+                                return (
                                 <div
                                     key={comment.id}
                                     className={styles.commentCard}
@@ -799,7 +914,28 @@ function DocSection({
                                     onMouseLeave={() => handleMarkHover(null)}
                                 >
                                     <div className={styles.commentCardHeader}>
-                                        <span className={styles.commentTaskName}>{comment.task_name || 'Đề xuất thay đổi'}</span>
+                                        <label className={styles.commentTickWrap} onClick={(e) => e.stopPropagation()}>
+                                            <input 
+                                                type="checkbox" 
+                                                checked={comment.resolved || false} 
+                                                onChange={() => toggleCommentResolved(comment.id)} 
+                                            />
+                                            <span className={styles.commentTickMark}></span>
+                                        </label>
+                                        <div className={styles.commentCardMeta}>
+                                            <div className={styles.commentCardTopMeta}>
+                                                <span className={styles.taskDeptBadge}>{commentTask?.target_department || 'IT'}</span>
+                                                {comment.resolved && (
+                                                    <span className={styles.commentResolvedStatus}>✓</span>
+                                                )}
+                                            </div>
+                                            <span className={`${styles.commentTaskName} ${comment.resolved ? styles.commentResolvedText : ''}`}>
+                                                {comment.task_name || 'Đề xuất thay đổi'}
+                                            </span>
+                                            <span className={styles.commentDocName}>
+                                                &rarr; {commentTask?.impacted_internal_doc || 'Quy chế bảo mật thông tin nội bộ'}
+                                            </span>
+                                        </div>
                                     </div>
                                     <textarea
                                         className={styles.commentReasonInput}
@@ -809,7 +945,8 @@ function DocSection({
                                         rows={3}
                                     />
                                 </div>
-                            ))}
+                                );
+                            })}
                             {localComments.length === 0 && (
                                 <div className={styles.commentCard} style={{ opacity: 0.6 }}>
                                     <p className={styles.commentReason}>Chưa có đề xuất thay đổi nào.</p>
@@ -817,7 +954,8 @@ function DocSection({
                             )}
                         </div>
                     </div>
-                ) : parsed?.announcement ? (
+                </>
+                ) : viewMode === 'announcement' && parsed?.announcement ? (
                     <div className={styles.singleDocView}>
                         <div className={styles.docPaperWide}>
                             <div className={styles.paperHeader}>

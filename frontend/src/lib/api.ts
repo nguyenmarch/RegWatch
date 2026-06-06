@@ -217,6 +217,20 @@ export const api = {
         body: JSON.stringify({ role }),
       }),
 
+    saveDraft: (doc_id: number, content: string, saved_by?: string) =>
+      request<any[]>(`/remediation/documents/${doc_id}/save-draft`, {
+        method: 'POST',
+        body: JSON.stringify({ content, saved_by }),
+      }),
+
+    getDrafts: (doc_id: number) =>
+      request<any[]>(`/remediation/documents/${doc_id}/drafts`),
+
+    restoreDraft: (doc_id: number, draft_id: number) =>
+      request<any>(`/remediation/documents/${doc_id}/drafts/${draft_id}/restore`, {
+        method: 'POST',
+      }),
+
     uploadActionPlan: (file: File) => {
       const form = new FormData()
       form.append('file', file)

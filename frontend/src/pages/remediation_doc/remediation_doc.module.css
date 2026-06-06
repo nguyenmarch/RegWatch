@@ -1138,6 +1138,200 @@
 }
 
 /* ═══════════════════════════════════════════════════════════
+   VIEW MODE TABS
+   ═══════════════════════════════════════════════════════════ */
+.viewModeTabs {
+  display: flex;
+  gap: 12px;
+  padding: 12px 16px 0;
+  background: #FAFAFA;
+  border-bottom: 1px solid #E5E7EB;
+}
+
+.tabBtn {
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  padding: 8px 12px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #6B7280;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.tabBtn:hover {
+  color: #374151;
+}
+
+.tabBtnActive {
+  color: #2563EB;
+  border-bottom-color: #2563EB;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   DRAFT HISTORY
+   ═══════════════════════════════════════════════════════════ */
+.draftHistoryBar {
+  background: #FFFBEB;
+  border-bottom: 1px solid #FDE68A;
+  padding: 10px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.draftsTitle {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #92400E;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.draftsList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.draftItem {
+  background: #fff;
+  border: 1px solid #FCD34D;
+  border-radius: 6px;
+  padding: 6px 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.85rem;
+  color: #B45309;
+}
+
+.draftTime {
+  font-weight: 500;
+}
+
+.draftBadge {
+  background: #FEF3C7;
+  color: #D97706;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+
+.draftRestoreBtn {
+  background: #F59E0B;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.draftRestoreBtn:hover {
+  background: #D97706;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   COMMENT TICK & META
+   ═══════════════════════════════════════════════════════════ */
+.commentCardMeta {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.commentCardTopMeta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.commentResolvedStatus {
+  background: #D1FAE5;
+  color: #059669;
+  font-size: 0.7rem;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-weight: bold;
+}
+
+.commentDocName {
+  font-size: 0.75rem;
+  color: #9CA3AF;
+}
+
+.commentTickWrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  position: relative;
+  width: 16px;
+  height: 16px;
+  margin-right: 6px;
+}
+
+.commentTickWrap input {
+  position: absolute;
+  opacity: 0;
+  cursor: pointer;
+  height: 0;
+  width: 0;
+}
+
+.commentTickMark {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 16px;
+  width: 16px;
+  background-color: #fff;
+  border: 1px solid #D1D5DB;
+  border-radius: 4px;
+  transition: all 0.2s;
+}
+
+.commentTickWrap:hover input ~ .commentTickMark {
+  border-color: #9CA3AF;
+}
+
+.commentTickWrap input:checked ~ .commentTickMark {
+  background-color: #10B981;
+  border-color: #10B981;
+}
+
+.commentTickMark:after {
+  content: "";
+  position: absolute;
+  display: none;
+  left: 5px;
+  top: 2px;
+  width: 4px;
+  height: 8px;
+  border: solid white;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+
+.commentTickWrap input:checked ~ .commentTickMark:after {
+  display: block;
+}
+
+.commentResolvedText {
+  color: #10B981;
+  text-decoration: line-through;
+  opacity: 0.7;
+}
+
+/* ═══════════════════════════════════════════════════════════
    RESPONSIVE
    ═══════════════════════════════════════════════════════════ */
 @media (max-width: 1024px) {

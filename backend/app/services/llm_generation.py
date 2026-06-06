@@ -63,13 +63,35 @@ Trả về: {{"html": "..."}}
 async def get_old_document_from_qdrant(task) -> str:
     """Truy xuất và format văn bản cũ từ Qdrant thành HTML."""
     from app.core.enums import KbType  # noqa: PLC0415
+    from app.core.mysql_client import SessionLocal
+    from app.models.document import Document
     import importlib
     qs = importlib.import_module("app.services.qdrant_service")
 
-    query = f"{task.impacted_internal_doc} {task.action_required} {task.task_name}"
-    chunks = qs.search_chunks(query, collection_name=KbType.INTERNAL.collection_name, top_k=3)
+    db = SessionLocal()
+    try:
+        doc = db.query(Document).filter(
+            Document.title == task.impacted_internal_doc,
+            Document.kb_type == KbType.INTERNAL.value
+        ).first()
+        
+        if not doc:
+            return "<p><em>Không tìm thấy dữ liệu quy định cũ trong Knowledge Base.</em></p>"
+            
+        chunks = qs.fetch_doc_chunks(doc.id, limit=1000)
+    finally:
+        db.close()
 
-    plain = "\n\n".join([c.get("text", "") for c in chunks]) if chunks else "Không tìm thấy dữ liệu quy định cũ trong Knowledge Base."
+    if not chunks:
+        return "<p><em>Không tìm thấy nội dung chi tiết của quy định cũ.</em></p>"
+
+    # Sort chunks by chunk_id if possible (e.g., chunk_0, chunk_1...)
+    try:
+        chunks.sort(key=lambda c: int(c["chunk_id"].split("_")[-1]) if "_" in c["chunk_id"] else 0)
+    except:
+        pass
+
+    plain = "\n\n".join([c.get("text", "") for c in chunks])
     return await _format_plain_text_to_html(plain)
 
 
@@ -242,6 +264,8 @@ async def generate_remediation_html(task, mode: str, old_doc: str, refinement_pr
 async def get_old_document_from_qdrant_group(tasks: list) -> str:
     """Truy xuất và format văn bản cũ từ Qdrant cho nhóm task thành HTML."""
     from app.core.enums import KbType  # noqa: PLC0415
+    from app.core.mysql_client import SessionLocal
+    from app.models.document import Document
     import importlib
     qs = importlib.import_module("app.services.qdrant_service")
 
@@ -249,11 +273,31 @@ async def get_old_document_from_qdrant_group(tasks: list) -> str:
         return "<p><em>Không có tác vụ nào để truy xuất quy định cũ.</em></p>"
 
     doc_name = tasks[0].impacted_internal_doc or ""
-    actions = " ".join([t.action_required for t in tasks])
-    query = f"{doc_name} {actions}"
+    
+    db = SessionLocal()
+    try:
+        doc = db.query(Document).filter(
+            Document.title == doc_name,
+            Document.kb_type == KbType.INTERNAL.value
+        ).first()
+        
+        if not doc:
+            return "<p><em>Không tìm thấy dữ liệu quy định cũ trong Knowledge Base.</em></p>"
+            
+        chunks = qs.fetch_doc_chunks(doc.id, limit=1000)
+    finally:
+        db.close()
 
-    chunks = qs.search_chunks(query, collection_name=KbType.INTERNAL.collection_name, top_k=4)
-    plain = "\n\n".join([c.get("text", "") for c in chunks]) if chunks else "Không tìm thấy dữ liệu quy định cũ trong Knowledge Base."
+    if not chunks:
+        return "<p><em>Không tìm thấy nội dung chi tiết của quy định cũ.</em></p>"
+
+    # Sort chunks by chunk_id if possible
+    try:
+        chunks.sort(key=lambda c: int(c["chunk_id"].split("_")[-1]) if "_" in c["chunk_id"] else 0)
+    except:
+        pass
+
+    plain = "\n\n".join([c.get("text", "") for c in chunks])
     return await _format_plain_text_to_html(plain)
 
 

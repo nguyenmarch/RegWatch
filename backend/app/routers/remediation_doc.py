@@ -1,4 +1,6 @@
+import asyncio
 import json
+import logging
 import os
 from typing import List
 
@@ -9,14 +11,16 @@ from sqlalchemy.orm import selectinload
 
 from app.core.db import get_db
 
-from app.models.remediation_doc import ActionPlan, ActionPlanTask, RemediationDoc
+from app.models.remediation_doc import ActionPlan, ActionPlanTask, RemediationDoc, DraftVersion
 from app.schemas.remediation_doc import (
     ActionPlanResponse,
     ApprovalRequest,
     DocumentGenerateRequest,
+    DraftVersionResponse,
     GroupDocumentGenerateRequest,
     RemediationDocResponse,
     RemediationDocUpdate,
+    SaveDraftRequest,
 )
 from app.services.llm_generation import (
     get_old_document_from_qdrant,
@@ -24,6 +28,8 @@ from app.services.llm_generation import (
     get_old_document_from_qdrant_group,
     generate_remediation_html_group,
 )
+
+logger = logging.getLogger(__name__)
 
 # ĐÃ ĐỔI PREFIX VÀ TAG Ở ĐÂY
 router = APIRouter(prefix="/remediation", tags=["Remediation"])
@@ -278,14 +284,116 @@ async def update_document(
     return doc
 
 
+# ═══════════════════════════════════════════════════════════════
+# DRAFT VERSION APIs — Lưu / Xem / Khôi phục bản nháp
+# ═══════════════════════════════════════════════════════════════
+
+@router.post("/documents/{doc_id}/save-draft", response_model=List[DraftVersionResponse])
+async def save_draft(
+    doc_id: int,
+    req: SaveDraftRequest,
+    db: AsyncSession = Depends(get_db)
+):
+    """Lưu snapshot content hiện tại vào bảng draft_versions, đồng thời update nội dung doc."""
+    result = await db.execute(select(RemediationDoc).where(RemediationDoc.id == doc_id))
+    doc = result.scalars().first()
+    if not doc:
+        raise HTTPException(status_code=404, detail="Không tìm thấy văn bản")
+
+    # Lưu snapshot vào draft_versions
+    draft = DraftVersion(
+        remediation_doc_id=doc_id,
+        content=req.content,
+        saved_by=req.saved_by,
+    )
+    db.add(draft)
+
+    # Cập nhật nội dung doc hiện tại
+    doc.content = req.content
+    doc.status = "PENDING"
+    doc.product_approved = False
+    doc.cd_approved = False
+
+    await db.commit()
+
+    # Trả về danh sách tất cả drafts (mới nhất trước)
+    drafts_result = await db.execute(
+        select(DraftVersion)
+        .where(DraftVersion.remediation_doc_id == doc_id)
+        .order_by(DraftVersion.created_at.desc())
+    )
+    return list(drafts_result.scalars().all())
+
+
+@router.get("/documents/{doc_id}/drafts", response_model=List[DraftVersionResponse])
+async def list_drafts(
+    doc_id: int,
+    db: AsyncSession = Depends(get_db)
+):
+    """Lấy danh sách bản nháp đã lưu của một document."""
+    result = await db.execute(
+        select(DraftVersion)
+        .where(DraftVersion.remediation_doc_id == doc_id)
+        .order_by(DraftVersion.created_at.desc())
+    )
+    return list(result.scalars().all())
+
+
+@router.post("/documents/{doc_id}/drafts/{draft_id}/restore", response_model=RemediationDocResponse)
+async def restore_draft(
+    doc_id: int,
+    draft_id: int,
+    db: AsyncSession = Depends(get_db)
+):
+    """Khôi phục nội dung từ bản nháp cũ."""
+    result = await db.execute(select(RemediationDoc).where(RemediationDoc.id == doc_id))
+    doc = result.scalars().first()
+    if not doc:
+        raise HTTPException(status_code=404, detail="Không tìm thấy văn bản")
+
+    draft_result = await db.execute(
+        select(DraftVersion).where(
+            DraftVersion.id == draft_id,
+            DraftVersion.remediation_doc_id == doc_id
+        )
+    )
+    draft = draft_result.scalars().first()
+    if not draft:
+        raise HTTPException(status_code=404, detail="Không tìm thấy bản nháp")
+
+    # Khôi phục nội dung
+    doc.content = draft.content
+    doc.status = "PENDING"
+    doc.product_approved = False
+    doc.cd_approved = False
+
+    await db.commit()
+    await db.refresh(doc)
+    return doc
+
+
+# ═══════════════════════════════════════════════════════════════
+# APPROVE — Duyệt kép + Sinh VB Đào tạo + Upsert Qdrant + Xóa drafts
+# ═══════════════════════════════════════════════════════════════
+
 @router.post("/documents/{doc_id}/approve", response_model=RemediationDocResponse)
 async def approve_document(
     doc_id: int,
     req: ApprovalRequest,
     db: AsyncSession = Depends(get_db)
 ):
-    """Cơ chế duyệt kép (Dual-Approval) cho Khối Sản phẩm hoặc Khối Tuân thủ"""
-    result = await db.execute(select(RemediationDoc).where(RemediationDoc.id == doc_id))
+    """
+    Cơ chế duyệt kép (Dual-Approval) cho Khối Sản phẩm hoặc Khối Tuân thủ.
+    Khi cả 2 bên đã duyệt (APPROVED):
+      1. Sinh VB đào tạo (announcement) từ các comment resolved
+      2. Upsert nội dung đã duyệt vào Qdrant internal_collection
+      3. Xóa tất cả draft_versions (đã hoàn thành, không cần nháp nữa)
+    """
+    result = await db.execute(
+        select(RemediationDoc)
+        .options(selectinload(RemediationDoc.task))
+        .where(RemediationDoc.id == doc_id)
+    )
     doc = result.scalars().first()
     
     if not doc:
@@ -300,12 +408,68 @@ async def approve_document(
         
     if doc.product_approved and doc.cd_approved:
         doc.status = "APPROVED"
+
+        # ── Khi APPROVED: thực hiện 3 bước ──
+        try:
+            content_dict = json.loads(doc.content) if doc.content else {}
+        except Exception:
+            content_dict = {}
+
+        task = doc.task
+
+        # 1. Sinh VB đào tạo từ resolved comments
+        try:
+            resolved_comments = [
+                c for c in content_dict.get("comments", [])
+                if c.get("resolved", False)
+            ]
+            if resolved_comments and task:
+                # Build context từ resolved action items
+                resolved_info = "\n".join([
+                    f"- {c.get('task_name', 'N/A')}: {c.get('reason', 'N/A')}"
+                    for c in resolved_comments
+                ])
+                refinement = f"Chỉ sinh VB đào tạo dựa trên các thay đổi ĐÃ HOÀN THÀNH sau:\n{resolved_info}"
+                announcement_json = await generate_remediation_html(task, "announcement", "", refinement)
+                try:
+                    ann_data = json.loads(announcement_json)
+                    content_dict["announcement"] = ann_data.get("announcement", announcement_json)
+                except Exception:
+                    content_dict["announcement"] = announcement_json
+                doc.content = json.dumps(content_dict, ensure_ascii=False)
+        except Exception as e:
+            logger.error(f"Failed to generate announcement on approve: {e}")
+
+        # 2. Upsert nội dung đã duyệt vào Qdrant internal_collection
+        try:
+            if task and task.impacted_internal_doc and content_dict.get("modified_document"):
+                from app.services.qdrant_service import upsert_approved_to_internal
+                await asyncio.to_thread(
+                    upsert_approved_to_internal,
+                    doc_name=task.impacted_internal_doc,
+                    html_content=content_dict["modified_document"],
+                    task_id=task.id,
+                )
+        except Exception as e:
+            logger.error(f"Failed to upsert to Qdrant internal_collection: {e}")
+
+        # 3. Xóa tất cả draft_versions (document đã hoàn thành)
+        try:
+            drafts_result = await db.execute(
+                select(DraftVersion).where(DraftVersion.remediation_doc_id == doc_id)
+            )
+            for draft in drafts_result.scalars().all():
+                await db.delete(draft)
+        except Exception as e:
+            logger.error(f"Failed to clean up drafts: {e}")
+
     else:
         doc.status = "PENDING"
         
     await db.commit()
     await db.refresh(doc)
     return doc
+
 
 @router.post("/upload-action-plan")
 async def upload_action_plan(

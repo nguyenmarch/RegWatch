@@ -174,3 +174,67 @@ def search_conflicts(
         }
         for h in hits
     ]
+
+
+def upsert_approved_to_internal(doc_name: str, html_content: str, task_id: int) -> None:
+    """
+    Called when a RemediationDoc is APPROVED.
+    We convert the HTML to plain text, chunk it, and upsert it to the internal_collection
+    to replace the old document chunks.
+    """
+    from bs4 import BeautifulSoup
+    from app.services.chunker import split_legal_document
+    from app.core.mysql_client import SessionLocal
+    from app.models.document import Document
+    from app.core.enums import KbType
+    
+    # 1. Parse HTML to plain text
+    soup = BeautifulSoup(html_content, "html.parser")
+    # Thay thế <br> và các block tags bằng \n để giữ cấu trúc văn bản
+    for br in soup.find_all("br"):
+        br.replace_with("\n")
+    for block in soup.find_all(['p', 'h1', 'h2', 'h3', 'li']):
+        block.append("\n")
+        
+    plain_text = soup.get_text()
+    
+    # 2. Chunk text
+    from app.utils.text_processor import clean_legal_text
+    clean_text = clean_legal_text(plain_text)
+    chunks = split_legal_document(clean_text)
+    
+    # 3. Find original Document ID
+    db = SessionLocal()
+    try:
+        # Search for document by title
+        doc = db.query(Document).filter(
+            Document.title == doc_name,
+            Document.kb_type == KbType.INTERNAL.value
+        ).first()
+        
+        if doc:
+            doc_id = doc.id
+            # Xóa chunks cũ
+            delete_document_chunks(doc_id, KbType.INTERNAL.collection_name)
+        else:
+            # Nếu không tìm thấy, tạo mới document hoặc dùng task_id
+            new_doc = Document(
+                title=doc_name,
+                status="completed",
+                kb_type=KbType.INTERNAL.value,
+                processing_log='[{"level": "info", "message": "Updated via Remediation process"}]'
+            )
+            db.add(new_doc)
+            db.commit()
+            db.refresh(new_doc)
+            doc_id = new_doc.id
+            
+        # 4. Upsert chunks
+        upsert_document_chunks(chunks, doc_id, KbType.INTERNAL.collection_name)
+        logger.info(f"Successfully upserted approved document '{doc_name}' to Qdrant (ID: {doc_id})")
+        
+    except Exception as e:
+        logger.error(f"Error upserting approved document: {e}")
+        raise
+    finally:
+        db.close()
