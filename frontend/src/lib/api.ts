@@ -1,3 +1,5 @@
+import type { AnalysisSummary, AnalysisDetail, AnalysisUpdate } from './analyses'
+
 const BASE_URL = '/api'
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
@@ -185,5 +187,28 @@ export const api = {
 
     getLog: (id: number) =>
       request<{ level: string; message: string; ts: string }[]>(`/v1/documents/${id}/log`),
+  },
+
+  analyses: {
+    list: () =>
+      request<AnalysisSummary[]>('/v1/analyses'),
+
+    get: (id: number) =>
+      request<AnalysisDetail>(`/v1/analyses/${id}`),
+
+    pending: () =>
+      request<{ pending: number }>('/v1/analyses/pending'),
+
+    patch: (id: number, data: AnalysisUpdate) =>
+      request<AnalysisDetail>(`/v1/analyses/${id}`, {
+        method: 'PATCH',
+        body: JSON.stringify(data),
+      }),
+
+    publish: (id: number) =>
+      request<AnalysisDetail>(`/v1/analyses/${id}/publish`, { method: 'POST' }),
+
+    delete: (id: number) =>
+      request<void>(`/v1/analyses/${id}`, { method: 'DELETE' }),
   },
 }

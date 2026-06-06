@@ -40,8 +40,14 @@ class Settings(BaseSettings):
     NEO4J_PASSWORD: str = "password"
 
     GEMINI_API_KEY: str = ""
+    GEMINI_ANALYSIS_API_KEY: str = ""  # Dedicated key for analysis generation (Output 1)
     GEMINI_MODEL: str = "gemini-2.5-flash"
     GEMINI_EMBEDDING_MODEL: str = "gemini-embedding-001"
+
+    @property
+    def gemini_analysis_api_key(self) -> str:
+        """Key for the analysis task; falls back to the main key if not configured."""
+        return self.GEMINI_ANALYSIS_API_KEY or self.GEMINI_API_KEY
 
     @property
     def DATABASE_URL(self) -> str:
