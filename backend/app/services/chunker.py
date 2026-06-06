@@ -1,4 +1,3 @@
-<<<<<<< Updated upstream
 from __future__ import annotations
 
 import hashlib
@@ -19,88 +18,8 @@ from app.schemas.document import (
 )
 
 logger = logging.getLogger(__name__)
-=======
-from typing import List, Dict, Any
-from schemas import LegalDocument, Chuong, Muc, Dieu, Khoan, Diem
 
-class SemanticChunk(BaseModel):
-    chunk_id: str
-    text_content: str
-    metadata: Dict[str, Any]
 
-def create_chunk(doc_info, context_path: str, chunk_id: str, content: str, extra_meta: dict = None) -> SemanticChunk:
-    """
-    Hàm tiện ích để tạo chunk với ngữ cảnh đầy đủ.
-    """
-    # Nối ngữ cảnh để Vector DB hiểu đoạn này thuộc văn bản nào, điều nào
-    header = f"[{doc_info.loai_van_ban} {doc_info.so_hieu} - {context_path}]"
-    full_text = f"{header}\n{content}"
-    
-    meta = {
-        "document_id": doc_info.document_id,
-        "loai_van_ban": doc_info.loai_van_ban,
-        "so_hieu": doc_info.so_hieu,
-    }
-    if extra_meta:
-        meta.update(extra_meta)
-        
-    return SemanticChunk(
-        chunk_id=chunk_id,
-        text_content=full_text,
-        metadata=meta
-    )
->>>>>>> Stashed changes
-
-def chunk_legal_document(doc: LegalDocument) -> List[SemanticChunk]:
-    chunks = []
-    doc_info = doc.document_info
-    
-    def process_dieu(dieu: Dieu, path_prefix: str):
-        dieu_path = f"{path_prefix}Điều {dieu.dieu_so}: {dieu.dieu_ten or ''}".strip()
-        
-        # Xử lý nội dung dẫn nhập của Điều (nếu có)
-        if dieu.noi_dung_truoc_khoan:
-            chunk_id = f"{doc_info.document_id}_D{dieu.dieu_so}_intro"
-            chunks.append(create_chunk(
-                doc_info, dieu_path, chunk_id, dieu.noi_dung_truoc_khoan, 
-                {"dieu_so": dieu.dieu_so}
-            ))
-            
-        # Duyệt qua các Khoản
-        for khoan in dieu.khoan:
-            khoan_prefix = f"Khoản {khoan.khoan_so}" if khoan.khoan_so else "Nội dung"
-            khoan_path = f"{dieu_path} | {khoan_prefix}"
-            
-            meta_qdrant = khoan.metadata_cho_qdrant.model_dump() if khoan.metadata_cho_qdrant else {}
-            chunk_id = meta_qdrant.pop("chunk_id", f"{doc_info.document_id}_D{dieu.dieu_so}_K{khoan.khoan_so or 'x'}")
-            
-            # Khởi tạo metadata cơ bản cho cấp độ Khoản
-            meta = {"dieu_so": dieu.dieu_so, "khoan_so": khoan.khoan_so}
-            meta.update(meta_qdrant)
-            
-            # Nếu Khoản không có Điểm bên trong, biến cả Khoản thành 1 chunk
-            if not khoan.diem:
-                chunks.append(create_chunk(doc_info, khoan_path, chunk_id, khoan.noi_dung, meta))
-            else:
-                # Nếu Khoản có Điểm, lưu câu dẫn nhập của Khoản trước
-                if khoan.noi_dung.strip():
-                    chunks.append(create_chunk(doc_info, khoan_path, chunk_id, khoan.noi_dung, meta))
-                
-                # Duyệt qua các Điểm và ghép câu dẫn nhập của Khoản vào để giữ ngữ nghĩa
-                for diem in khoan.diem:
-                    diem_path = f"{khoan_path} | Điểm {diem.diem_so}"
-                    diem_meta_qdrant = diem.metadata_cho_qdrant.model_dump() if diem.metadata_cho_qdrant else {}
-                    diem_chunk_id = diem_meta_qdrant.pop("chunk_id", f"{chunk_id}_D{diem.diem_so}")
-                    
-                    diem_meta = {"dieu_so": dieu.dieu_so, "khoan_so": khoan.khoan_so, "diem_so": diem.diem_so}
-                    diem_meta.update(diem_meta_qdrant)
-                    
-                    # Ghép nội dung Khoản + nội dung Điểm để LLM không bị mất bối cảnh
-                    combined_content = f"{khoan.noi_dung}\n{diem.diem_so}) {diem.noi_dung}"
-                    
-                    chunks.append(create_chunk(doc_info, diem_path, diem_chunk_id, combined_content, diem_meta))
-
-<<<<<<< Updated upstream
 def _stable_chunk_id(
     document_id: str,
     chapter: str | None = None,
@@ -378,28 +297,6 @@ def _process_appendix(doc: LegalDocument, appendix: Appendix) -> list[LegalChunk
                 metadata={**base_meta, "is_table": True},
             )
         )
-=======
-    # Duyệt cấp cao nhất của Document (Chương hoặc Điều)
-    for item in doc.content:
-        if isinstance(item, Chuong):
-            chuong_path = f"Chương {item.chuong_so}: {item.chuong_ten} | "
-            
-            # Xử lý nếu Chương chia thẳng thành Điều (Ví dụ: ND 59/2022)
-            if item.dieu_luat:
-                for dieu in item.dieu_luat:
-                    process_dieu(dieu, chuong_path)
-                    
-            # Xử lý nếu Chương chia thành Mục, rồi mới đến Điều (Ví dụ: TT 35/2016)
-            if item.muc:
-                for muc in item.muc:
-                    muc_path = f"{chuong_path}Mục {muc.muc_so}: {muc.muc_ten} | "
-                    for dieu in muc.dieu_luat:
-                        process_dieu(dieu, muc_path)
-                        
-        elif isinstance(item, Dieu):
-            # Xử lý nếu văn bản đi thẳng vào Điều (Ví dụ: QĐ 2345/2023)
-            process_dieu(item, "")
->>>>>>> Stashed changes
 
     return chunks
 
