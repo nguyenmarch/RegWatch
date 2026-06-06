@@ -4804,6 +4804,7 @@ code {
   font: inherit;
   padding: 0.2rem 0.5rem;
   width: 100%;
+  min-width: 0;
   outline: none;
   transition: box-shadow .15s;
 }
@@ -5272,6 +5273,12 @@ code {
   line-height: 1.5;
 }
 .adetail-hero-right { flex-shrink: 0; }
+.adetail-risk-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.45rem;
+}
 .adetail-risk-circle {
   width: 90px;
   height: 90px;
@@ -5281,8 +5288,7 @@ code {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 2px;
-  background: rgba(0,0,0,0.2);
+  background: transparent;
 }
 .adetail-risk-pct {
   font-size: 1.4rem;
@@ -5295,6 +5301,9 @@ code {
   letter-spacing: 0.04em;
   color: var(--text-2);
   text-transform: uppercase;
+  max-width: 120px;
+  text-align: center;
+  line-height: 1.25;
 }
 
 /* ── Meta bar ── */
@@ -5440,6 +5449,30 @@ code {
 }
 
 /* ── Impact cards v2 ── */
+.compare-card-v2 .compare-quote {
+  margin: 0;
+  padding: 0.75rem 0.85rem;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: rgba(0,0,0,0.08);
+  color: var(--text-2);
+  font-size: 0.86rem;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+.compare-card-v2 .compare-quote > span::before { content: open-quote; }
+.compare-card-v2 .compare-quote > span::after { content: close-quote; }
+.adetail-empty-inline {
+  margin: 1.25rem;
+  padding: 1rem;
+  border: 1px dashed var(--border);
+  border-radius: 8px;
+  color: var(--text-3);
+  background: var(--bg-glass);
+  font-size: 0.86rem;
+  text-align: center;
+}
+
 .impact-card-v2 {
   padding: 1rem;
   border: 1px solid var(--border);
@@ -5535,6 +5568,35 @@ code {
   .adetail-risk-pct { font-size: 1.1rem; }
   .adetail-actions { flex-direction: column; }
   .adetail-actions-left, .adetail-actions-right { width: 100%; justify-content: center; }
+  .adetail-topbar-inner {
+    height: auto;
+    min-height: 52px;
+    padding-top: 0.6rem;
+    padding-bottom: 0.6rem;
+    flex-wrap: wrap;
+  }
+  .adetail-topbar-center {
+    order: 3;
+    flex-basis: 100%;
+    overflow: visible;
+    flex-wrap: wrap;
+  }
+  .adetail-topbar-actions {
+    margin-left: auto;
+  }
+  .adetail-hero-code-row {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 0.45rem;
+  }
+  .adetail-actions-left,
+  .adetail-actions-right,
+  .adetail-actions .btn {
+    width: 100%;
+  }
+  .adetail-actions-left {
+    flex-direction: column;
+  }
 }
 
 /* ── Light mode overrides ── */
