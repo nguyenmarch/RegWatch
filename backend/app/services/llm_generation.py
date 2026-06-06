@@ -60,38 +60,105 @@ Trả về: {{"html": "..."}}
         return plain_text.replace("\n\n", "</p><p>").replace("\n", "<br/>")
 
 
-async def get_old_document_from_qdrant(task) -> str:
-    """Truy xuất và format văn bản cũ từ Qdrant thành HTML."""
+def _resolve_internal_doc(db, task):
+    """Xác định văn bản nội bộ (bản cũ) liên quan tới một task.
+
+    Ưu tiên `task.impacted_internal_doc` (khớp theo title). Nếu task không nêu
+    rõ (phase 2 không cung cấp field này), thì SEMANTIC SEARCH trong
+    internal_collection bằng nội dung task để tìm văn bản cũ phù hợp nhất.
+
+    Trả về (Document | None). Nếu tìm thấy qua search, backfill luôn
+    `task.impacted_internal_doc = doc.title` để bước approve → upsert KB dùng
+    đúng tên văn bản.
+    """
     from app.core.enums import KbType  # noqa: PLC0415
-    from app.core.mysql_client import SessionLocal
     from app.models.document import Document
     import importlib
     qs = importlib.import_module("app.services.qdrant_service")
 
-    db = SessionLocal()
-    try:
+    # 1. Nếu task đã nêu rõ văn bản bị ảnh hưởng → tra theo title.
+    title = (getattr(task, "impacted_internal_doc", None) or "").strip()
+    if title:
         doc = db.query(Document).filter(
-            Document.title == task.impacted_internal_doc,
-            Document.kb_type == KbType.INTERNAL.value
+            Document.title == title,
+            Document.kb_type == KbType.INTERNAL.value,
         ).first()
-        
-        if not doc:
-            return "<p><em>Không tìm thấy dữ liệu quy định cũ trong Knowledge Base.</em></p>"
-            
-        chunks = qs.fetch_doc_chunks(doc.id, limit=1000)
-    finally:
-        db.close()
+        if doc:
+            return doc
 
+    # 2. Ngược lại → semantic search internal_collection bằng nội dung task.
+    query = " ".join(filter(None, [
+        str(getattr(task, "task_name", "") or ""),
+        str(getattr(task, "action_required", "") or ""),
+    ])).strip()
+    if not query:
+        return None
+
+    try:
+        hits = qs.search_chunks(query, KbType.INTERNAL.collection_name, top_k=5)
+    except Exception as e:
+        import logging
+        logging.error(f"Internal KB search failed: {e}")
+        return None
+
+    if not hits:
+        return None
+
+    best_doc_id = hits[0].get("document_id")
+    if best_doc_id is None:
+        return None
+
+    doc = db.query(Document).filter(Document.id == best_doc_id).first()
+    if doc:
+        # Backfill để downstream (FE grouping / approve upsert) có tên văn bản.
+        try:
+            task.impacted_internal_doc = doc.title
+        except Exception:
+            pass
+    return doc
+
+
+def _format_internal_doc_html_sync(doc) -> str | None:
+    """Phần đồng bộ: fetch chunks của văn bản nội bộ. Trả về plain text hoặc None."""
+    from app.core.enums import KbType  # noqa: PLC0415
+    import importlib
+    qs = importlib.import_module("app.services.qdrant_service")
+
+    chunks = qs.fetch_doc_chunks(
+        doc.id, limit=1000, collection_name=KbType.INTERNAL.collection_name
+    )
     if not chunks:
-        return "<p><em>Không tìm thấy nội dung chi tiết của quy định cũ.</em></p>"
+        return None
 
     # Sort chunks by chunk_id if possible (e.g., chunk_0, chunk_1...)
     try:
         chunks.sort(key=lambda c: int(c["chunk_id"].split("_")[-1]) if "_" in c["chunk_id"] else 0)
-    except:
+    except Exception:
         pass
 
-    plain = "\n\n".join([c.get("text", "") for c in chunks])
+    return "\n\n".join([c.get("text", "") for c in chunks])
+
+
+async def get_old_document_from_qdrant(task) -> str:
+    """Truy xuất và format văn bản cũ từ Qdrant thành HTML.
+
+    Nếu task chưa có `impacted_internal_doc`, hàm sẽ tự search internal KB để
+    tìm văn bản cũ phù hợp.
+    """
+    from app.core.db import SessionLocal
+
+    db = SessionLocal()
+    try:
+        doc = _resolve_internal_doc(db, task)
+        if not doc:
+            return "<p><em>Không tìm thấy dữ liệu quy định cũ trong Knowledge Base.</em></p>"
+        plain = _format_internal_doc_html_sync(doc)
+    finally:
+        db.close()
+
+    if not plain:
+        return "<p><em>Không tìm thấy nội dung chi tiết của quy định cũ.</em></p>"
+
     return await _format_plain_text_to_html(plain)
 
 
@@ -262,42 +329,38 @@ async def generate_remediation_html(task, mode: str, old_doc: str, refinement_pr
 
 
 async def get_old_document_from_qdrant_group(tasks: list) -> str:
-    """Truy xuất và format văn bản cũ từ Qdrant cho nhóm task thành HTML."""
-    from app.core.enums import KbType  # noqa: PLC0415
-    from app.core.mysql_client import SessionLocal
-    from app.models.document import Document
-    import importlib
-    qs = importlib.import_module("app.services.qdrant_service")
+    """Truy xuất và format văn bản cũ từ Qdrant cho nhóm task thành HTML.
+
+    Cả nhóm chia sẻ chung 1 văn bản nội bộ. Nếu chưa task nào nêu rõ
+    `impacted_internal_doc`, search internal KB bằng nội dung gộp của nhóm.
+    Văn bản tìm được sẽ backfill cho TẤT CẢ task trong nhóm.
+    """
+    from app.core.db import SessionLocal
 
     if not tasks:
         return "<p><em>Không có tác vụ nào để truy xuất quy định cũ.</em></p>"
 
-    doc_name = tasks[0].impacted_internal_doc or ""
-    
     db = SessionLocal()
     try:
-        doc = db.query(Document).filter(
-            Document.title == doc_name,
-            Document.kb_type == KbType.INTERNAL.value
-        ).first()
-        
+        # Dùng task đầu tiên (đã được gộp theo cùng văn bản) làm đại diện resolve.
+        doc = _resolve_internal_doc(db, tasks[0])
         if not doc:
             return "<p><em>Không tìm thấy dữ liệu quy định cũ trong Knowledge Base.</em></p>"
-            
-        chunks = qs.fetch_doc_chunks(doc.id, limit=1000)
+
+        # Backfill title cho mọi task còn lại trong nhóm.
+        for t in tasks[1:]:
+            try:
+                t.impacted_internal_doc = doc.title
+            except Exception:
+                pass
+
+        plain = _format_internal_doc_html_sync(doc)
     finally:
         db.close()
 
-    if not chunks:
+    if not plain:
         return "<p><em>Không tìm thấy nội dung chi tiết của quy định cũ.</em></p>"
 
-    # Sort chunks by chunk_id if possible
-    try:
-        chunks.sort(key=lambda c: int(c["chunk_id"].split("_")[-1]) if "_" in c["chunk_id"] else 0)
-    except:
-        pass
-
-    plain = "\n\n".join([c.get("text", "") for c in chunks])
     return await _format_plain_text_to_html(plain)
 
 

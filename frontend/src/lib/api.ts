@@ -210,10 +210,10 @@ export const api = {
         body: JSON.stringify({ task_id, refinement_prompt, generation_type }),
       }),
 
-    generateGroupDocument: (task_ids: number[], refinement_prompt?: string, generation_type: string = 'document') =>
+    generateGroupDocument: (plan_id: string, task_ids: (string|number)[], refinement_prompt?: string, generation_type: string = 'document') =>
       request<any[]>('/remediation/generate-group', {
         method: 'POST',
-        body: JSON.stringify({ task_ids, refinement_prompt, generation_type }),
+        body: JSON.stringify({ tasks: task_ids.map(id => ({ plan_id, task_id: String(id) })), refinement_prompt, generation_type }),
       }),
 
     updateDocument: (doc_id: number, content: string) =>

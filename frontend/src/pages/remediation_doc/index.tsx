@@ -188,7 +188,7 @@ export default function Remediation() {
                 const tids = groups[docName];
                 // For announcement, pass selected draft ID instead of undefined
                 const refinementPrompt = type === 'announcement' ? `Dùng bản nháp ID ${selectedDraftsByDoc.get(docName)}` : undefined;
-                const docs = await api.remediation.generateGroupDocument(tids, refinementPrompt, type);
+                const docs = await api.remediation.generateGroupDocument(selectedApId, tids, refinementPrompt, type);
                 return docs;
             })
         );
@@ -263,7 +263,7 @@ export default function Remediation() {
                 return next;
             });
             return lastDrafts;
-        } catch(e) { console.error(e); return []; }
+        } catch (e) { console.error(e); return []; }
     };
 
     const handleApproveDoc = async (taskIds: number[], role: string) => {
@@ -301,7 +301,7 @@ export default function Remediation() {
         });
 
         try {
-            const docs = await api.remediation.generateGroupDocument(taskIds, refinementPrompt, 'document');
+            const docs = await api.remediation.generateGroupDocument(selectedApId, taskIds, refinementPrompt, 'document');
             setDocMap(prev => {
                 const next = new Map(prev);
                 docs.forEach(doc => {
@@ -787,7 +787,7 @@ function DocSection({
         try {
             const contentObj = JSON.parse(draftContent);
             onSave(group.taskIds, contentObj);
-        } catch(e) { console.error(e); }
+        } catch (e) { console.error(e); }
     };
 
     // modified_document contains <mark data-id="..."> highlights — show that for editing.
@@ -914,13 +914,13 @@ function DocSection({
             {/* View Mode Tabs */}
             {parsed && (parsed.modified_document || parsed.old_document) && parsed.announcement && (
                 <div className={styles.viewModeTabs}>
-                    <button 
+                    <button
                         className={`${styles.tabBtn} ${viewMode === 'document' ? styles.tabBtnActive : ''}`}
                         onClick={() => setViewMode('document')}
                     >
                         📝 Văn bản chỉnh sửa
                     </button>
-                    <button 
+                    <button
                         className={`${styles.tabBtn} ${viewMode === 'announcement' ? styles.tabBtnActive : ''}`}
                         onClick={() => setViewMode('announcement')}
                     >
@@ -942,67 +942,67 @@ function DocSection({
                     <>
 
 
-                    <div
-                        ref={scrollContainerRef}
-                        className={styles.annotationLayout}
-                        onScroll={recalcPositions}
-                    >
-                        {/* Left: document with <mark> highlights — contentEditable so user can edit directly */}
                         <div
-                            ref={docBodyRef}
-                            className={styles.annotationEditor}
-                            contentEditable
-                            suppressContentEditableWarning
-                            onBlur={(e) => {
-                                if (parsed) {
-                                    onSave(group.taskIds, { ...parsed, modified_document: e.currentTarget.innerHTML, comments: localComments });
-                                }
-                            }}
-                            dangerouslySetInnerHTML={{ __html: docHtml }}
-                        />
-
-                        {/* Right: comment overlay — no independent scroll, absolute cards */}
-                        <div className={styles.annotationSidebar} style={{ minHeight: sidebarMinHeight }}>
-                            {localComments.map((comment: any) => {
-                                return (
-                                <div
-                                    key={comment.id}
-                                    className={`${styles.commentCard} ${comment.resolved ? styles.commentCardResolved : ''}`}
-                                    style={commentTops[comment.id] !== undefined
-                                        ? { top: commentTops[comment.id] }
-                                        : { position: 'relative' }
+                            ref={scrollContainerRef}
+                            className={styles.annotationLayout}
+                            onScroll={recalcPositions}
+                        >
+                            {/* Left: document with <mark> highlights — contentEditable so user can edit directly */}
+                            <div
+                                ref={docBodyRef}
+                                className={styles.annotationEditor}
+                                contentEditable
+                                suppressContentEditableWarning
+                                onBlur={(e) => {
+                                    if (parsed) {
+                                        onSave(group.taskIds, { ...parsed, modified_document: e.currentTarget.innerHTML, comments: localComments });
                                     }
-                                    onMouseEnter={() => handleMarkHover(comment.id)}
-                                    onMouseLeave={() => handleMarkHover(null)}
-                                >
-                                    <div className={styles.commentCardHeader}>
-                                        <label className={styles.commentTickWrap} onClick={(e) => e.stopPropagation()}>
-                                            <input
-                                                type="checkbox"
-                                                checked={comment.resolved || false}
-                                                onChange={() => toggleCommentResolved(comment.id)}
+                                }}
+                                dangerouslySetInnerHTML={{ __html: docHtml }}
+                            />
+
+                            {/* Right: comment overlay — no independent scroll, absolute cards */}
+                            <div className={styles.annotationSidebar} style={{ minHeight: sidebarMinHeight }}>
+                                {localComments.map((comment: any) => {
+                                    return (
+                                        <div
+                                            key={comment.id}
+                                            className={`${styles.commentCard} ${comment.resolved ? styles.commentCardResolved : ''}`}
+                                            style={commentTops[comment.id] !== undefined
+                                                ? { top: commentTops[comment.id] }
+                                                : { position: 'relative' }
+                                            }
+                                            onMouseEnter={() => handleMarkHover(comment.id)}
+                                            onMouseLeave={() => handleMarkHover(null)}
+                                        >
+                                            <div className={styles.commentCardHeader}>
+                                                <label className={styles.commentTickWrap} onClick={(e) => e.stopPropagation()}>
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={comment.resolved || false}
+                                                        onChange={() => toggleCommentResolved(comment.id)}
+                                                    />
+                                                    <span className={styles.commentTickMark}></span>
+                                                </label>
+                                            </div>
+                                            <textarea
+                                                className={styles.commentReasonInput}
+                                                value={comment.reason}
+                                                onChange={e => handleCommentChange(comment.id, e.target.value)}
+                                                onBlur={handleCommentBlur}
+                                                rows={3}
                                             />
-                                            <span className={styles.commentTickMark}></span>
-                                        </label>
+                                        </div>
+                                    );
+                                })}
+                                {localComments.length === 0 && (
+                                    <div className={styles.commentCard} style={{ opacity: 0.6 }}>
+                                        <p className={styles.commentReason}>Chưa có đề xuất thay đổi nào.</p>
                                     </div>
-                                    <textarea
-                                        className={styles.commentReasonInput}
-                                        value={comment.reason}
-                                        onChange={e => handleCommentChange(comment.id, e.target.value)}
-                                        onBlur={handleCommentBlur}
-                                        rows={3}
-                                    />
-                                </div>
-                                );
-                            })}
-                            {localComments.length === 0 && (
-                                <div className={styles.commentCard} style={{ opacity: 0.6 }}>
-                                    <p className={styles.commentReason}>Chưa có đề xuất thay đổi nào.</p>
-                                </div>
-                            )}
+                                )}
+                            </div>
                         </div>
-                    </div>
-                </>
+                    </>
                 ) : viewMode === 'announcement' && parsed?.announcement ? (
                     <div className={styles.singleDocView}>
                         <div className={styles.docPaperWide}>

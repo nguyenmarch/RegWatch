@@ -88,10 +88,14 @@ def delete_document_chunks(
     logger.info(f"Deleted chunks for document_id={document_id} from '{collection_name}'.")
 
 
-def fetch_doc_chunks(document_id: int, limit: int = 300) -> list[dict]:
+def fetch_doc_chunks(
+    document_id: int,
+    limit: int = 300,
+    collection_name: str = settings.QDRANT_COLLECTION_NAME,
+) -> list[dict]:
     """Fetch a document's stored chunks (with existing vectors — does NOT call embedding)."""
     points, _ = qdrant_client.scroll(
-        collection_name=settings.QDRANT_COLLECTION_NAME,
+        collection_name=collection_name,
         scroll_filter=Filter(
             must=[FieldCondition(key="document_id", match=MatchValue(value=document_id))]
         ),
@@ -139,49 +143,6 @@ def search_chunks(
     ]
 
 
-def search_conflicts(
-    vector: list[float],
-    exclude_document_id: int,
-    limit: int = 3,
-    score_threshold: float = 0.7,
-) -> list[dict]:
-    """Find similar clauses in OTHER documents (conflict/overlap candidates).
-
-    Uses stored vectors so no embedding call is made. Excludes the document
-    under review so it is only compared against the rest of the knowledge base.
-    """
-    hits = qdrant_client.search(
-        collection_name=settings.QDRANT_COLLECTION_NAME,
-        query_vector=vector,
-        query_filter=Filter(
-            must_not=[
-                FieldCondition(
-                    key="document_id", match=MatchValue(value=exclude_document_id)
-                )
-            ]
-        ),
-        limit=limit,
-        score_threshold=score_threshold,
-        with_payload=True,
-    )
-    return [
-        {
-        ),
-        limit=limit,
-        with_payload=True,
-        with_vectors=True,
-    )
-    return [
-        {
-            "chunk_id": p.payload.get("chunk_id", ""),
-            "text": p.payload.get("text", ""),
-            "header": p.payload.get("header"),
-            "article_number": p.payload.get("article_number"),
-            "vector": p.vector,
-        }
-        for p in points
-    ]
-
 
 def search_conflicts(
     vector: list[float],
@@ -228,7 +189,7 @@ def upsert_approved_to_internal(doc_name: str, html_content: str, task_id: int) 
     """
     from bs4 import BeautifulSoup
     from app.services.chunker import split_legal_document
-    from app.core.mysql_client import SessionLocal
+    from app.core.db import SessionLocal
     from app.models.document import Document
     from app.core.enums import KbType
     

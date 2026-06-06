@@ -2,7 +2,7 @@ import asyncio
 import json
 import logging
 import os
-from typing import List
+from typing import List, Any, Dict
 
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -11,9 +11,10 @@ from sqlalchemy.orm import selectinload
 
 from app.core.db import get_db
 
-from app.models.remediation_doc import ActionPlan, ActionPlanTask, RemediationDoc, DraftVersion
+from app.models.remediation_doc import RemediationDoc, DraftVersion
+from app.models.report import Report
+from app.models.analysis import ComplianceAnalysis
 from app.schemas.remediation_doc import (
-    ActionPlanResponse,
     ApprovalRequest,
     DocumentGenerateRequest,
     DraftVersionResponse,
@@ -31,81 +32,130 @@ from app.services.llm_generation import (
 
 logger = logging.getLogger(__name__)
 
-# ĐÃ ĐỔI PREFIX VÀ TAG Ở ĐÂY
 router = APIRouter(prefix="/remediation", tags=["Remediation"])
 
+class TaskProxy:
+    """Helper class to pass task dicts to LLM generation functions."""
+    def __init__(self, **entries):
+        self.id = entries.get("task_id")
+        self.task_code = entries.get("task_id")
+        self.task_name = entries.get("task_name")
+        self.target_department = entries.get("target_department")
+        self.action_required = entries.get("action_required")
+        self.impacted_internal_doc = entries.get("impacted_internal_doc")
+        self.output_type = entries.get("output_type")
+        self.__dict__.update(entries)
 
-@router.get("/action-plans", response_model=List[ActionPlanResponse])
-async def list_action_plans(db: AsyncSession = Depends(get_db)):
-    """
-    [Mục đích]: Lấy danh sách Action Plan kèm Tasks từ Qdrant đồng bộ sang MySQL.
-    
-    [LƯU Ý MERGE CHO FRONTEND]: Dữ liệu trả về từ API này chứa các Tasks. 
-    Frontend cần đọc trường `impacted_internal_doc` và `output_type` của từng Task. 
-    Nếu nhiều Task có CÙNG `impacted_internal_doc`, FE phải gom ID của chúng lại 
-    để ném vào API `/generate-group` (Sinh văn bản gộp) bên dưới.
-    """
-    from app.core.qdrant_client import qdrant_client
-    from app.core.enums import KbType
-    
-    try:
-        res, _ = qdrant_client.scroll(collection_name=KbType.ACTION_PLAN.collection_name, limit=100)
-        for hit in res:
-            try:
-                data = json.loads(hit.payload['text'])
-                if "action_plan_id" not in data:
-                    continue
-                    
-                existing = await db.execute(select(ActionPlan).where(ActionPlan.plan_code == data["action_plan_id"]))
-                if not existing.scalars().first():
-                    ap = ActionPlan(
-                        plan_code=data["action_plan_id"],
-                        law_id=data["associated_law"]["law_id"],
-                        law_title=data["associated_law"]["law_title"],
-                        status=data["metadata"]["status"],
-                        created_by=data["metadata"]["created_by"]
-                    )
-                    db.add(ap)
-                    await db.flush()
-                    
-                    for t in data["tasks"]:
-                        task = ActionPlanTask(
-                            action_plan_id=ap.id,
-                            task_code=t["task_id"],
-                            task_name=t["task_name"],
-                            target_department=t["target_department"],
-                            action_required=t["action_required"],
-                            impacted_internal_doc=t.get("impacted_internal_doc"),
-                            output_type=t["output_type"]
-                        )
-                        db.add(task)
-                    await db.commit()
-            except Exception as e:
-                pass 
-    except Exception as e:
-        pass 
-        
-    result = await db.execute(
-        select(ActionPlan).options(
-            selectinload(ActionPlan.tasks).selectinload(ActionPlanTask.document)
-        )
+
+async def _get_action_plan_tasks(db: AsyncSession, plan_id: str = None) -> List[Dict]:
+    """Lấy danh sách các action plan từ Report table."""
+    reports_result = await db.execute(
+        select(Report, ComplianceAnalysis)
+        .join(ComplianceAnalysis, Report.analyses_id == ComplianceAnalysis.id)
     )
-    action_plans = result.scalars().all()
+    reports_data = reports_result.all()
+    
+    action_plans = []
+    for report, analyses in reports_data:
+        payload = report.items or {}
+        if payload.get("workflow_status") != "issued":
+            continue
             
+        action_plan_id = f"AP-{analyses.code or str(analyses.id)}"
+        
+        if plan_id and action_plan_id != plan_id:
+            continue
+            
+        action_plan = payload.get("action_plan")
+        if not action_plan:
+            tasks = []
+            for idx, item in enumerate(payload.get("report_items") or [], start=1):
+                priority = str(item.get("estimated_risk") or "").strip().upper()
+                if not priority:
+                    priority = "MEDIUM"
+                    
+                status_raw = str(item.get("status") or "").strip().lower()
+                task_status = "OPEN"
+                if status_raw in ("đã chốt", "completed", "done"):
+                    task_status = "DONE"
+                    
+                tasks.append({
+                    "id": f"TSK-{idx:03d}",
+                    "task_id": f"TSK-{idx:03d}",
+                    "task_name": str(item.get("code") or item.get("report_description") or f"Task {idx}"),
+                    "priority": priority,
+                    "target_department": str(item.get("responsible_department") or ""),
+                    "action_required": str(item.get("report_description") or ""),
+                    "impacted_internal_doc": str(item.get("impacted_internal_doc") or ""),
+                    "output_type": str(item.get("deliverable_type") or "process_update"),
+                    "deadline": str(item.get("target_date") or ""),
+                    "task_status": task_status,
+                })
+                
+            action_plan = {
+                "id": action_plan_id,
+                "action_plan_id": action_plan_id,
+                "plan_code": action_plan_id,
+                "associated_law": {
+                    "law_id": "",
+                    "law_title": analyses.title,
+                },
+                "metadata": {
+                    "created_at": payload.get("ceo_approval", {}).get("approved_at", ""),
+                    "created_by": "",
+                    "status": "APPROVED",
+                },
+                "tasks": tasks
+            }
+        else:
+            action_plan["id"] = action_plan_id
+            action_plan["plan_code"] = action_plan_id
+            for task in action_plan.get("tasks", []):
+                task["id"] = task.get("task_id")
+                action_req = str(task.get("action_required") or "")
+                if action_req and str(task.get("task_name", "")) not in action_req:
+                    task["task_name"] = f"{task.get('task_name', '')} - {action_req}"
+            
+        action_plans.append(action_plan)
+        
     return action_plans
 
 
-@router.delete("/action-plans/{plan_id}")
-async def delete_action_plan(plan_id: int, db: AsyncSession = Depends(get_db)):
-    """Xóa Action Plan và các Document liên quan"""
-    result = await db.execute(select(ActionPlan).where(ActionPlan.id == plan_id))
-    ap = result.scalars().first()
-    if not ap:
-        raise HTTPException(status_code=404, detail="Action Plan không tồn tại")
-    
-    await db.delete(ap)
-    await db.commit()
-    return {"message": "Đã xóa Action Plan"}
+@router.get("/action-plans", response_model=List[dict])
+async def list_action_plans(db: AsyncSession = Depends(get_db)):
+    """
+    [Mục đích]: Lấy danh sách Action Plan kèm Tasks trực tiếp từ Report đã ban hành.
+    """
+    try:
+        action_plans = await _get_action_plan_tasks(db)
+        
+        # Load all remediation docs in one query to attach to tasks
+        docs_result = await db.execute(select(RemediationDoc))
+        docs = docs_result.scalars().all()
+        doc_map = {(d.plan_id, d.task_id): d for d in docs}
+        
+        for plan in action_plans:
+            for task in plan.get("tasks", []):
+                doc = doc_map.get((plan["plan_code"], task["task_id"]))
+                if doc:
+                    task["document"] = {
+                        "id": doc.id,
+                        "plan_id": doc.plan_id,
+                        "task_id": doc.task_id,
+                        "content": doc.content,
+                        "product_approved": doc.product_approved,
+                        "cd_approved": doc.cd_approved,
+                        "status": doc.status,
+                        "created_at": doc.created_at.isoformat() if doc.created_at else None,
+                        "updated_at": doc.updated_at.isoformat() if doc.updated_at else None
+                    }
+                else:
+                    task["document"] = None
+                    
+        return action_plans
+    except Exception as e:
+        logger.error(f"Error getting action plans from report: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.post("/generate", response_model=RemediationDocResponse)
@@ -114,16 +164,24 @@ async def generate_document(
     db: AsyncSession = Depends(get_db)
 ):
     """
-    [Mục đích]: Gọi LLM sinh văn bản đơn lẻ cho 1 Task cụ thể (Không Merge).
-    Dành cho các Task đứng độc lập, không đụng chạm chung file quy chế với Task khác.
+    [Mục đích]: Gọi LLM sinh văn bản đơn lẻ cho 1 Task cụ thể.
     """
-    result = await db.execute(select(ActionPlanTask).where(ActionPlanTask.id == req.task_id))
-    task = result.scalars().first()
-    if not task:
-        raise HTTPException(status_code=404, detail="Task không tồn tại")
+    plans = await _get_action_plan_tasks(db, req.plan_id)
+    if not plans:
+        raise HTTPException(status_code=404, detail="Action Plan không tồn tại")
+        
+    plan = plans[0]
+    task_dict = next((t for t in plan.get("tasks", []) if t["task_id"] == req.task_id), None)
+    if not task_dict:
+        raise HTTPException(status_code=404, detail="Task không tồn tại trong Action Plan")
+        
+    task_proxy = TaskProxy(**task_dict)
 
     result_doc = await db.execute(
-        select(RemediationDoc).where(RemediationDoc.task_id == req.task_id)
+        select(RemediationDoc).where(
+            RemediationDoc.plan_id == req.plan_id,
+            RemediationDoc.task_id == req.task_id
+        )
     )
     existing_doc = result_doc.scalars().first()
 
@@ -133,19 +191,22 @@ async def generate_document(
         content_dict = {}
 
     if req.generation_type == "document":
-        old_doc = await get_old_document_from_qdrant(task)
+        old_doc = await get_old_document_from_qdrant(task_proxy)
         content_dict["old_document"] = old_doc
-        modified_doc = await generate_remediation_html(task, "document", old_doc, req.refinement_prompt)
+        # get_old_document_from_qdrant backfills task_proxy.impacted_internal_doc
+        # (via internal KB search). Persist it so approve → upsert dùng đúng tên.
+        if task_proxy.impacted_internal_doc:
+            content_dict["impacted_internal_doc"] = task_proxy.impacted_internal_doc
+        modified_doc = await generate_remediation_html(task_proxy, "document", old_doc, req.refinement_prompt)
         try:
             gen_data = json.loads(modified_doc)
             content_dict["modified_document"] = gen_data.get("modified_document_html", modified_doc)
             content_dict["comments"] = gen_data.get("comments", [])
         except Exception as e:
-            # Fallback: if JSON parsing fails, treat as raw HTML
             content_dict["modified_document"] = modified_doc
             content_dict["comments"] = []
     else:
-        announcement = await generate_remediation_html(task, "announcement", "", req.refinement_prompt)
+        announcement = await generate_remediation_html(task_proxy, "announcement", "", req.refinement_prompt)
         try:
             gen_data = json.loads(announcement)
             content_dict["announcement"] = gen_data.get("announcement", announcement)
@@ -164,6 +225,7 @@ async def generate_document(
         return existing_doc
     else:
         new_doc = RemediationDoc(
+            plan_id=req.plan_id,
             task_id=req.task_id,
             content=new_content_str,
             status="DRAFT"
@@ -180,36 +242,44 @@ async def generate_document_group(
     db: AsyncSession = Depends(get_db)
 ):
     """
-    [Mục đích]: Gọi LLM sinh văn bản GỘP (Merge) dựa trên danh sách Task IDs.
-    
-    [LOGIC MERGE]: Đầu vào (req.task_ids) là một mảng các task có CÙNG `impacted_internal_doc` 
-    hoặc CÙNG `output_type`. Backend sẽ gộp các task này lại thành 1 Prompt tổng hợp đẩy cho LLM. 
-    Bản Draft sinh ra sẽ giải quyết đồng thời mọi xung đột, sau đó lưu kết quả dùng chung này 
-    vào từng `RemediationDoc` của các Task tương ứng.
+    [Mục đích]: Gọi LLM sinh văn bản GỘP (Merge) dựa trên danh sách (plan_id, task_id).
     """
-    if not req.task_ids:
-        raise HTTPException(status_code=400, detail="Danh sách Task ID trống")
+    if not req.tasks:
+        raise HTTPException(status_code=400, detail="Danh sách Task trống")
 
-    result = await db.execute(select(ActionPlanTask).where(ActionPlanTask.id.in_(req.task_ids)))
-    tasks = result.scalars().all()
-    if len(tasks) != len(req.task_ids):
+    plans = await _get_action_plan_tasks(db)
+    
+    task_proxies = []
+    for t_req in req.tasks:
+        plan = next((p for p in plans if p.get("plan_code") == t_req.plan_id), None)
+        if plan:
+            task_dict = next((t for t in plan.get("tasks", []) if t["task_id"] == t_req.task_id), None)
+            if task_dict:
+                task_proxy = TaskProxy(**task_dict)
+                task_proxy.plan_id = t_req.plan_id
+                task_proxies.append(task_proxy)
+                
+    if len(task_proxies) != len(req.tasks):
         raise HTTPException(status_code=404, detail="Một hoặc nhiều Task không tồn tại")
 
     if req.generation_type == "document":
-        old_doc = await get_old_document_from_qdrant_group(tasks)
-        modified_doc = await generate_remediation_html_group(tasks, "document", old_doc, req.refinement_prompt)
+        old_doc = await get_old_document_from_qdrant_group(task_proxies)
+        modified_doc = await generate_remediation_html_group(task_proxies, "document", old_doc, req.refinement_prompt)
     else:
         old_doc = ""
         modified_doc = ""
         
     announcement = ""
     if req.generation_type == "announcement":
-        announcement = await generate_remediation_html_group(tasks, "announcement", "", req.refinement_prompt)
+        announcement = await generate_remediation_html_group(task_proxies, "announcement", "", req.refinement_prompt)
 
     generated_docs = []
-    for task in tasks:
+    for task_proxy in task_proxies:
         result_doc = await db.execute(
-            select(RemediationDoc).where(RemediationDoc.task_id == task.id)
+            select(RemediationDoc).where(
+                RemediationDoc.plan_id == task_proxy.plan_id,
+                RemediationDoc.task_id == task_proxy.task_id
+            )
         )
         existing_doc = result_doc.scalars().first()
 
@@ -220,6 +290,9 @@ async def generate_document_group(
 
         if req.generation_type == "document":
             content_dict["old_document"] = old_doc
+            # Persist văn bản nội bộ đã resolve (qua search) để approve → upsert dùng.
+            if task_proxy.impacted_internal_doc:
+                content_dict["impacted_internal_doc"] = task_proxy.impacted_internal_doc
             try:
                 gen_data = json.loads(modified_doc)
                 content_dict["modified_document"] = gen_data.get("modified_document_html", modified_doc)
@@ -245,7 +318,8 @@ async def generate_document_group(
             doc_to_append = existing_doc
         else:
             new_doc = RemediationDoc(
-                task_id=task.id,
+                plan_id=task_proxy.plan_id,
+                task_id=task_proxy.task_id,
                 content=new_content_str,
                 status="DRAFT"
             )
@@ -267,7 +341,6 @@ async def update_document(
     req: RemediationDocUpdate,
     db: AsyncSession = Depends(get_db)
 ):
-    """User chỉnh sửa tay văn bản (qua giao diện edit trực tiếp)"""
     result = await db.execute(select(RemediationDoc).where(RemediationDoc.id == doc_id))
     doc = result.scalars().first()
     
@@ -284,23 +357,17 @@ async def update_document(
     return doc
 
 
-# ═══════════════════════════════════════════════════════════════
-# DRAFT VERSION APIs — Lưu / Xem / Khôi phục bản nháp
-# ═══════════════════════════════════════════════════════════════
-
 @router.post("/documents/{doc_id}/save-draft", response_model=List[DraftVersionResponse])
 async def save_draft(
     doc_id: int,
     req: SaveDraftRequest,
     db: AsyncSession = Depends(get_db)
 ):
-    """Lưu snapshot content hiện tại vào bảng draft_versions, đồng thời update nội dung doc."""
     result = await db.execute(select(RemediationDoc).where(RemediationDoc.id == doc_id))
     doc = result.scalars().first()
     if not doc:
         raise HTTPException(status_code=404, detail="Không tìm thấy văn bản")
 
-    # Lưu snapshot vào draft_versions
     draft = DraftVersion(
         remediation_doc_id=doc_id,
         content=req.content,
@@ -308,7 +375,6 @@ async def save_draft(
     )
     db.add(draft)
 
-    # Cập nhật nội dung doc hiện tại
     doc.content = req.content
     doc.status = "PENDING"
     doc.product_approved = False
@@ -316,7 +382,6 @@ async def save_draft(
 
     await db.commit()
 
-    # Trả về danh sách tất cả drafts (mới nhất trước)
     drafts_result = await db.execute(
         select(DraftVersion)
         .where(DraftVersion.remediation_doc_id == doc_id)
@@ -330,7 +395,6 @@ async def list_drafts(
     doc_id: int,
     db: AsyncSession = Depends(get_db)
 ):
-    """Lấy danh sách bản nháp đã lưu của một document."""
     result = await db.execute(
         select(DraftVersion)
         .where(DraftVersion.remediation_doc_id == doc_id)
@@ -345,7 +409,6 @@ async def restore_draft(
     draft_id: int,
     db: AsyncSession = Depends(get_db)
 ):
-    """Khôi phục nội dung từ bản nháp cũ."""
     result = await db.execute(select(RemediationDoc).where(RemediationDoc.id == doc_id))
     doc = result.scalars().first()
     if not doc:
@@ -361,7 +424,6 @@ async def restore_draft(
     if not draft:
         raise HTTPException(status_code=404, detail="Không tìm thấy bản nháp")
 
-    # Khôi phục nội dung
     doc.content = draft.content
     doc.status = "PENDING"
     doc.product_approved = False
@@ -372,27 +434,14 @@ async def restore_draft(
     return doc
 
 
-# ═══════════════════════════════════════════════════════════════
-# APPROVE — Duyệt kép + Sinh VB Đào tạo + Upsert Qdrant + Xóa drafts
-# ═══════════════════════════════════════════════════════════════
-
 @router.post("/documents/{doc_id}/approve", response_model=RemediationDocResponse)
 async def approve_document(
     doc_id: int,
     req: ApprovalRequest,
     db: AsyncSession = Depends(get_db)
 ):
-    """
-    Cơ chế duyệt kép (Dual-Approval) cho Khối Sản phẩm hoặc Khối Tuân thủ.
-    Khi cả 2 bên đã duyệt (APPROVED):
-      1. Sinh VB đào tạo (announcement) từ các comment resolved
-      2. Upsert nội dung đã duyệt vào Qdrant internal_collection
-      3. Xóa tất cả draft_versions (đã hoàn thành, không cần nháp nữa)
-    """
     result = await db.execute(
-        select(RemediationDoc)
-        .options(selectinload(RemediationDoc.task))
-        .where(RemediationDoc.id == doc_id)
+        select(RemediationDoc).where(RemediationDoc.id == doc_id)
     )
     doc = result.scalars().first()
     
@@ -409,28 +458,29 @@ async def approve_document(
     if doc.product_approved and doc.cd_approved:
         doc.status = "APPROVED"
 
-        # ── Khi APPROVED: thực hiện 3 bước ──
         try:
             content_dict = json.loads(doc.content) if doc.content else {}
         except Exception:
             content_dict = {}
 
-        task = doc.task
+        # Fetch the task info from Report to pass to LLM
+        plans = await _get_action_plan_tasks(db, doc.plan_id)
+        plan = plans[0] if plans else {}
+        task_dict = next((t for t in plan.get("tasks", []) if t["task_id"] == doc.task_id), {})
+        task_proxy = TaskProxy(**task_dict) if task_dict else None
 
-        # 1. Sinh VB đào tạo từ resolved comments
         try:
             resolved_comments = [
                 c for c in content_dict.get("comments", [])
                 if c.get("resolved", False)
             ]
-            if resolved_comments and task:
-                # Build context từ resolved action items
+            if resolved_comments and task_proxy:
                 resolved_info = "\n".join([
                     f"- {c.get('task_name', 'N/A')}: {c.get('reason', 'N/A')}"
                     for c in resolved_comments
                 ])
                 refinement = f"Chỉ sinh VB đào tạo dựa trên các thay đổi ĐÃ HOÀN THÀNH sau:\n{resolved_info}"
-                announcement_json = await generate_remediation_html(task, "announcement", "", refinement)
+                announcement_json = await generate_remediation_html(task_proxy, "announcement", "", refinement)
                 try:
                     ann_data = json.loads(announcement_json)
                     content_dict["announcement"] = ann_data.get("announcement", announcement_json)
@@ -440,20 +490,23 @@ async def approve_document(
         except Exception as e:
             logger.error(f"Failed to generate announcement on approve: {e}")
 
-        # 2. Upsert nội dung đã duyệt vào Qdrant internal_collection
         try:
-            if task and task.impacted_internal_doc and content_dict.get("modified_document"):
+            # Tên văn bản nội bộ: ưu tiên giá trị đã resolve & lưu lúc generate,
+            # fallback về task (nếu phase 2 có cung cấp).
+            impacted_doc_name = content_dict.get("impacted_internal_doc") or (
+                task_proxy.impacted_internal_doc if task_proxy else ""
+            )
+            if impacted_doc_name and content_dict.get("modified_document"):
                 from app.services.qdrant_service import upsert_approved_to_internal
                 await asyncio.to_thread(
                     upsert_approved_to_internal,
-                    doc_name=task.impacted_internal_doc,
+                    doc_name=impacted_doc_name,
                     html_content=content_dict["modified_document"],
-                    task_id=task.id,
+                    task_id=f"{doc.plan_id}_{doc.task_id}",
                 )
         except Exception as e:
             logger.error(f"Failed to upsert to Qdrant internal_collection: {e}")
 
-        # 3. Xóa tất cả draft_versions (document đã hoàn thành)
         try:
             drafts_result = await db.execute(
                 select(DraftVersion).where(DraftVersion.remediation_doc_id == doc_id)
@@ -469,45 +522,3 @@ async def approve_document(
     await db.commit()
     await db.refresh(doc)
     return doc
-
-
-@router.post("/upload-action-plan")
-async def upload_action_plan(
-    file: UploadFile = File(...),
-    db: AsyncSession = Depends(get_db)
-):
-    """Người dùng upload trực tiếp file action-plan.json (Dùng cho Demo/Test nhanh luồng Remediation)"""
-    try:
-        content = await file.read()
-        data = json.loads(content)
-        
-        existing = await db.execute(select(ActionPlan).where(ActionPlan.plan_code == data["action_plan_id"]))
-        if existing.scalars().first():
-            return {"message": "Action Plan đã tồn tại"}
-            
-        ap = ActionPlan(
-            plan_code=data["action_plan_id"],
-            law_id=data["associated_law"]["law_id"],
-            law_title=data["associated_law"]["law_title"],
-            status=data["metadata"]["status"],
-            created_by=data["metadata"]["created_by"]
-        )
-        db.add(ap)
-        await db.flush()
-        
-        for t in data["tasks"]:
-            task = ActionPlanTask(
-                action_plan_id=ap.id,
-                task_code=t["task_id"],
-                task_name=t["task_name"],
-                target_department=t["target_department"],
-                action_required=t["action_required"],
-                impacted_internal_doc=t.get("impacted_internal_doc"),
-                output_type=t["output_type"]
-            )
-            db.add(task)
-            
-        await db.commit()
-        return {"message": "Tải lên thành công"}
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
