@@ -243,6 +243,16 @@ class DocumentService:
     def _delete_from_neo4j(self, doc_id: int) -> None:
         from app.core.neo4j_client import get_neo4j_driver
         with get_neo4j_driver().session() as session:
+
+            client = get_gemini_client(
+
+                
+            ) 
+
+
+
+
+
             session.run(
                 """
                 MATCH (d:Document {document_id: $doc_id})
