@@ -6,7 +6,7 @@ import { useAuth } from '../context/AuthContext'
 import {
   RegWatchLogoIcon, SunIcon, MoonIcon, GlobeIcon,
   ActivityIcon, HomeIcon, FileTextIcon, MenuIcon, XIcon,
-  UserIcon, LogInIcon, SparklesIcon,
+  UserIcon, LogInIcon, SparklesIcon, CheckCircleIcon,
 } from './Icons'
 
 export default function Header() {
@@ -50,6 +50,9 @@ export default function Header() {
             </Link>
             <Link to="/documents" className={`nav-link ${pathname === '/documents' ? 'active' : ''}`}>
               {t('header.documents')}
+            </Link>
+            <Link to="/report" className={`nav-link ${pathname === '/report' ? 'active' : ''}`}>
+              {t('header.report') || 'Report'}
             </Link>
             <Link to="/test" className={`nav-link ${pathname === '/test' ? 'active' : ''}`}>
               {t('header.apiTest')}
@@ -128,6 +131,14 @@ export default function Header() {
               >
                 <span className="mobile-nav-icon"><FileTextIcon size={17} /></span>
                 {t('header.documents')}
+              </Link>
+              <Link
+                to="/report"
+                className={`mobile-nav-link ${pathname === '/report' ? 'active' : ''}`}
+                onClick={closeMenu}
+              >
+                <span className="mobile-nav-icon"><CheckCircleIcon size={17} /></span>
+                {t('header.report') || 'Report'}
               </Link>
               <Link
                 to="/test"

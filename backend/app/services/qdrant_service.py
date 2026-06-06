@@ -166,6 +166,50 @@ def search_conflicts(
     )
     return [
         {
+        ),
+        limit=limit,
+        with_payload=True,
+        with_vectors=True,
+    )
+    return [
+        {
+            "chunk_id": p.payload.get("chunk_id", ""),
+            "text": p.payload.get("text", ""),
+            "header": p.payload.get("header"),
+            "article_number": p.payload.get("article_number"),
+            "vector": p.vector,
+        }
+        for p in points
+    ]
+
+
+def search_conflicts(
+    vector: list[float],
+    exclude_document_id: int,
+    limit: int = 3,
+    score_threshold: float = 0.7,
+) -> list[dict]:
+    """Find similar clauses in OTHER documents (conflict/overlap candidates).
+
+    Uses stored vectors so no embedding call is made. Excludes the document
+    under review so it is only compared against the rest of the knowledge base.
+    """
+    hits = qdrant_client.search(
+        collection_name=settings.QDRANT_COLLECTION_NAME,
+        query_vector=vector,
+        query_filter=Filter(
+            must_not=[
+                FieldCondition(
+                    key="document_id", match=MatchValue(value=exclude_document_id)
+                )
+            ]
+        ),
+        limit=limit,
+        score_threshold=score_threshold,
+        with_payload=True,
+    )
+    return [
+        {
             "document_id": h.payload.get("document_id"),
             "chunk_id": h.payload.get("chunk_id", ""),
             "header": h.payload.get("header"),

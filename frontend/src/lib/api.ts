@@ -1,3 +1,14 @@
+import type {
+  ReportItem,
+  ReportItemsSaveResponse,
+  ReportDossier,
+  ReportUpdate,
+  Analyses,
+  FinalizedReport,
+  RecommendationResponse,
+} from '../types/report'
+import type { AnalysisSummary, AnalysisDetail, AnalysisUpdate } from './analyses'
+
 const BASE_URL = '/api'
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
@@ -28,7 +39,7 @@ export interface User {
   created_at: string
 }
 
-export type KbType = 'law' | 'action_plan' | 'internal'
+export type KbType = 'law' | 'report' | 'internal'
 
 export interface Document {
   id: number
@@ -246,5 +257,59 @@ export const api = {
       })
     },
   },
-}
 
+  report: {
+    listAnalyses: () =>
+      request<Analyses[]>('/report/analyses'),
+
+    getReportItems: (analysesId: number) =>
+      request<ReportItem[]>(`/report/analyses/${analysesId}/items`),
+
+    getReport: (analysesId: number) =>
+      request<ReportDossier>(`/report/analyses/${analysesId}/report`),
+
+    updateReport: (analysesId: number, data: ReportUpdate) =>
+      request<ReportDossier>(`/report/analyses/${analysesId}/report`, {
+        method: 'PUT',
+        body: JSON.stringify(data),
+      }),
+  },
+  analyses: {
+    list: () =>
+      request<AnalysisSummary[]>('/v1/analyses'),
+
+    get: (id: number) =>
+      request<AnalysisDetail>(`/v1/analyses/${id}`),
+
+    pending: () =>
+      request<{ pending: number }>('/v1/analyses/pending'),
+
+    patch: (id: number, data: AnalysisUpdate) =>
+      request<AnalysisDetail>(`/v1/analyses/${id}`, {
+        method: 'PATCH',
+        body: JSON.stringify(data),
+      }),
+
+    saveReportItems: (analysesId: number, items: ReportItem[]) =>
+      request<ReportItemsSaveResponse>(`/report/analyses/${analysesId}/items`, {
+        method: 'POST',
+        body: JSON.stringify({ items }),
+      }),
+
+    finalizeReport: (analysesId: number) =>
+      request<FinalizedReport>(`/report/analyses/${analysesId}/finalize`, {
+        method: 'POST',
+      }),
+
+    generateLLMRecommendations: (analysesId: number, prompt: string) =>
+      request<RecommendationResponse>(`/report/analyses/${analysesId}/recommendations`, {
+        method: 'POST',
+        body: JSON.stringify({ prompt }),
+      }),
+    publish: (id: number) =>
+      request<AnalysisDetail>(`/v1/analyses/${id}/publish`, { method: 'POST' }),
+
+    delete: (id: number) =>
+      request<void>(`/v1/analyses/${id}`, { method: 'DELETE' }),
+  },
+}

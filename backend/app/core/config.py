@@ -40,6 +40,7 @@ class Settings(BaseSettings):
     NEO4J_PASSWORD: str = "password"
 
     GEMINI_API_KEY: str = ""
+    GEMINI_ANALYSIS_API_KEY: str = ""  # Dedicated key for analysis generation (Output 1)
     GEMINI_MODEL: str = "gemini-2.5-flash"
     GEMINI_EMBEDDING_MODEL: str = "gemini-embedding-001"
 

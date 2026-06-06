@@ -207,19 +207,6 @@ export default function TestHealth() {
           </div>
         </div>
 
-        {/* ── Quick links ── */}
-        <div className="th-quick-links">
-          <a href="http://localhost:8000/docs" target="_blank" rel="noreferrer" className="btn btn-outline btn-sm">
-            <ExternalLinkIcon size={13} />{t('testHealth.quickSwagger')}
-          </a>
-          <a href="http://localhost:7474" target="_blank" rel="noreferrer" className="btn btn-outline btn-sm">
-            <ServerIcon size={13} />{t('testHealth.quickNeo4j')}
-          </a>
-          <a href="http://localhost:6333/dashboard" target="_blank" rel="noreferrer" className="btn btn-outline btn-sm">
-            <TerminalIcon size={13} />{t('testHealth.quickQdrant')}
-          </a>
-        </div>
-
       </div>
     </div>
   )
