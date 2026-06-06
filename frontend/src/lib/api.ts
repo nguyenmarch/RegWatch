@@ -182,8 +182,47 @@ export const api = {
 
     downloadUrl: (id: number) =>
       `${BASE_URL}/v1/documents/${id}/download`,
-
     getLog: (id: number) =>
       request<{ level: string; message: string; ts: string }[]>(`/v1/documents/${id}/log`),
   },
+
+  phase3: {
+    getActionPlans: () => request<any[]>('/phase3/action-plans'),
+    deleteActionPlan: (id: number) => request<{ message: string }>(`/phase3/action-plans/${id}`, { method: 'DELETE' }),
+    generateDocument: (task_id: number, refinement_prompt?: string, generation_type: string = 'document') => 
+      request<any>('/phase3/generate', {
+        method: 'POST',
+        body: JSON.stringify({ task_id, refinement_prompt, generation_type })
+      }),
+    generateGroupDocument: (task_ids: number[], refinement_prompt?: string, generation_type: string = 'document') => 
+      request<any[]>('/phase3/generate-group', {
+        method: 'POST',
+        body: JSON.stringify({ task_ids, refinement_prompt, generation_type })
+      }),
+    updateDocument: (doc_id: number, content: string) =>
+      request<any>(`/phase3/documents/${doc_id}`, {
+        method: 'PUT',
+        body: JSON.stringify({ content })
+      }),
+    approveDocument: (doc_id: number, role: string) =>
+      request<any>(`/phase3/documents/${doc_id}/approve`, {
+        method: 'POST',
+        body: JSON.stringify({ role })
+      }),
+    uploadActionPlan: (file: File) => {
+      const form = new FormData()
+      form.append('file', file)
+      return fetch(`${BASE_URL}/phase3/upload-action-plan`, {
+        method: 'POST',
+        body: form,
+        headers: localStorage.getItem('access_token') 
+          ? { Authorization: `Bearer ${localStorage.getItem('access_token')}` } 
+          : {}
+      }).then(async res => {
+        if (!res.ok) throw new Error(await res.text())
+        return res.json()
+      })
+    }
+  }
 }
+

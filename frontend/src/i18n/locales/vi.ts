@@ -10,6 +10,7 @@ const vi = {
     signOut: 'Đăng xuất',
     lightMode: 'Chuyển sang sáng',
     darkMode: 'Chuyển sang tối',
+    phase3: 'Trợ lý Tuân thủ',
   },
   chat: {
     sidebarTitle: 'Đoạn chat',

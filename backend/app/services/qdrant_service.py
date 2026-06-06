@@ -77,3 +77,16 @@ def delete_document_chunks(document_id: int, collection_name: str | None = None)
         ),
     )
     logger.info(f"Deleted chunks for document_id={document_id} from '{col}'.")
+
+
+def search_chunks(query: str, collection_name: str, top_k: int = 5) -> list[dict]:
+    _ensure_collection_exists(collection_name)
+    vectors = embed_texts([query])
+    if not vectors:
+        return []
+    hits = qdrant_client.search(
+        collection_name=collection_name,
+        query_vector=vectors[0],
+        limit=top_k,
+    )
+    return [hit.payload for hit in hits]

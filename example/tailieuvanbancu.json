@@ -1,0 +1,27 @@
+{
+  "database_name": "SHB_Internal_Policies_DB",
+  "last_updated": "2025-12-01",
+  "internal_documents": [
+    {
+      "doc_id": "452/QĐ-IT",
+      "doc_name": "Quy trình vận hành hạ tầng thông tin số 452/QĐ-IT",
+      "department": "IT",
+      "relevant_clause": "Điều 8. Lưu trữ nhật ký hệ thống và dữ liệu khách hàng",
+      "current_content": "1. Toàn bộ nhật ký (log) truy cập hệ thống và dữ liệu định danh khách hàng trực tuyến (eKYC) bao gồm hình ảnh chụp giấy tờ tùy thân, video và hình ảnh khuôn mặt phải được lưu trữ tập trung tại phân vùng máy chủ an toàn.\n2. Thời hạn lưu trữ đối với dữ liệu nhận dạng sinh trắc học và log giao dịch tối thiểu là 02 (hai) năm kể từ ngày phát sinh giao dịch."
+    },
+    {
+      "doc_id": "QC_SP_2.1",
+      "doc_name": "Quy chế sản phẩm tiền gửi trực tuyến v2.1",
+      "department": "PRODUCT",
+      "relevant_clause": "Điều 12. Cam kết bảo mật và Chia sẻ dữ liệu",
+      "current_content": "1. Ngân hàng cam kết bảo mật mọi thông tin cá nhân và dữ liệu giao dịch của khách hàng đăng ký trên ứng dụng Mobile Banking.\n2. Ngân hàng có quyền chia sẻ thông tin khách hàng (bao gồm dữ liệu cá nhân cơ bản) cho các đối tác thứ ba (công ty bảo hiểm, ví điện tử liên kết) nhằm mục đích nâng cao trải nghiệm dịch vụ và tiếp thị chéo mà không cần ký thêm phụ lục đồng ý riêng biệt."
+    },
+    {
+      "doc_id": "HD_ATTT_2025",
+      "doc_name": "Hướng dẫn xử lý sự cố an toàn thông tin nội bộ",
+      "department": "PO",
+      "relevant_clause": "Phần III. Đào tạo và nâng cao nhận thức bảo mật",
+      "current_content": "Định kỳ hàng năm, Khối Quản trị Nguồn nhân lực phối hợp cùng Khối CNTT tổ chức các buổi hội thảo trực tiếp (offline) nhằm cập nhật kiến thức bảo mật cho nhân viên vận hành. Cán bộ nhân viên có trách nhiệm tham gia đầy đủ và ký tên điểm danh tại hội trường. Không có quy định bắt buộc về việc tổ chức thi trắc nghiệm đánh giá năng lực sau hội thảo."
+    }
+  ]
+}

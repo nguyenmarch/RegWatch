@@ -18,7 +18,7 @@ interface Props {
   kbType: KbType
 }
 
-const ACCEPTED = ['.pdf', '.docx', '.doc']
+const ACCEPTED = ['.pdf', '.docx', '.doc', '.json', '.txt']
 const MAX_MB = 50
 let uid = 0
 
