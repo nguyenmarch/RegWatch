@@ -1,0 +1,43 @@
+apiVersion: eksctl.io/v1alpha5
+kind: ClusterConfig
+
+metadata:
+  name: regwatch-cluster
+  region: us-east-1
+  version: "1.31"
+  tags:
+    Project: RegWatch
+    Environment: production
+
+iam:
+  withOIDC: true
+
+managedNodeGroups:
+  - name: ng-general
+    instanceType: t3.large
+    desiredCapacity: 2
+    minSize: 2
+    maxSize: 4
+    volumeSize: 50
+    volumeType: gp3
+    labels:
+      role: general
+    tags:
+      Project: RegWatch
+    iam:
+      attachPolicyARNs:
+        - arn:aws:iam::aws:policy/AmazonEKSWorkerNodePolicy
+        - arn:aws:iam::aws:policy/AmazonEKS_CNI_Policy
+        - arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly
+
+addons:
+  - name: vpc-cni
+    version: latest
+  - name: coredns
+    version: latest
+  - name: kube-proxy
+    version: latest
+  - name: aws-ebs-csi-driver
+    version: latest
+    wellKnownPolicies:
+      ebsCSIController: true

@@ -1,0 +1,36 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: regwatch-config
+  namespace: regwatch
+data:
+  # MySQL
+  MYSQL_SERVER: "mysql"
+  MYSQL_PORT: "3306"
+  MYSQL_USER: "root"
+  MYSQL_DATABASE: "law_db"
+  # Qdrant
+  QDRANT_HOST: "qdrant"
+  QDRANT_PORT: "6333"
+  QDRANT_COLLECTION_NAME: "law_collection"
+  # Neo4j
+  NEO4J_URI: "bolt://neo4j:7687"
+  NEO4J_USER: "neo4j"
+  # AWS S3 (replaces MinIO)
+  MINIO_ENDPOINT: "s3.us-east-1.amazonaws.com"
+  MINIO_BUCKET: "regwatch-documents-339388639465"
+  MINIO_SECURE: "true"
+  MINIO_REGION: "us-east-1"
+  MINIO_AUTO_CREATE_BUCKET: "false"
+  MINIO_USE_IAM_ROLE: "true"
+  # Embedding
+  EMBEDDING_DIMENSION: "768"
+  EMBEDDING_BACKEND: "sentence_transformers"
+  ST_MODEL_NAME: "keepitreal/vietnamese-sbert"
+  CHUNK_SIZE: "1000"
+  CHUNK_OVERLAP: "100"
+  # Gemini
+  GEMINI_MODEL: "gemini-2.5-flash"
+  GEMINI_EMBEDDING_MODEL: "gemini-embedding-001"
+  # Auth
+  ACCESS_TOKEN_EXPIRE_MINUTES: "30"
