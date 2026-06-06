@@ -4,7 +4,7 @@ import { useTheme } from '../context/ThemeContext'
 import { useAuth } from '../context/AuthContext'
 import {
   RegWatchLogoIcon, HomeIcon, SparklesIcon, FileTextIcon,
-  ActivityIcon, SunIcon, MoonIcon, GlobeIcon, LogInIcon,
+  ActivityIcon, ChartIcon, SunIcon, MoonIcon, GlobeIcon, LogInIcon,
   LogOutIcon, ChevronLeftIcon, MenuIcon, XIcon,
 } from './Icons'
 
@@ -20,7 +20,7 @@ const NAV = [
   { to: '/', icon: HomeIcon, labelKey: 'header.home', exact: true, authOnly: false },
   { to: '/chat', icon: SparklesIcon, labelKey: 'header.chat', exact: false, authOnly: true },
   { to: '/documents', icon: FileTextIcon, labelKey: 'header.documents', exact: false, authOnly: true },
-  { to: '/remediation', icon: ActivityIcon, labelKey: 'header.remediation', exact: false, authOnly: true },
+  { to: '/analyses', icon: ChartIcon, labelKey: 'header.analyses', exact: false, authOnly: true },
   { to: '/test', icon: ActivityIcon, labelKey: 'header.apiTest', exact: false, authOnly: false },
 ] as const
 

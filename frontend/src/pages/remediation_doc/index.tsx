@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useRef, useCallback } from 'react';
 import styles from './remediation_doc.module.css';
 import { api } from '../../lib/api';
 
@@ -44,7 +44,15 @@ export default function Remediation() {
         setIsLoading(true);
         try {
             const data = await api.remediation.getActionPlans();
-            setActionPlans(Array.isArray(data) ? data : []);
+            const plans = Array.isArray(data) ? data : [];
+            setActionPlans(plans);
+            // Auto-select a plan when the stored selection no longer matches any plan
+            // (e.g. after upload/delete). Falls back to the first available plan.
+            setSelectedApId(prev => {
+                const stillValid = plans.some(p => p.id.toString() === prev);
+                if (stillValid) return prev;
+                return plans.length > 0 ? plans[0].id.toString() : '';
+            });
         } catch { setActionPlans([]); }
         setIsLoading(false);
     };
@@ -588,10 +596,77 @@ function DocSection({
     onToggleRefinement, onSetRefinementPrompt,
 }: DocSectionProps) {
     const [approveRole, setApproveRole] = useState('product');
+    const [localComments, setLocalComments] = useState<any[]>([]);
+    // top offset (px) of each mark, measured from top of scrollContainer
+    const [commentTops, setCommentTops] = useState<Record<string, number>>({});
+    const scrollContainerRef = useRef<HTMLDivElement>(null);
+    const docBodyRef = useRef<HTMLDivElement>(null);
+
     const doc = group.doc;
     const parsed = group.parsed;
     const targetDepts = Array.from(new Set(group.tasks.map(t => t.target_department)));
     const taskCodes = group.tasks.map(t => t.task_code).join(', ');
+
+    useEffect(() => {
+        setLocalComments(parsed?.comments ?? []);
+    }, [parsed?.comments]);
+
+    // Measure mark positions relative to the scroll container's top edge (including scroll offset)
+    const recalcPositions = useCallback(() => {
+        if (!scrollContainerRef.current || !docBodyRef.current) return;
+        const containerRect = scrollContainerRef.current.getBoundingClientRect();
+        const scrollTop = scrollContainerRef.current.scrollTop;
+        const tops: Record<string, number> = {};
+        localComments.forEach((c: any) => {
+            const mark = docBodyRef.current!.querySelector(`mark[data-id="${c.id}"]`) as HTMLElement | null;
+            if (mark) {
+                const markRect = mark.getBoundingClientRect();
+                tops[c.id] = markRect.top - containerRect.top + scrollTop;
+            }
+        });
+        setCommentTops(tops);
+    }, [localComments]);
+
+    // Compute sidebar min-height so it's at least as tall as the lowest comment card
+    const sidebarMinHeight = localComments.reduce((max, c: any) => {
+        const top = commentTops[c.id] ?? 0;
+        return Math.max(max, top + 120);
+    }, 0);
+
+    useLayoutEffect(() => {
+        // Defer one frame so browser has painted the new HTML before measuring
+        const id = requestAnimationFrame(recalcPositions);
+        return () => cancelAnimationFrame(id);
+    }, [recalcPositions, parsed?.old_document, parsed?.modified_document]);
+
+    // Also recalc if the editor content resizes (e.g., images load, fonts settle)
+    useEffect(() => {
+        if (!docBodyRef.current) return;
+        const ro = new ResizeObserver(recalcPositions);
+        ro.observe(docBodyRef.current);
+        return () => ro.disconnect();
+    }, [recalcPositions]);
+
+    const handleMarkHover = (commentId: string | null) => {
+        if (!docBodyRef.current) return;
+        docBodyRef.current.querySelectorAll('mark').forEach(m => m.classList.remove(styles.active));
+        if (commentId) {
+            docBodyRef.current.querySelectorAll(`mark[data-id="${commentId}"]`).forEach(m => m.classList.add(styles.active));
+        }
+    };
+
+    const handleCommentChange = (id: string, newReason: string) => {
+        setLocalComments(prev => prev.map(c => c.id === id ? { ...c, reason: newReason } : c));
+    };
+
+    const handleCommentBlur = () => {
+        if (parsed) onSave(group.taskIds, { ...parsed, comments: localComments });
+    };
+
+    // modified_document contains <mark data-id="..."> highlights — show that for editing.
+    // old_document is plain text fallback (no marks) when generation hasn't run yet.
+    const docHtml = parsed?.modified_document
+        || (parsed?.old_document ? parsed.old_document.replace(/\n/g, '<br/>') : '');
 
     return (
         <div className={styles.docSection}>
@@ -611,7 +686,6 @@ function DocSection({
                         </span>
                     )}
 
-                    {/* Approval dots */}
                     {doc && (
                         <div className={styles.approvalDots} title="Product · Compliance">
                             <span className={`${styles.adot} ${doc.product_approved ? styles.adotOk : ''}`} />
@@ -621,7 +695,6 @@ function DocSection({
 
                     {doc && (
                         <>
-                            {/* Refine */}
                             <button
                                 className={`${styles.secBtn} ${group.refinementOpen ? styles.secBtnActive : ''}`}
                                 onClick={() => onToggleRefinement(group.taskIds)}
@@ -629,15 +702,12 @@ function DocSection({
                             >
                                 ✨
                             </button>
-                            {/* Save */}
-                            <button className={styles.secBtn} onClick={() => onSave(group.taskIds, parsed)} title="Lưu bản nháp">
+                            <button className={styles.secBtn} onClick={() => onSave(group.taskIds, { ...parsed, comments: localComments })} title="Lưu bản nháp">
                                 💾
                             </button>
-                            {/* Export */}
                             <button className={styles.secBtn} onClick={() => onExport(group.taskIds)} title="Export .doc">
                                 ↓ .doc
                             </button>
-                            {/* Approve */}
                             <div className={styles.approveInline}>
                                 <select
                                     className={styles.approveMiniSelect}
@@ -660,7 +730,7 @@ function DocSection({
                 </div>
             </div>
 
-            {/* Refinement input (collapsible) */}
+            {/* Refinement input */}
             {group.refinementOpen && (
                 <div className={styles.refinementBar}>
                     <span className={styles.refinementIcon}>✨</span>
@@ -691,34 +761,58 @@ function DocSection({
                             Đang gộp <strong>{group.tasks.length} tác vụ</strong> và sinh nội dung sửa đổi cho <strong>{group.docName}</strong>...
                         </p>
                     </div>
-                ) : parsed?.modified_document || parsed?.old_document ? (
-                    <div className={styles.annotationLayout}>
+                ) : (parsed?.modified_document || parsed?.old_document) ? (
+                    /*
+                     * Single scroll container: docBody (left) + comment cards (right, absolute).
+                     * Comments are positioned inside the same scrolling box so they move together.
+                     */
+                    <div
+                        ref={scrollContainerRef}
+                        className={styles.annotationLayout}
+                        onScroll={recalcPositions}
+                    >
+                        {/* Left: document with <mark> highlights — contentEditable so user can edit directly */}
                         <div
+                            ref={docBodyRef}
                             className={styles.annotationEditor}
                             contentEditable
                             suppressContentEditableWarning
                             onBlur={(e) => {
                                 if (parsed) {
-                                    parsed.modified_document = e.currentTarget.innerHTML;
-                                    onSave(group.taskIds, parsed);
+                                    onSave(group.taskIds, { ...parsed, modified_document: e.currentTarget.innerHTML, comments: localComments });
                                 }
                             }}
-                            dangerouslySetInnerHTML={{
-                                __html: parsed.modified_document || parsed.old_document?.replace(/\n/g, '<br/>') || ''
-                            }}
+                            dangerouslySetInnerHTML={{ __html: docHtml }}
                         />
-                        <div className={styles.annotationSidebar}>
-                            {parsed?.comments?.map((comment: any, idx: number) => (
-                                <div key={idx} className={styles.commentCard}>
+
+                        {/* Right: comment overlay — no independent scroll, absolute cards */}
+                        <div className={styles.annotationSidebar} style={{ minHeight: sidebarMinHeight }}>
+                            {localComments.map((comment: any) => (
+                                <div
+                                    key={comment.id}
+                                    className={styles.commentCard}
+                                    style={commentTops[comment.id] !== undefined
+                                        ? { top: commentTops[comment.id] }
+                                        : { position: 'relative' }
+                                    }
+                                    onMouseEnter={() => handleMarkHover(comment.id)}
+                                    onMouseLeave={() => handleMarkHover(null)}
+                                >
                                     <div className={styles.commentCardHeader}>
                                         <span className={styles.commentTaskName}>{comment.task_name || 'Đề xuất thay đổi'}</span>
                                     </div>
-                                    <p className={styles.commentReason}>{comment.reason}</p>
+                                    <textarea
+                                        className={styles.commentReasonInput}
+                                        value={comment.reason}
+                                        onChange={e => handleCommentChange(comment.id, e.target.value)}
+                                        onBlur={handleCommentBlur}
+                                        rows={3}
+                                    />
                                 </div>
                             ))}
-                            {(!parsed?.comments || parsed.comments.length === 0) && (
+                            {localComments.length === 0 && (
                                 <div className={styles.commentCard} style={{ opacity: 0.6 }}>
-                                    <p className={styles.commentReason}>Chưa có đề xuất thay đổi nào (Hoặc sinh bằng phiên bản cũ).</p>
+                                    <p className={styles.commentReason}>Chưa có đề xuất thay đổi nào.</p>
                                 </div>
                             )}
                         </div>

@@ -16,7 +16,7 @@ from app.models.document import Document
 from app.services.chunker import split_legal_document
 from app.services.neo4j_service import build_document_graph
 from app.services.parser import parse_document
-from app.services.qdrant_service import delete_document_chunks, upsert_document_chunks
+from app.services.qdrant_service import upsert_document_chunks
 from app.utils.text_processor import clean_legal_text
 
 logger = logging.getLogger(__name__)
@@ -60,11 +60,7 @@ class DocumentService:
     # ── Pipeline ─────────────────────────────────────────────
 
     async def pipeline_process_and_embed_law(
-        self,
-        doc_id: int,
-        filename: str,
-        file_content: bytes,
-        kb_type: KbType = KbType.LAW,
+        self, doc_id: int, filename: str, file_content: bytes, kb_type: KbType = KbType.LAW
     ) -> None:
         from app.core.db import async_session_factory
 
@@ -72,7 +68,9 @@ class DocumentService:
             try:
                 await self._update_status(db, doc_id, DocumentStatus.PROCESSING)
                 await self._append_log(db, doc_id, "info", "Pipeline started — parsing document.")
-                logger.info("[Pipeline] Started — doc_id=%s, file=%s, kb=%s", doc_id, filename, kb_type.value)
+                logger.info(
+                    "[Pipeline] Started — doc_id=%s, file=%s, kb=%s", doc_id, filename, kb_type.value
+                )
 
                 raw_text = parse_document(filename, file_content)
                 clean_text = clean_legal_text(raw_text)
@@ -86,10 +84,9 @@ class DocumentService:
                     upsert_document_chunks, chunks, doc_id, kb_type.collection_name
                 )
                 await self._append_log(
-                    db, doc_id, "info",
-                    f"Vectors upserted to Qdrant collection '{kb_type.collection_name}'."
+                    db, doc_id, "info", f"Vectors upserted to Qdrant ({kb_type.collection_name})."
                 )
-                logger.info("[Pipeline] Qdrant upsert done — doc_id=%s, col=%s", doc_id, kb_type.collection_name)
+                logger.info("[Pipeline] Qdrant upsert done — doc_id=%s", doc_id)
 
                 if kb_type.use_neo4j:
                     await asyncio.to_thread(build_document_graph, doc_id, title, chunks)
@@ -99,6 +96,10 @@ class DocumentService:
                 await self._update_status(db, doc_id, DocumentStatus.COMPLETED)
                 await self._append_log(db, doc_id, "success", "Pipeline completed successfully.")
                 logger.info("[Pipeline] Completed — doc_id=%s", doc_id)
+
+                if kb_type.use_neo4j:
+                    await self._append_log(db, doc_id, "info", "Auto-generating compliance analyses.")
+                    await self._auto_generate_analyses(doc_id)
 
             except Exception as exc:
                 err = str(exc)
@@ -111,10 +112,10 @@ class DocumentService:
     async def get_all_documents(
         self, db: AsyncSession, kb_type: KbType | None = None
     ) -> list[Document]:
-        q = select(Document).order_by(Document.created_at.desc())
+        stmt = select(Document).order_by(Document.created_at.desc())
         if kb_type is not None:
-            q = q.where(Document.kb_type == kb_type.value)
-        result = await db.execute(q)
+            stmt = stmt.where(Document.kb_type == kb_type.value)
+        result = await db.execute(stmt)
         return list(result.scalars().all())
 
     async def get_log(self, db: AsyncSession, doc_id: int) -> list[dict] | None:
@@ -134,9 +135,9 @@ class DocumentService:
             if doc is None:
                 return False
 
-            kb = KbType(doc.kb_type) if doc.kb_type else KbType.LAW
-            await asyncio.to_thread(delete_document_chunks, doc_id, kb.collection_name)
-            if kb.use_neo4j:
+            kb_type = KbType(doc.kb_type)
+            await asyncio.to_thread(self._delete_from_qdrant, doc_id, kb_type.collection_name)
+            if kb_type.use_neo4j:
                 await asyncio.to_thread(self._delete_from_neo4j, doc_id)
             if doc.file_path:
                 await asyncio.to_thread(self._delete_from_minio, doc.file_path)
@@ -174,6 +175,22 @@ class DocumentService:
 
     # ── Helpers ──────────────────────────────────────────────
 
+    async def _auto_generate_analyses(self, doc_id: int) -> None:
+        """Auto-generate analysis (Output 1) right after ingestion completes.
+
+        Runs in its own session; errors here do NOT affect ingest status
+        (the document is already 'completed' and committed before this call).
+        """
+        from app.services.analysis_service import analysis_service
+
+        try:
+            await analysis_service.generate_for_document(doc_id)
+        except Exception as exc:
+            logger.error(
+                "[Pipeline] Auto analysis generation failed — doc_id=%s: %s",
+                doc_id, exc, exc_info=True,
+            )
+
     async def _update_status(self, db: AsyncSession, doc_id: int, status: DocumentStatus) -> None:
         await db.execute(
             update(Document).where(Document.id == doc_id).values(status=status.value)
@@ -195,6 +212,17 @@ class DocumentService:
             )
         )
         await db.commit()
+
+    def _delete_from_qdrant(self, doc_id: int, collection_name: str) -> None:
+        from qdrant_client.models import FieldCondition, Filter, FilterSelector, MatchValue
+        from app.core.qdrant_client import qdrant_client
+        qdrant_client.delete(
+            collection_name=collection_name,
+            points_selector=FilterSelector(
+                filter=Filter(must=[FieldCondition(key="document_id", match=MatchValue(value=doc_id))])
+            ),
+        )
+        logger.info("[Delete] Qdrant chunks removed — doc_id=%s, collection=%s", doc_id, collection_name)
 
     def _delete_from_neo4j(self, doc_id: int) -> None:
         from app.core.neo4j_client import get_neo4j_driver

@@ -130,10 +130,21 @@ async def generate_document(
         old_doc = await get_old_document_from_qdrant(task)
         content_dict["old_document"] = old_doc
         modified_doc = await generate_remediation_html(task, "document", old_doc, req.refinement_prompt)
-        content_dict["modified_document"] = modified_doc
+        try:
+            gen_data = json.loads(modified_doc)
+            content_dict["modified_document"] = gen_data.get("modified_document_html", modified_doc)
+            content_dict["comments"] = gen_data.get("comments", [])
+        except Exception as e:
+            # Fallback: if JSON parsing fails, treat as raw HTML
+            content_dict["modified_document"] = modified_doc
+            content_dict["comments"] = []
     else:
         announcement = await generate_remediation_html(task, "announcement", "", req.refinement_prompt)
-        content_dict["announcement"] = announcement
+        try:
+            gen_data = json.loads(announcement)
+            content_dict["announcement"] = gen_data.get("announcement", announcement)
+        except Exception:
+            content_dict["announcement"] = announcement
 
     new_content_str = json.dumps(content_dict, ensure_ascii=False)
 
@@ -207,11 +218,15 @@ async def generate_document_group(
                 gen_data = json.loads(modified_doc)
                 content_dict["modified_document"] = gen_data.get("modified_document_html", modified_doc)
                 content_dict["comments"] = gen_data.get("comments", [])
-            except Exception:
+            except Exception as e:
                 content_dict["modified_document"] = modified_doc
                 content_dict["comments"] = []
         else:
-            content_dict["announcement"] = announcement
+            try:
+                gen_data = json.loads(announcement)
+                content_dict["announcement"] = gen_data.get("announcement", announcement)
+            except Exception:
+                content_dict["announcement"] = announcement
 
         new_content_str = json.dumps(content_dict, ensure_ascii=False)
 

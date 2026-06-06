@@ -1,11 +1,28 @@
+import asyncio
+import json
+import logging
 from typing import AsyncIterator
 
 from google import genai
+from google.genai import errors as genai_errors
 from google.genai import types
 
 from app.core.config import settings
 
+logger = logging.getLogger(__name__)
+
+# 429 = quota exhausted → do NOT short-retry (daily quota does not recover in
+# seconds); let the caller catch GeminiQuotaExceeded and push the job to
+# pending/retry later. Only retry transient server errors 500/503.
+_RETRYABLE_STATUS = {500, 503}
+_MAX_RETRIES = 4
+
+
+class GeminiQuotaExceeded(RuntimeError):
+    """Gemini returned 429 RESOURCE_EXHAUSTED — quota exhausted (per minute/day)."""
+
 _client: genai.Client | None = None
+_analysis_client: genai.Client | None = None
 
 
 def get_gemini_client() -> genai.Client:
@@ -13,6 +30,55 @@ def get_gemini_client() -> genai.Client:
     if _client is None:
         _client = genai.Client(api_key=settings.GEMINI_API_KEY)
     return _client
+
+
+def get_analysis_gemini_client() -> genai.Client:
+    """DEDICATED client for the analysis task (Output 1) — isolates quota from ingestion/chat."""
+    global _analysis_client
+    if _analysis_client is None:
+        _analysis_client = genai.Client(api_key=settings.gemini_analysis_api_key)
+    return _analysis_client
+
+
+async def agenerate_analysis_json(
+    prompt: str,
+    system_instruction: str,
+    response_schema: types.Schema,
+) -> dict:
+    """Generate structured JSON for the analysis using the dedicated Gemini key (Output 1).
+
+    Retries with exponential backoff on transient Gemini errors (429/500/503).
+    """
+    config = types.GenerateContentConfig(
+        system_instruction=system_instruction,
+        response_mime_type="application/json",
+        response_schema=response_schema,
+    )
+    contents = [{"role": "user", "parts": [{"text": prompt}]}]
+
+    last_exc: Exception | None = None
+    for attempt in range(_MAX_RETRIES):
+        try:
+            response = await get_analysis_gemini_client().aio.models.generate_content(
+                model=settings.GEMINI_MODEL,
+                contents=contents,
+                config=config,
+            )
+            return json.loads(response.text)
+        except genai_errors.APIError as exc:
+            if exc.code == 429:
+                raise GeminiQuotaExceeded(str(exc)) from exc
+            if exc.code not in _RETRYABLE_STATUS or attempt == _MAX_RETRIES - 1:
+                raise
+            last_exc = exc
+            delay = 2 ** attempt  # 1, 2, 4, 8s
+            logger.warning(
+                "[Analysis] Gemini %s — retry %d/%d after %ds",
+                exc.code, attempt + 1, _MAX_RETRIES, delay,
+            )
+            await asyncio.sleep(delay)
+
+    raise last_exc if last_exc else RuntimeError("Gemini analysis generation failed")
 
 
 # ── Sync helpers (used by ingestion pipeline) ────────────────────────────────

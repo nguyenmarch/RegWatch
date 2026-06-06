@@ -722,12 +722,21 @@
 .approveMiniBtn:disabled { opacity: 0.35; cursor: not-allowed; border-color: #D1D5DB; color: #9CA3AF; }
 
 /* ── Document Annotation Layout ── */
+/*
+ * annotationLayout is the SINGLE scroll container.
+ * Both the document body and the comment sidebar scroll together.
+ * Comment cards are position:absolute inside the sidebar column.
+ */
 .annotationLayout {
   display: flex;
-  gap: 20px;
+  gap: 24px;
   width: 100%;
-  height: 100%;
-  padding-bottom: 20px;
+  min-height: 480px;
+  max-height: 75vh;
+  overflow-y: auto;         /* ONE scrollbar for the whole area */
+  overflow-x: hidden;
+  padding-bottom: 60px;
+  position: relative;       /* anchor for absolute comment cards */
 }
 
 .annotationEditor {
@@ -736,49 +745,100 @@
   border-radius: 8px;
   box-shadow: 0 1px 3px rgba(0,0,0,0.1);
   padding: 30px 40px;
-  overflow-y: auto;
   line-height: 1.6;
   font-size: 0.95rem;
   color: #374151;
-  outline: none;
+  /* NOT scrollable itself — parent scrolls */
+  overflow: visible;
+  align-self: flex-start;   /* don't stretch to fill height */
 }
 
-.annotationEditor mark {
+.annotationEditor :global(h1) {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: #111827;
+  margin: 0 0 14px;
+  padding-bottom: 8px;
+  border-bottom: 2px solid #E5E7EB;
+  line-height: 1.4;
+  text-align: center;
+}
+
+.annotationEditor :global(h2) {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #1F2937;
+  margin: 20px 0 8px;
+}
+
+.annotationEditor :global(h3) {
+  font-size: 0.93rem;
+  font-weight: 700;
+  color: #374151;
+  margin: 16px 0 6px;
+}
+
+.annotationEditor :global(p) { margin: 0 0 10px; line-height: 1.75; }
+
+.annotationEditor :global(ul),
+.annotationEditor :global(ol) { padding-left: 22px; margin: 6px 0 12px; }
+
+.annotationEditor :global(li) { margin: 5px 0; line-height: 1.7; }
+
+.annotationEditor :global(strong) { font-weight: 700; color: #111827; }
+
+.annotationEditor :global(mark) {
   background-color: #FEF08A;
   color: #111827;
   padding: 2px 4px;
   border-radius: 3px;
   cursor: pointer;
-  transition: background-color 0.2s;
+  transition: background-color 0.2s, box-shadow 0.2s;
 }
 
-.annotationEditor mark:hover,
-.annotationEditor mark.active {
+.annotationEditor :global(mark):hover,
+.annotationEditor :global(mark.active) {
   background-color: #FDE047;
+  box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.35);
 }
 
+/* Sidebar column: fixed width, no scroll — holds absolutely positioned cards */
 .annotationSidebar {
-  width: 320px;
+  width: 300px;
   flex-shrink: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  overflow-y: auto;
-  padding-right: 10px;
+  position: relative;       /* comment cards position:absolute relative to this */
+  align-self: flex-start;
+  /* height driven by content so parent scroll works */
 }
 
 .commentCard {
   background: white;
   border: 1px solid #E5E7EB;
   border-radius: 8px;
-  padding: 16px;
+  padding: 14px 16px;
   box-shadow: 0 1px 2px rgba(0,0,0,0.05);
-  transition: box-shadow 0.2s, border-color 0.2s;
+  transition: box-shadow 0.2s, border-color 0.2s, background-color 0.2s;
+  cursor: pointer;
+  position: absolute;       /* aligned to mark position by JS */
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .commentCard:hover {
-  box-shadow: 0 4px 6px rgba(0,0,0,0.05);
-  border-color: #D1D5DB;
+  box-shadow: 0 4px 6px rgba(0,0,0,0.08);
+  border-color: #F59E0B;
+  background-color: #FEF9E7;
+}
+
+.commentCard:hover::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background-color: #F59E0B;
+  border-radius: 8px 0 0 8px;
 }
 
 .commentCardHeader {
@@ -801,6 +861,35 @@
   color: #111827;
   font-weight: 500;
   margin-bottom: 0;
+  line-height: 1.4;
+}
+
+.commentReasonInput {
+  width: 100%;
+  font-size: 0.875rem;
+  color: #111827;
+  font-weight: 500;
+  line-height: 1.4;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  background: transparent;
+  resize: vertical;
+  font-family: inherit;
+  padding: 2px 4px;
+  margin: 0;
+  box-sizing: border-box;
+  outline: none;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.commentReasonInput:hover {
+  border-color: #E5E7EB;
+  background: #FAFAFA;
+}
+
+.commentReasonInput:focus {
+  border-color: #F59E0B;
+  background: #FFFBF0;
 }
 
 /* ── Old layout for fallback ── */

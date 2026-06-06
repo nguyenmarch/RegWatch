@@ -44,6 +44,11 @@ class Settings(BaseSettings):
     GEMINI_EMBEDDING_MODEL: str = "gemini-embedding-001"
 
     @property
+    def gemini_analysis_api_key(self) -> str:
+        """Key for the analysis task; falls back to the main key if not configured."""
+        return self.GEMINI_ANALYSIS_API_KEY or self.GEMINI_API_KEY
+
+    @property
     def DATABASE_URL(self) -> str:
         return (
             f"mysql+pymysql://{self.MYSQL_USER}:{self.MYSQL_PASSWORD}"
