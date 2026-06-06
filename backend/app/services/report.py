@@ -4,6 +4,7 @@ from typing import Any
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm.attributes import flag_modified
 
 from app.core.config import settings
 from app.core.gemini_client import get_gemini_client
@@ -13,6 +14,16 @@ from app.models.action_plan import ActionPlan
 
 
 logger = logging.getLogger(__name__)
+_MAX_DEADLINE_LEN = 255
+
+
+def _normalize_deadline(value: Any) -> str | None:
+    if value is None:
+        return None
+    text = str(value).strip()
+    if not text:
+        return None
+    return text[:_MAX_DEADLINE_LEN]
 
 
 class AnalysesNotFoundError(Exception):
@@ -102,7 +113,7 @@ class ReportService:
             "summary": data.get("summary") or data.get("description") or "",
             "conflict_headline": data.get("conflict_headline") or "",
             "severity": data.get("severity") or "monitor",
-            "deadline": data.get("deadline"),
+            "deadline": _normalize_deadline(data.get("deadline")),
             "status": data.get("status") or "pending",
             "overall_risk": data.get("overall_risk") if isinstance(data.get("overall_risk"), dict) else {},
             "compare_left": data.get("compare_left"),
@@ -218,6 +229,7 @@ class ReportService:
             db.add(report)
         else:
             report.items = payload
+            flag_modified(report, "items")
 
         await db.commit()
         return payload
@@ -237,6 +249,7 @@ class ReportService:
             db.add(report)
         else:
             report.items = payload
+            flag_modified(report, "items")
 
         await db.commit()
         return len(items)
@@ -274,6 +287,7 @@ class ReportService:
             db.add(report)
         else:
             report.items = payload
+            flag_modified(report, "items")
         analyses.status = "finalized"
         await db.commit()
 

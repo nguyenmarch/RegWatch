@@ -248,6 +248,8 @@ const vi = {
       deleteSuccess: 'Xóa tài liệu thành công',
       deleteError: 'Không thể xóa tài liệu',
       llmError: 'Không thể tạo gợi ý',
+    }
+  },
   analyses: {
     eyebrow: 'Trí tuệ tuân thủ',
     title: 'Lịch sử phân tích',

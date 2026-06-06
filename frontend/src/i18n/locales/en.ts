@@ -250,6 +250,8 @@ const en = {
       deleteSuccess: 'Document deleted successfully',
       deleteError: 'Failed to delete document',
       llmError: 'Failed to generate recommendations',
+    }
+  },
   analyses: {
     eyebrow: 'Compliance intelligence',
     title: 'Analysis History',

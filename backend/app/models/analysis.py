@@ -26,7 +26,7 @@ class ComplianceAnalysis(Base):
     summary           = Column(Text, nullable=False, default="")
     conflict_headline = Column(Text, nullable=False, default="")
     severity          = Column(String(16), nullable=False, default="monitor")
-    deadline          = Column(String(32), nullable=True)
+    deadline          = Column(String(255), nullable=True)
     status            = Column(String(16), nullable=False, default="pending")
     overall_risk      = Column(JSON, nullable=False, default=dict)
     compare_left      = Column(JSON, nullable=True)

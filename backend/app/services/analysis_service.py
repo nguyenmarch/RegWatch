@@ -21,6 +21,7 @@ _SCORE_THRESHOLD = 0.7        # minimum vector similarity to qualify as a candid
 _CANDIDATES_PER_CLAUSE = 3    # KB clauses matched per new clause
 _MAX_COMPARE_BLOCKS = 12      # maximum comparison blocks fed into the prompt
 _QUOTA_RETRY_DELAY = timedelta(minutes=30)  # defer job when Gemini quota is exhausted
+_MAX_DEADLINE_LEN = 255
 
 # Severity is derived from a SINGLE risk score overall_risk.value (0–100), not chosen by the LLM.
 _URGENT_MIN = 75
@@ -39,6 +40,15 @@ def _severity_from_value(value: int) -> str:
     if v >= _REVIEW_MIN:
         return "review"
     return "monitor"
+
+
+def _normalize_deadline(value: str | None) -> str | None:
+    if value is None:
+        return None
+    text = str(value).strip()
+    if not text:
+        return None
+    return text[:_MAX_DEADLINE_LEN]
 
 _SYSTEM_INSTRUCTION = (
     "Bạn là chuyên gia tuân thủ pháp lý ngân hàng Việt Nam (Compliance Officer). "
@@ -407,7 +417,7 @@ class AnalysisService:
             summary=content.summary,
             conflict_headline=content.conflict_headline,
             severity=_severity_from_value(score),
-            deadline=content.deadline,
+            deadline=_normalize_deadline(content.deadline),
             status="pending",
             overall_risk=overall,
             compare_left=content.compare_left.model_dump(),
@@ -433,7 +443,7 @@ class AnalysisService:
             "title": data.title,
             "summary": data.summary,
             "conflict_headline": data.conflict_headline,
-            "deadline": data.deadline,
+            "deadline": _normalize_deadline(data.deadline),
             "conflict_note": data.conflict_note,
             "risk_conclusion": data.risk_conclusion,
         }

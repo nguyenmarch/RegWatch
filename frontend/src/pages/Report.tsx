@@ -1,16 +1,15 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { api } from '../lib/api'
 import AnalysesHistoryTab from '../components/report/AnalysesHistoryTab'
 import ReportTab from '../components/report/ReportTab'
 import LLMRecommendTab from '../components/report/LLMRecommendTab'
-import { FileTextIcon, SparklesIcon } from '../components/Icons'
+import { FileTextIcon, SparklesIcon, LoaderIcon } from '../components/Icons'
 import type { Document } from '../lib/api'
 import type { ReportItem, Analyses } from '../types/report'
 
 export default function Report() {
   const { t } = useTranslation()
-  const [rightTab, setRightTab] = useState<'llmRecommend'>('llmRecommend')
 
   const [analyses, setAnalyses] = useState<Analyses[]>([])
   const [selectedAnalyses, setSelectedAnalyses] = useState<Analyses | null>(null)
@@ -18,6 +17,7 @@ export default function Report() {
   const [kbDocuments, setKbDocuments] = useState<Document[]>([])
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
+  const autoSelectedRef = useRef(false)
 
   const totalAnalyses = analyses.length
   const needsAction = analyses.filter(a => a.severity === 'HIGH' || a.severity === 'CRITICAL').length
@@ -30,17 +30,17 @@ export default function Report() {
     try {
       const data = await api.report.listAnalyses()
       setAnalyses(data)
-      if (data.length > 0 && !selectedAnalyses) {
+      if (data.length > 0 && !autoSelectedRef.current) {
+        autoSelectedRef.current = true
         setSelectedAnalyses(data[0])
       }
     } catch (err) {
       console.error('Failed to fetch analyses:', err)
       setAnalyses([])
-      setSelectedAnalyses(null)
     } finally {
       setLoading(false)
     }
-  }, [selectedAnalyses])
+  }, [])
 
   const fetchReport = useCallback(async (analysesId: number) => {
     try {
@@ -71,15 +71,13 @@ export default function Report() {
     if (selectedAnalyses) fetchReport(selectedAnalyses.id)
   }, [selectedAnalyses, fetchReport])
 
-  const handleSelectAnalyses = (analyses: Analyses) => {
-    setSelectedAnalyses(analyses)
-  }
+  const handleSelectAnalyses = (a: Analyses) => setSelectedAnalyses(a)
 
   const handleSaveReport = async (items: ReportItem[]) => {
     setSaving(true)
     try {
       if (selectedAnalyses) {
-        await api.report.saveReportItems(selectedAnalyses.id, items)
+        await api.analyses.saveReportItems(selectedAnalyses.id, items)
         setReportItems(items)
         window.alert(t('report.toast.saveSucess') || 'Report saved successfully')
       }
@@ -95,22 +93,18 @@ export default function Report() {
     if (!selectedAnalyses) return
     setSaving(true)
     try {
-      const data = await api.report.finalizeReport(selectedAnalyses.id)
-      
-      // Generate and download JSON file of the finalized report
+      const data = await api.analyses.finalizeReport(selectedAnalyses.id)
       const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json;charset=utf-8;' })
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
-      const name = selectedAnalyses?.analyses_code
+      a.download = selectedAnalyses.analyses_code
         ? `${selectedAnalyses.analyses_code}_report.json`
         : 'report.json'
-      a.download = name
       document.body.appendChild(a)
       a.click()
       a.remove()
       URL.revokeObjectURL(url)
-
       window.alert(t('report.toast.finalizeSuccess') || 'Report finalized successfully')
       fetchAnalyses()
       fetchReport(selectedAnalyses.id)
@@ -122,73 +116,102 @@ export default function Report() {
     }
   }
 
+  const stats = [
+    {
+      label: 'Tổng Analyses', value: totalAnalyses, mod: 'blue', d: '80ms',
+      icon: (
+        <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /><line x1="16" y1="13" x2="8" y2="13" /><line x1="16" y1="17" x2="8" y2="17" />
+        </svg>
+      ),
+    },
+    {
+      label: 'Cần xử lý', value: needsAction, mod: 'red', d: '110ms',
+      icon: (
+        <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+          <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" /><line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" />
+        </svg>
+      ),
+    },
+    {
+      label: 'Đang xử lý', value: inProgress, mod: 'amber', d: '140ms',
+      icon: (
+        <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+          <circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" />
+        </svg>
+      ),
+    },
+    {
+      label: 'Đã chốt Report', value: completed, mod: 'green', d: '170ms',
+      icon: (
+        <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+          <polyline points="20 6 9 17 4 12" />
+        </svg>
+      ),
+    },
+    {
+      label: 'Ước tính dự trù', value: `${(totalBudget / 1e9).toFixed(1)}T`, mod: 'violet', d: '200ms',
+      icon: (
+        <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+          <line x1="12" y1="1" x2="12" y2="23" /><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
+        </svg>
+      ),
+    },
+  ]
+
   return (
-    <div className="report-page">
+    <div className="rpt-page">
       <div className="container">
-        <div className="report-header">
-          <div>
-            <h1 className="report-title">{t('report.title') || 'Report'}</h1>
-            <p className="report-subtitle">{t('report.subtitle') || 'Quản lý report dự các Analyses rủi ro'}</p>
+        {/* Header */}
+        <div className="rpt-header">
+          <div className="rpt-header-left">
+            <p className="rpt-eyebrow">Compliance Report</p>
+            <h1 className="rpt-title">{t('report.title') || 'Report'}</h1>
+            <p className="rpt-subtitle">{t('report.subtitle') || 'Quản lý report các Analyses rủi ro'}</p>
           </div>
         </div>
 
-        <div className="report-stats-row">
-          <div className="report-stat-card">
-            <div className="stat-icon stat-icon-1">
-              <FileTextIcon size={24} />
+        {/* Stats */}
+        <div className="rpt-stats">
+          {stats.map(s => (
+            <div
+              key={s.label}
+              className={`rpt-stat rpt-stat--${s.mod}`}
+              style={{ '--d': s.d } as React.CSSProperties}
+            >
+              <div className="rpt-stat-icon">{s.icon}</div>
+              <div>
+                <div className="rpt-stat-val">{s.value}</div>
+                <div className="rpt-stat-lbl">{s.label}</div>
+              </div>
             </div>
-            <div className="stat-content">
-              <div className="stat-value">{totalAnalyses}</div>
-              <div className="stat-label">Tổng Analyses</div>
-            </div>
-          </div>
-
-          <div className="report-stat-card">
-            <div className="stat-icon stat-icon-2">⚠️</div>
-            <div className="stat-content">
-              <div className="stat-value">{needsAction}</div>
-              <div className="stat-label">Cần xử lý</div>
-            </div>
-          </div>
-
-          <div className="report-stat-card">
-            <div className="stat-icon stat-icon-3">⏳</div>
-            <div className="stat-content">
-              <div className="stat-value">{inProgress}</div>
-              <div className="stat-label">Đang xử lý</div>
-            </div>
-          </div>
-
-          <div className="report-stat-card">
-            <div className="stat-icon stat-icon-4">✓</div>
-            <div className="stat-content">
-              <div className="stat-value">{completed}</div>
-              <div className="stat-label">Đã chốt Report</div>
-            </div>
-          </div>
-
-          <div className="report-stat-card">
-            <div className="stat-icon stat-icon-5">💰</div>
-            <div className="stat-content">
-              <div className="stat-value">{(totalBudget / 1e9).toFixed(1)}T</div>
-              <div className="stat-label">Ước tính dự trù</div>
-            </div>
-          </div>
+          ))}
         </div>
 
-        <div className="report-grid">
-          <div className="report-left">
-            <AnalysesHistoryTab
-              analyses={analyses}
-              selectedAnalyses={selectedAnalyses}
-              onSelectAnalyses={handleSelectAnalyses}
-              loading={loading}
-            />
+        {/* 3-column grid */}
+        <div className="rpt-grid">
+          {/* Left: analyses list */}
+          <div className="rpt-panel" style={{ '--d': '220ms' } as React.CSSProperties}>
+            <div className="rpt-panel-head">
+              <div className="rpt-panel-icon"><FileTextIcon size={14} /></div>
+              <span className="rpt-panel-title">Danh sách Analyses</span>
+              {loading && <LoaderIcon size={13} className="icon-spin" />}
+              <span className="rpt-panel-badge">{analyses.length}</span>
+            </div>
+            <div className="rpt-left-wrap">
+              <AnalysesHistoryTab
+                analyses={analyses}
+                selectedAnalyses={selectedAnalyses}
+                onSelectAnalyses={handleSelectAnalyses}
+                loading={loading}
+              />
+            </div>
           </div>
 
-          <div className="report-center">
+          {/* Center: report editor — ReportTab owns its own panel-head + toolbar + scroll area */}
+          <div className="rpt-panel" style={{ '--d': '260ms' } as React.CSSProperties}>
             <ReportTab
-              key={selectedAnalyses?.id || 0}
+              key={selectedAnalyses?.id ?? 0}
               selectedAnalyses={selectedAnalyses}
               items={reportItems}
               onSave={handleSaveReport}
@@ -197,17 +220,13 @@ export default function Report() {
             />
           </div>
 
-          <div className="report-right">
-            <div className="right-tabs">
-              <button
-                className={`right-tab ${rightTab === 'llmRecommend' ? 'active' : ''}`}
-                onClick={() => setRightTab('llmRecommend')}
-              >
-                <SparklesIcon size={14} />
-                LLM Recommend
-              </button>
+          {/* Right: AI panel */}
+          <div className="rpt-panel rpt-right-panel" style={{ '--d': '300ms' } as React.CSSProperties}>
+            <div className="rpt-panel-head">
+              <div className="rpt-panel-icon"><SparklesIcon size={14} /></div>
+              <span className="rpt-panel-title">AI Recommendations</span>
             </div>
-            <div className="right-content">
+            <div className="rpt-right-wrap">
               <LLMRecommendTab
                 selectedAnalyses={selectedAnalyses}
                 kbDocuments={kbDocuments}
@@ -216,266 +235,6 @@ export default function Report() {
           </div>
         </div>
       </div>
-
-      <style>{`
-        @keyframes report-pulse {
-          0% { box-shadow: 0 0 0 rgba(243,112,33,0.0); transform: translateY(0); }
-          50% { box-shadow: 0 0 36px rgba(243,112,33,0.22); transform: translateY(-1px); }
-          100% { box-shadow: 0 0 0 rgba(243,112,33,0.0); transform: translateY(0); }
-        }
-
-        .report-page {
-          padding: 20px 0;
-          animation: fade-up 0.35s var(--ease) both;
-        }
-
-        @media (prefers-reduced-motion: reduce) {
-          .report-page,
-          .report-grid,
-          .report-stats-row,
-          .report-left,
-          .report-center,
-          .report-right {
-            animation: none !important;
-            transition: none !important;
-          }
-        }
-
-
-        .report-grid,
-        .report-stats-row,
-        .report-left,
-        .report-center,
-        .report-right {
-          animation: fade-up 0.45s var(--ease) both;
-        }
-
-        .report-grid { animation-delay: 80ms; }
-        .report-stats-row { animation-delay: 30ms; }
-        .report-left { animation-delay: 120ms; }
-        .report-center { animation-delay: 160ms; }
-        .report-right { animation-delay: 200ms; }
-
-
-
-        .container {
-          max-width: 1600px;
-          margin: 0 auto;
-          padding: 0 20px;
-        }
-
-        .report-header {
-          margin-bottom: 30px;
-        }
-
-        .report-title {
-          font-size: 28px;
-          font-weight: 600;
-          margin: 0 0 5px 0;
-          color: var(--text-1);
-        }
-
-
-        .report-subtitle {
-          font-size: 14px;
-          color: var(--text-2);
-          margin: 0;
-        }
-
-
-        /* Stats Section */
-        .report-stats-row {
-          display: grid;
-          grid-template-columns: repeat(5, 1fr);
-          gap: 15px;
-          margin-bottom: 30px;
-        }
-
-        .report-stat-card {
-          background: rgba(8, 35, 63, 0.5) !important;
-          border: 1px solid rgba(255, 255, 255, 0.08) !important;
-          border-radius: 12px;
-          padding: 16px;
-          display: flex;
-          align-items: center;
-          gap: 12px;
-          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1) !important;
-          transition: transform 0.15s ease, box-shadow 0.15s ease !important;
-          cursor: pointer;
-          opacity: 1 !important;
-        }
-
-        [data-theme="light"] .report-stat-card {
-          background: #ffffff !important;
-          border: 1px solid #e5e7eb !important;
-          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08) !important;
-        }
-
-        .report-stats-row .report-stat-card:hover {
-          box-shadow: 0 10px 24px rgba(0, 0, 0, 0.18) !important;
-          background: rgba(8, 35, 63, 0.55) !important;
-          border-color: rgba(255, 255, 255, 0.12) !important;
-          transform: translateY(-3px) scale(1.03) !important;
-          opacity: 1 !important;
-        }
-
-        [data-theme="light"] .report-stats-row .report-stat-card:hover {
-          background: #ffffff !important;
-          border-color: #d1d5db !important;
-          box-shadow: 0 10px 24px rgba(0, 0, 0, 0.12) !important;
-        }
-
-        .stat-icon {
-          font-size: 24px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          min-width: 40px;
-        }
-
-        .stat-icon-1 {
-          color: #3b82f6;
-        }
-
-        .stat-icon-2 {
-          color: #ef4444;
-        }
-
-        .stat-icon-3 {
-          color: #f59e0b;
-        }
-
-        .stat-icon-4 {
-          color: #10b981;
-        }
-
-        .stat-icon-5 {
-          color: #8b5cf6;
-        }
-
-        .stat-content {
-          flex: 1;
-        }
-
-        .stat-value {
-          font-size: 18px;
-          font-weight: 700;
-          color: #f37021 !important;
-          line-height: 1.2;
-        }
-
-        .stat-label {
-          font-size: 12px;
-          color: var(--text-2) !important;
-          margin-top: 2px;
-        }
-
-        /* 3-Column Grid */
-        .report-grid {
-          display: grid;
-          grid-template-columns: 350px 1fr 380px;
-          gap: 20px;
-        }
-
-        .report-left,
-        .report-center,
-        .report-right {
-          background: white;
-          border: 1px solid #e5e7eb;
-          border-radius: 12px;
-          overflow: hidden;
-        }
-
-        [data-theme="dark"] .report-left,
-        [data-theme="dark"] .report-center,
-        [data-theme="dark"] .report-right {
-          background: rgba(8, 35, 63, 0.72);
-          border-color: rgba(255, 255, 255, 0.10);
-          box-shadow: 0 16px 40px rgba(0, 0, 0, 0.18);
-        }
-
-        .report-right {
-          display: flex;
-          flex-direction: column;
-        }
-
-        /* Right Sidebar Tabs */
-        .right-tabs {
-          display: flex;
-          border-bottom: 2px solid #e5e7eb;
-          background: #f9fafb;
-        }
-
-        [data-theme="dark"] .right-tabs {
-          background: rgba(255, 255, 255, 0.04);
-          border-bottom-color: rgba(255, 255, 255, 0.10);
-        }
-
-        .right-tab {
-          flex: 1;
-          padding: 12px;
-          border: none;
-          background: none;
-          cursor: pointer;
-          font-size: 13px;
-          font-weight: 500;
-          color: #6b7280;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          gap: 6px;
-          transition: all 0.2s;
-          border-bottom: 2px solid transparent;
-          margin-bottom: -2px;
-        }
-
-        .right-tab:hover {
-          color: #1f2937;
-        }
-
-        .right-tab.active {
-          color: #2563eb;
-          border-bottom-color: #2563eb;
-        }
-
-        [data-theme="dark"] .right-tab {
-          color: var(--text-2);
-        }
-
-        [data-theme="dark"] .right-tab:hover,
-        [data-theme="dark"] .right-tab.active {
-          color: #93c5fd;
-        }
-
-        [data-theme="dark"] .right-tab.active {
-          background: rgba(37, 99, 235, 0.10);
-          border-bottom-color: #60a5fa;
-        }
-
-        .right-content {
-          flex: 1;
-          overflow-y: auto;
-          max-height: 800px;
-          padding: 16px;
-        }
-
-        /* Responsive */
-        @media (max-width: 768px) {
-          .report-grid {
-            grid-template-columns: 1fr;
-          }
-
-          .report-stats-row {
-            grid-template-columns: repeat(3, 1fr);
-          }
-        }
-
-        @media (max-width: 768px) {
-          .report-stats-row {
-            grid-template-columns: repeat(2, 1fr);
-          }
-        }
-      `}</style>
     </div>
   )
 }
