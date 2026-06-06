@@ -1,8 +1,6 @@
 from pathlib import Path
-
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
-from sqlalchemy import URL
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
@@ -42,18 +40,20 @@ class Settings(BaseSettings):
     NEO4J_PASSWORD: str = "password"
 
     GEMINI_API_KEY: str = ""
+    GEMINI_ANALYSIS_API_KEY: str = ""  # Dedicated key for analysis generation (Output 1)
     GEMINI_MODEL: str = "gemini-2.5-flash"
     GEMINI_EMBEDDING_MODEL: str = "gemini-embedding-001"
 
     @property
-    def DATABASE_URL(self) -> URL:
-        return URL.create(
-            "mysql+pymysql",
-            username=self.MYSQL_USER,
-            password=self.MYSQL_PASSWORD,
-            host=self.MYSQL_SERVER,
-            port=self.MYSQL_PORT,
-            database=self.MYSQL_DATABASE,
+    def gemini_analysis_api_key(self) -> str:
+        """Key for the analysis task; falls back to the main key if not configured."""
+        return self.GEMINI_ANALYSIS_API_KEY or self.GEMINI_API_KEY
+
+    @property
+    def DATABASE_URL(self) -> str:
+        return (
+            f"mysql+pymysql://{self.MYSQL_USER}:{self.MYSQL_PASSWORD}"
+            f"@{self.MYSQL_SERVER}:{self.MYSQL_PORT}/{self.MYSQL_DATABASE}"
         )
     
     @property

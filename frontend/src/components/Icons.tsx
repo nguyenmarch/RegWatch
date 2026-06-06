@@ -182,6 +182,18 @@ export function ActivityIcon(p: IconProps) {
   return <Icon {...p}><polyline points="22 12 18 12 15 21 9 3 6 12 2 12" /></Icon>
 }
 
+export function ChartIcon(p: IconProps) {
+  return (
+    <Icon {...p}>
+      <line x1="3" y1="3" x2="3" y2="21" />
+      <line x1="3" y1="21" x2="21" y2="21" />
+      <rect x="7" y="11" width="3" height="7" rx="1" />
+      <rect x="12" y="7" width="3" height="11" rx="1" />
+      <rect x="17" y="13" width="3" height="5" rx="1" />
+    </Icon>
+  )
+}
+
 export function ServerIcon(p: IconProps) {
   return (
     <Icon {...p}>
@@ -272,6 +284,14 @@ export function DownloadIcon(p: IconProps) {
       <path d="M12 3v12" />
       <path d="m7 10 5 5 5-5" />
       <path d="M5 21h14" />
+    </Icon>
+  )
+}
+
+export function ChevronDownIcon(p: IconProps) {
+  return (
+    <Icon {...p}>
+      <polyline points="6 9 12 15 18 9" />
     </Icon>
   )
 }
@@ -458,3 +478,15 @@ export function ClipboardListIcon(p: IconProps) {
     </Icon>
   )
 }
+
+// export function SendIcon(p: IconProps) {
+//   return <Icon {...p}><line x1="22" y1="2" x2="11" y2="13" /><polygon points="22 2 15 22 11 13 2 9 22 2" /></Icon>
+// }
+
+export function EditIcon(p: IconProps) {
+  return <Icon {...p}><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" /></Icon>
+}
+
+// export function SaveIcon(p: IconProps) {
+//   return <Icon {...p}><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" /><polyline points="17 21 17 13 7 13 7 21" /><polyline points="7 3 7 8 15 8" /></Icon>
+// }
