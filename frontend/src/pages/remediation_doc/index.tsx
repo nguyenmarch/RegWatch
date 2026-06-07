@@ -2,6 +2,8 @@ import React, { useState, useEffect, useLayoutEffect, useRef, useCallback } from
 import { useTranslation } from 'react-i18next';
 import styles from './remediation_doc.module.css';
 import { api } from '../../lib/api';
+import { useAuth } from '../../context/AuthContext';
+import { normalizeRole } from '../../lib/permissions';
 import {
     ScaleIcon, FileTextIcon, LayersIcon, CheckCircleIcon, CheckIcon,
     SparklesIcon, ClockIcon, SaveIcon, DownloadIcon, EditIcon,
@@ -43,6 +45,7 @@ export default function Remediation() {
     const [generatingIds, setGeneratingIds] = useState<Set<string>>(new Set());
     const [isLoading, setIsLoading] = useState(true);
     const [selectedDraftsByDoc, setSelectedDraftsByDoc] = useState<Map<string, number>>(new Map());
+    const [signFilter, setSignFilter] = useState<'all' | 'unsigned' | 'partial' | 'signed'>('all');
 
     useEffect(() => { fetchActionPlans(); }, []);
 
@@ -54,6 +57,26 @@ export default function Remediation() {
         } catch { setActionPlans([]); }
         setIsLoading(false);
     };
+
+    const refreshSilent = useCallback(async () => {
+        try {
+            const data = await api.remediation.getActionPlans();
+            setActionPlans(Array.isArray(data) ? data : []);
+        } catch {}
+    }, []);
+
+    // Auto-refresh every 5s — keeps signed tab and approval dots in sync
+    useEffect(() => {
+        const id = setInterval(refreshSilent, 5000);
+        return () => clearInterval(id);
+    }, [refreshSilent]);
+
+    const handleGenerateTraining = useCallback(async (item: { plan: any; task: any; doc: any }) => {
+        const planId = item.plan.plan_code || String(item.plan.id);
+        const refs = [{ plan_id: planId, task_id: item.task.task_id }];
+        await api.remediation.generateGroupByRefs(refs, '', 'announcement');
+        await refreshSilent();
+    }, [refreshSilent]);
 
     useEffect(() => {
         sessionStorage.setItem('remediation_selectedTaskIds', JSON.stringify(Array.from(selectedTaskIds)));
@@ -74,21 +97,39 @@ export default function Remediation() {
 
     const khoiOf = (task: any) => (task.target_department || '').trim() || 'Chưa phân loại';
 
+    const signStatusOf = (task: any): 'unsigned' | 'partial' | 'signed' => {
+        const doc = docMap.get(task.uid)?.doc;
+        if (!doc) return 'unsigned';
+        if (doc.status === 'APPROVED') return 'signed';
+        if (doc.product_approved || doc.cd_approved) return 'partial';
+        return 'unsigned';
+    };
+
     // Dựng docMap từ document đã có sẵn trên mỗi task (key = uid).
+    // Merge strategy: API data wins when present; approved local entries are
+    // kept when the API returns null (prevents reset from transient mismatches).
     useEffect(() => {
-        const map = new Map<string, DocEntry>();
-        actionPlans.forEach((plan: any) => {
-            const planId = plan.plan_code || String(plan.id);
-            (plan.tasks ?? []).forEach((task: any) => {
-                if (task.document) {
-                    let parsed = null;
-                    try { parsed = JSON.parse(task.document.content); } catch { }
+        setDocMap(prev => {
+            const next = new Map(prev);
+            actionPlans.forEach((plan: any) => {
+                const planId = plan.plan_code || String(plan.id);
+                (plan.tasks ?? []).forEach((task: any) => {
                     const uid = `${planId}::${task.task_id}`;
-                    map.set(uid, { task: { ...task, plan_id: planId, uid, id: uid }, doc: task.document, parsed });
-                }
+                    if (task.document) {
+                        let parsed = null;
+                        try { parsed = JSON.parse(task.document.content); } catch { }
+                        next.set(uid, { task: { ...task, plan_id: planId, uid, id: uid }, doc: task.document, parsed });
+                    } else {
+                        // API returned no doc for this task — only evict if not approved locally
+                        const existing = prev.get(uid);
+                        if (!existing?.doc?.product_approved && !existing?.doc?.cd_approved) {
+                            next.delete(uid);
+                        }
+                    }
+                });
             });
+            return next;
         });
-        setDocMap(map);
     }, [actionPlans]);
 
     // ── Task selection ───────────────────────────────────────────────────────
@@ -277,6 +318,31 @@ export default function Remediation() {
         } catch (e) { console.error(e); }
     };
 
+    const handleUnapproveDoc = async (taskIds: string[], role: string) => {
+        try {
+            const results = await Promise.all(
+                taskIds.map(async (tid) => {
+                    const entry = docMap.get(tid);
+                    if (entry?.doc) {
+                        const updated = await api.remediation.unapproveDocument(entry.doc.id, role);
+                        return { tid, doc: updated };
+                    }
+                    return null;
+                })
+            );
+            setDocMap(prev => {
+                const next = new Map(prev);
+                results.forEach(res => {
+                    if (res) {
+                        const e = next.get(res.tid)!;
+                        next.set(res.tid, { ...e, doc: res.doc });
+                    }
+                });
+                return next;
+            });
+        } catch (e) { console.error(e); }
+    };
+
     const handleRefineDoc = async (taskIds: string[], refinementPrompt: string) => {
         if (!refinementPrompt.trim()) return;
         setGeneratingIds(prev => { const next = new Set(prev); taskIds.forEach(tid => next.add(tid)); return next; });
@@ -369,17 +435,16 @@ export default function Remediation() {
         });
     }
 
-    // ── Signed documents (all plans) ─────────────────────────────────────────
+    // ── Signed documents — derived from docMap so it reflects sign actions immediately ──
     const signedDocs: { plan: any; task: any; doc: any; parsed: any }[] = [];
-    actionPlans.forEach(plan => {
-        plan.tasks?.forEach((task: any) => {
-            const doc = task.document;
-            if (doc && (doc.status === 'APPROVED' || doc.product_approved || doc.cd_approved)) {
-                let parsed = null;
-                try { parsed = JSON.parse(doc.content); } catch { }
-                signedDocs.push({ plan, task, doc, parsed });
-            }
-        });
+    allTasks.forEach((task: any) => {
+        const entry = docMap.get(task.uid);
+        if (!entry?.doc) return;
+        const { doc, parsed } = entry;
+        if (doc.status === 'APPROVED' || doc.product_approved || doc.cd_approved) {
+            const plan = actionPlans.find((p: any) => (p.plan_code || String(p.id)) === task.plan_id);
+            if (plan) signedDocs.push({ plan, task, doc, parsed });
+        }
     });
 
     // ── JSX ───────────────────────────────────────────────────────────────────
@@ -391,7 +456,6 @@ export default function Remediation() {
                 <div className={styles.topBarInner}>
 
                     <div className={styles.brand}>
-                        <span className={styles.brandBadge}>{t('remediation.phase')}</span>
                         <span className={styles.brandTitle}>{t('remediation.pageTitle')}</span>
                     </div>
 
@@ -467,6 +531,19 @@ export default function Remediation() {
                                 </div>
 
                                 <div className={styles.taskPanelList}>
+                                    {/* Sign filter chips */}
+                                    <div className={styles.signFilterRow}>
+                                        {(['all', 'unsigned', 'partial', 'signed'] as const).map(f => (
+                                            <button
+                                                key={f}
+                                                className={`${styles.signFilterChip} ${signFilter === f ? styles.signFilterChipActive : ''}`}
+                                                onClick={() => setSignFilter(f)}
+                                            >
+                                                {t(`remediation.filter${f.charAt(0).toUpperCase() + f.slice(1)}`)}
+                                            </button>
+                                        ))}
+                                    </div>
+
                                     <label className={styles.taskSelectAll}>
                                         <input
                                             type="checkbox"
@@ -484,7 +561,11 @@ export default function Remediation() {
                                     <div className={styles.taskDivider} />
 
                                     {khoiList.map((khoi) => {
-                                        const tasks = tasksByKhoi.get(khoi) ?? [];
+                                        const allKhoiTasks = tasksByKhoi.get(khoi) ?? [];
+                                        const tasks = signFilter === 'all'
+                                            ? allKhoiTasks
+                                            : allKhoiTasks.filter(tk => signStatusOf(tk) === signFilter);
+                                        if (tasks.length === 0) return null;
                                         const uids = tasks.map((tk: any) => tk.uid);
                                         const khoiAllOn = uids.length > 0 && uids.every(u => selectedTaskIds.has(u));
                                         return (
@@ -527,6 +608,12 @@ export default function Remediation() {
                                                                 <div className={styles.taskItemTop}>
                                                                     {task.code && <span className={styles.taskDeptBadge}>{task.code}</span>}
                                                                     {isGen && <span className={styles.taskGenSpinner} />}
+                                                                    {entry?.doc && (
+                                                                        <span className={styles.taskSignDots} title="Product · Compliance">
+                                                                            <span className={`${styles.taskSignDot} ${entry.doc.product_approved ? (entry.doc.status === 'APPROVED' ? styles.taskSignDotLocked : styles.taskSignDotOk) : ''}`} />
+                                                                            <span className={`${styles.taskSignDot} ${entry.doc.cd_approved ? (entry.doc.status === 'APPROVED' ? styles.taskSignDotLocked : styles.taskSignDotOk) : ''}`} />
+                                                                        </span>
+                                                                    )}
                                                                 </div>
                                                                 <p className={styles.taskItemName}>{task.task_name}</p>
                                                                 {hasDoc && total > 0 && (
@@ -573,6 +660,7 @@ export default function Remediation() {
                                             onSave={handleSaveDoc}
                                             onSaveDraft={handleSaveDraft}
                                             onApprove={handleApproveDoc}
+                                            onUnapprove={handleUnapproveDoc}
                                             onRefine={handleRefineDoc}
                                             onExport={exportDoc}
                                             onToggleRefinement={toggleRefinement}
@@ -586,7 +674,11 @@ export default function Remediation() {
                     )
                 ) : (
                     /* ── SIGNED DOCUMENTS ── */
-                    <SignedDocumentsPage docs={signedDocs} isLoading={isLoading} />
+                    <SignedDocumentsPage
+                        docs={signedDocs}
+                        isLoading={isLoading}
+                        onGenerateTraining={handleGenerateTraining}
+                    />
                 )}
             </main>
         </div>
@@ -596,13 +688,22 @@ export default function Remediation() {
 // ── Signed Documents Page ─────────────────────────────────────────────────────
 interface SignedDoc { plan: any; task: any; doc: any; parsed: any }
 
-function SignedDocumentsPage({ docs, isLoading }: { docs: SignedDoc[]; isLoading: boolean }) {
+function SignedDocumentsPage({
+    docs,
+    isLoading,
+    onGenerateTraining,
+}: {
+    docs: SignedDoc[];
+    isLoading: boolean;
+    onGenerateTraining: (item: SignedDoc) => Promise<void>;
+}) {
     const { t } = useTranslation();
+    const [generatingIds, setGeneratingIds] = useState<Set<number>>(new Set());
 
-    const exportDoc = (doc: SignedDoc) => {
-        const html = doc.parsed?.modified_document;
+    const exportDoc = (item: SignedDoc) => {
+        const html = item.parsed?.modified_document;
         if (!html) return;
-        const docName = doc.task.impacted_internal_doc || `doc_${doc.doc.id}`;
+        const docName = item.task.impacted_internal_doc || `doc_${item.doc.id}`;
         const blob = new Blob([html], { type: 'application/msword' });
         const url = URL.createObjectURL(blob);
         const a = window.document.createElement('a');
@@ -610,6 +711,13 @@ function SignedDocumentsPage({ docs, isLoading }: { docs: SignedDoc[]; isLoading
         a.download = `${docName}_đã_ký_${Date.now()}.doc`;
         a.click();
         URL.revokeObjectURL(url);
+    };
+
+    const handleGenTraining = async (item: SignedDoc) => {
+        setGeneratingIds(prev => new Set(prev).add(item.doc.id));
+        try { await onGenerateTraining(item); } finally {
+            setGeneratingIds(prev => { const s = new Set(prev); s.delete(item.doc.id); return s; });
+        }
     };
 
     if (isLoading) {
@@ -675,14 +783,29 @@ function SignedDocumentsPage({ docs, isLoading }: { docs: SignedDoc[]; isLoading
                                     </div>
                                 </td>
                                 <td>
-                                    <button
-                                        className={styles.signedExportBtn}
-                                        onClick={() => exportDoc(item)}
-                                        disabled={!item.parsed?.modified_document}
-                                        title={t('remediation.exportDocTitle')}
-                                    >
-                                        {t('remediation.exportDocLabel')}
-                                    </button>
+                                    <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                                        {item.doc.status === 'APPROVED' && (
+                                            <button
+                                                className={styles.signedTrainingBtn}
+                                                onClick={() => handleGenTraining(item)}
+                                                disabled={generatingIds.has(item.doc.id)}
+                                                title={t('remediation.generateTrainingTitle')}
+                                            >
+                                                {generatingIds.has(item.doc.id)
+                                                    ? <><span className={styles.spinner} />{t('remediation.generating', { count: 1 })}</>
+                                                    : <><GraduationCapIcon size={13} />{t('remediation.generateTrainingBtn')}</>
+                                                }
+                                            </button>
+                                        )}
+                                        <button
+                                            className={styles.signedExportBtn}
+                                            onClick={() => exportDoc(item)}
+                                            disabled={!item.parsed?.modified_document}
+                                            title={t('remediation.exportDocTitle')}
+                                        >
+                                            {t('remediation.exportDocLabel')}
+                                        </button>
+                                    </div>
                                 </td>
                             </tr>
                         ))}
@@ -699,6 +822,7 @@ interface DocSectionProps {
     onSave: (taskIds: string[], content: any) => void;
     onSaveDraft: (taskIds: string[], content: any) => Promise<any[]>;
     onApprove: (taskIds: string[], role: string) => void;
+    onUnapprove: (taskIds: string[], role: string) => void;
     onRefine: (taskIds: string[], prompt: string) => void;
     onExport: (taskIds: string[]) => void;
     onToggleRefinement: (taskIds: string[]) => void;
@@ -708,11 +832,19 @@ interface DocSectionProps {
 
 function DocSection({
     group,
-    onSave, onSaveDraft, onApprove, onRefine, onExport,
+    onSave, onSaveDraft, onApprove, onUnapprove, onRefine, onExport,
     onToggleRefinement, onSetRefinementPrompt, onSelectDraft,
 }: DocSectionProps) {
     const { t } = useTranslation();
-    const [approveRole, setApproveRole] = useState('product');
+    const { user } = useAuth();
+
+    // Derive which sign options this user is allowed to use
+    const userRole = normalizeRole(user?.role)
+    const canSignProduct    = userRole === 'admin' || userRole === 'product'
+    const canSignCompliance = userRole === 'admin' || userRole === 'compliance'
+    const defaultSignRole   = canSignProduct ? 'product' : canSignCompliance ? 'cd' : ''
+
+    const [approveRole, setApproveRole] = useState(defaultSignRole);
     const [localComments, setLocalComments] = useState<any[]>([]);
     const [drafts, setDrafts] = useState<any[]>([]);
     const [showDrafts, setShowDrafts] = useState(false);
@@ -837,17 +969,37 @@ function DocSection({
                             <button className={styles.secBtn} onClick={() => onExport(group.taskIds)} title={t('remediation.exportDocTitle')}>
                                 <DownloadIcon size={14} />{t('remediation.exportDocLabel')}
                             </button>
-                            <div className={styles.approveInline}>
-                                <select className={styles.approveMiniSelect} value={approveRole} onChange={e => setApproveRole(e.target.value)}>
-                                    <option value="product">Product</option>
-                                    <option value="cd">Compliance</option>
-                                </select>
-                                <button
-                                    className={styles.approveMiniBtn}
-                                    onClick={() => onApprove(group.taskIds, approveRole)}
-                                    disabled={doc?.status === 'APPROVED'}
-                                ><PenLineIcon size={13} />{t('remediation.signBtn')}</button>
-                            </div>
+                            {(canSignProduct || canSignCompliance) && (
+                                <div className={styles.approveInline}>
+                                    {(canSignProduct && canSignCompliance) ? (
+                                        <select className={styles.approveMiniSelect} value={approveRole} onChange={e => setApproveRole(e.target.value)}>
+                                            <option value="product">Product</option>
+                                            <option value="cd">Compliance</option>
+                                        </select>
+                                    ) : (
+                                        <span className={styles.approveMiniLabel}>
+                                            {canSignProduct ? 'Product' : 'Compliance'}
+                                        </span>
+                                    )}
+
+                                    {/* Undo sign — only visible if already signed & not fully APPROVED */}
+                                    {doc?.status !== 'APPROVED' && (
+                                        (canSignProduct && doc?.product_approved) ||
+                                        (canSignCompliance && doc?.cd_approved)
+                                    ) && (
+                                        <button
+                                            className={styles.unapproveMiniBtn}
+                                            onClick={() => onUnapprove(group.taskIds, approveRole)}
+                                        >{t('remediation.unsignBtn')}</button>
+                                    )}
+
+                                    <button
+                                        className={styles.approveMiniBtn}
+                                        onClick={() => onApprove(group.taskIds, approveRole)}
+                                        disabled={doc?.status === 'APPROVED'}
+                                    ><PenLineIcon size={13} />{t('remediation.signBtn')}</button>
+                                </div>
+                            )}
                         </>
                     )}
                 </div>

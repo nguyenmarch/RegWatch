@@ -274,6 +274,12 @@ export const api = {
         body: JSON.stringify({ role }),
       }),
 
+    unapproveDocument: (doc_id: number, role: string) =>
+      request<any>(`/remediation/documents/${doc_id}/unapprove`, {
+        method: 'POST',
+        body: JSON.stringify({ role }),
+      }),
+
     saveDraft: (doc_id: number, content: string, saved_by?: string) =>
       request<any[]>(`/remediation/documents/${doc_id}/save-draft`, {
         method: 'POST',

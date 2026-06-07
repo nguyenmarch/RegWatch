@@ -402,6 +402,51 @@
   margin: 2px 0;
 }
 
+/* Sign filter chips */
+.signFilterRow {
+  display: flex;
+  gap: 4px;
+  padding: 6px 12px 4px;
+  flex-wrap: wrap;
+}
+.signFilterChip {
+  padding: 2px 10px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  border: 1px solid #E5E7EB;
+  background: transparent;
+  color: #6B7280;
+  transition: all 0.13s;
+  white-space: nowrap;
+}
+.signFilterChip:hover { border-color: #9CA3AF; color: #374151; }
+.signFilterChipActive {
+  background: #EFF6FF;
+  border-color: #6366F1;
+  color: #4338CA;
+  font-weight: 600;
+}
+
+/* Sign status dots inside task items */
+.taskSignDots {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+.taskSignDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #E5E7EB;
+  border: 1px solid #D1D5DB;
+}
+.taskSignDotOk { background: #10B981; border-color: #059669; }
+.taskSignDotLocked { background: #6366F1; border-color: #4F46E5; }
+
 /* Nhóm theo khối */
 .taskKhoiGroup {
   border-bottom: 1px solid #F3F4F6;
@@ -796,6 +841,35 @@
 
 .approveMiniBtn:hover:not(:disabled) { background: #10B981; color: #fff; }
 .approveMiniBtn:disabled { opacity: 0.35; cursor: not-allowed; border-color: #D1D5DB; color: #9CA3AF; }
+
+.approveMiniLabel {
+  padding: 5px 10px;
+  border: 1px solid #E5E7EB;
+  border-radius: 6px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #374151;
+  background: #F9FAFB;
+  white-space: nowrap;
+}
+
+.unapproveMiniBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 11px;
+  background: #fff;
+  border: 1.5px solid #F59E0B;
+  border-radius: 6px;
+  color: #92400E;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.16s;
+  white-space: nowrap;
+}
+.unapproveMiniBtn:hover { background: #FEF3C7; }
+.unapproveMiniBtn:disabled { opacity: 0.35; cursor: not-allowed; }
 
 /* ── Document Annotation Layout ── */
 /*
@@ -1642,6 +1716,24 @@
 .signedDotOk {
   background: #10b981;
 }
+
+.signedTrainingBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 11px;
+  border-radius: 6px;
+  border: 1.5px solid #6366f1;
+  background: rgba(99,102,241,0.06);
+  color: #4338ca;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all .15s;
+  white-space: nowrap;
+}
+.signedTrainingBtn:hover:not(:disabled) { background: #6366f1; color: #fff; }
+.signedTrainingBtn:disabled { opacity: .5; cursor: not-allowed; }
 
 .signedExportBtn {
   padding: 5px 12px;

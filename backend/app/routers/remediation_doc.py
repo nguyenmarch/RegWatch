@@ -10,7 +10,8 @@ from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
 
 from app.core.db import get_db
-from app.core.deps import get_current_user
+from app.core.deps import get_current_user, normalize_role
+from app.models.user import User
 
 from app.models.remediation_doc import RemediationDoc, DraftVersion
 from app.models.report import Report
@@ -443,19 +444,34 @@ async def restore_draft(
 async def approve_document(
     doc_id: int,
     req: ApprovalRequest,
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
+    user_role = normalize_role(current_user.role)
+
     result = await db.execute(
         select(RemediationDoc).where(RemediationDoc.id == doc_id)
     )
     doc = result.scalars().first()
-    
+
     if not doc:
         raise HTTPException(status_code=404, detail="Không tìm thấy văn bản")
-        
-    if req.role.lower() == "product":
+
+    sign_role = req.role.lower()
+
+    if sign_role == "product":
+        if user_role not in ("product", "admin"):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Chỉ Product mới được ký phần Product.",
+            )
         doc.product_approved = True
-    elif req.role.lower() == "cd":
+    elif sign_role == "cd":
+        if user_role not in ("compliance", "admin"):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Chỉ Compliance mới được ký phần Compliance.",
+            )
         doc.cd_approved = True
     else:
         raise HTTPException(status_code=400, detail="Role không hợp lệ. Vui lòng gửi 'product' hoặc 'cd'")
@@ -523,7 +539,49 @@ async def approve_document(
 
     else:
         doc.status = "PENDING"
-        
+
+    await db.commit()
+    await db.refresh(doc)
+    return doc
+
+
+@router.post("/documents/{doc_id}/unapprove", response_model=RemediationDocResponse)
+async def unapprove_document(
+    doc_id: int,
+    req: ApprovalRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    user_role = normalize_role(current_user.role)
+
+    result = await db.execute(select(RemediationDoc).where(RemediationDoc.id == doc_id))
+    doc = result.scalars().first()
+
+    if not doc:
+        raise HTTPException(status_code=404, detail="Không tìm thấy văn bản")
+
+    if doc.status == "APPROVED":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Văn bản đã được ký đầy đủ bởi cả hai bên, không thể hủy ký.",
+        )
+
+    sign_role = req.role.lower()
+
+    if sign_role == "product":
+        if user_role not in ("product", "admin"):
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Chỉ Product mới được hủy ký phần Product.")
+        doc.product_approved = False
+    elif sign_role == "cd":
+        if user_role not in ("compliance", "admin"):
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Chỉ Compliance mới được hủy ký phần Compliance.")
+        doc.cd_approved = False
+    else:
+        raise HTTPException(status_code=400, detail="Role không hợp lệ. Vui lòng gửi 'product' hoặc 'cd'")
+
+    if not doc.product_approved and not doc.cd_approved:
+        doc.status = "PENDING"
+
     await db.commit()
     await db.refresh(doc)
     return doc
