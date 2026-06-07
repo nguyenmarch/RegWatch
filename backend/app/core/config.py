@@ -30,6 +30,9 @@ class Settings(BaseSettings):
     MINIO_SECRET_KEY: str = "regwatch123"
     MINIO_BUCKET: str = "regwatch-documents"
     MINIO_SECURE: bool = False
+    MINIO_REGION: str | None = None
+    MINIO_AUTO_CREATE_BUCKET: bool = True
+    MINIO_USE_IAM_ROLE: bool = False
 
     CHUNK_SIZE: int = Field(default=1000, description="Size of each chunk for processing")
     CHUNK_OVERLAP: int = Field(default=100, description="Overlap between chunks")

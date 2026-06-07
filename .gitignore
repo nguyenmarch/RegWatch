@@ -1,58 +1,28 @@
-# ─── OS & editors ─────────────────────────────────────────────
-.DS_Store
-Thumbs.db
-*.lnk
-.vscode/
-.idea/
-*.swp
-*.swo
-*~
+# Local environment files
+.env
+*.env
+backend/.env
 
-# ─── Python (backend) ─────────────────────────────────────────
+# Kubernetes secrets with real values
+deploy/k8s/02-secrets.yaml
+
+# Generated AWS deploy config
+deploy/scripts/windows/.aws_config.ps1
+deploy/scripts/linux/.aws_config
+
+# Python/cache/build output
 __pycache__/
-*.py[codz]
-*.pyd
-*.so
-.venv/
-venv/
-env/
-*.egg-info/
-dist/
-build/
+*.py[cod]
 .pytest_cache/
 .mypy_cache/
-.ruff_cache/
-.coverage
-coverage.xml
-htmlcov/
 
-# ─── Node / Frontend ──────────────────────────────────────────
+# Node/build output
 node_modules/
-frontend/dist/
-frontend/dist-ssr/
-*.local
-.eslintcache
+dist/
+build/
 
-# ─── Environment & secrets ────────────────────────────────────
-.env
-.env.*
-!.env.example
-
-# ─── Logs & temp ──────────────────────────────────────────────
-*.log
-npm-debug.log*
-yarn-debug.log*
-*.tmp
-*.bak
-
-# ─── Docker local overrides ───────────────────────────────────
-docker-compose.local.yml
-docker-compose.override.yml
-
-# ─── Docs / progress files (local-only, not part of src) ──────
-PROGRESS.md
-SYSTEM_ARCHITECTURE.md
-
-# ─── Intentionally tracked ────────────────────────────────────
-# .claude    ← Claude Code workspace settings (tracked)
-# CLAUDE.md  ← Project documentation (tracked)
+# OS/editor noise
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
