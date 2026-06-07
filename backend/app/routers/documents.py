@@ -14,13 +14,19 @@ from app.models.user import User
 from app.schemas.document import DocumentResponse
 from app.services.document import document_service
 
+from __future__ import annotations
+
+import asyncio
+import logging
 
 class CypherCommitRequest(BaseModel):
     cypher: str
 
 router = APIRouter(prefix="/v1/documents", tags=["Documents"])
+logger = logging.getLogger(__name__)
 
 _ALLOWED_EXTENSIONS = {".pdf", ".docx", ".doc"}
+_MAX_FILE_SIZE = 50 * 1024 * 1024  # 50 MB
 
 
 def _ensure_kb_access(user: User, kb_type: str) -> None:
@@ -37,52 +43,46 @@ async def upload_document(
     file: UploadFile = File(...),
     kb_type: KbType = Form(KbType.LAW),
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(get_current_user),
 ) -> DocumentResponse:
-    _ensure_kb_access(user, kb_type.value)
+    if not file.filename:
+        raise HTTPException(status_code=400, detail="Filename required.")
 
     ext = Path(file.filename).suffix.lower()
     if ext not in _ALLOWED_EXTENSIONS:
-        raise HTTPException(
-            status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
-            detail=f"Unsupported file type '{ext}'. Accepted: {', '.join(_ALLOWED_EXTENSIONS)}",
-        )
+        raise HTTPException(status_code=415, detail=f"Unsupported format: {ext}")
 
     file_content = await file.read()
-    doc_record = await document_service.create_pending_document(
-        db=db, filename=file.filename, kb_type=kb_type
-    )
+    if not file_content:
+        raise HTTPException(status_code=400, detail="File is empty.")
+    if len(file_content) > _MAX_FILE_SIZE:
+        raise HTTPException(status_code=413, detail="File too large (max 50 MB).")
 
+    # Create DB record immediately so caller gets an id to poll
+    doc_record = await document_service.create_pending_document(db, file.filename, kb_type)
+
+    # Upload original to MinIO (sync SDK — run off the event loop)
     try:
-        object_key = document_service.store_original_file(
-            doc_id=doc_record.id,
-            filename=file.filename,
-            file_content=file_content,
+        object_key = await asyncio.to_thread(
+            document_service.store_original_file,
+            doc_record.id, file.filename, file_content,
         )
         await document_service.attach_stored_file(db, doc_record.id, object_key)
         doc_record.file_path = object_key
     except Exception as exc:
+        logger.error("[Upload] MinIO failed — doc_id=%s: %s", doc_record.id, exc, exc_info=True)
         await document_service._update_status(db, doc_record.id, DocumentStatus.FAILED)
-        raise HTTPException(status_code=500, detail=f"Failed to store document: {exc}") from exc
+        raise HTTPException(status_code=500, detail="Failed to store file. Please try again.") from exc
 
-    if kb_type.use_neo4j:
-        # LAW: stage Cypher for user review before writing to Neo4j
-        background_tasks.add_task(
-            document_service.pipeline_stage_for_preview,
-            doc_id=doc_record.id,
-            filename=file.filename,
-            file_content=file_content,
-            kb_type=kb_type,
-        )
-    else:
-        background_tasks.add_task(
-            document_service.pipeline_process_and_embed_law,
-            doc_id=doc_record.id,
-            filename=file.filename,
-            file_content=file_content,
-            kb_type=kb_type,
-        )
+    # Hand off to background pipeline; response returns immediately (202)
+    background_tasks.add_task(
+        document_service.pipeline_process_and_embed_law,
+        doc_id=doc_record.id,
+        filename=file.filename,
+        file_content=file_content,
+        kb_type=kb_type,
+    )
 
+    logger.info("[Upload] Queued pipeline — doc_id=%s", doc_record.id)
     return doc_record
 
 

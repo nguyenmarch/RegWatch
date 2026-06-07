@@ -18,3 +18,5 @@ bcrypt==4.2.1
 python-jose[cryptography]==3.3.0
 minio==7.2.12
 beautifulsoup4==4.12.3
+sentence-transformers>=3.0.0
+httpx>=0.27.0
