@@ -24,6 +24,8 @@ class Settings(BaseSettings):
     QDRANT_HOST: str = "localhost"
     QDRANT_PORT: int = 6333
     QDRANT_COLLECTION_NAME: str = "law_collection"
+    QDRANT_UPSERT_BATCH_SIZE: int = Field(default=100, description="Max points per Qdrant upsert call")
+    NEO4J_CHUNK_BATCH_SIZE: int = Field(default=200, description="Max chunks per Neo4j UNWIND batch")
 
     MINIO_ENDPOINT: str = "localhost:9000"
     MINIO_ACCESS_KEY: str = "regwatch"
@@ -43,6 +45,10 @@ class Settings(BaseSettings):
     GEMINI_ANALYSIS_API_KEY: str = ""  # Dedicated key for analysis generation (Output 1)
     GEMINI_MODEL: str = "gemini-2.5-flash"
     GEMINI_EMBEDDING_MODEL: str = "gemini-embedding-001"
+    EMBEDDING_BACKEND: str = "sentence_transformers"
+    ST_MODEL_NAME: str = "keepitreal/vietnamese-sbert"
+    OLLAMA_BASE_URL: str = "http://localhost:11434"
+    OLLAMA_EMBED_MODEL: str = "nomic-embed-text"
 
     @property
     def gemini_analysis_api_key(self) -> str:
