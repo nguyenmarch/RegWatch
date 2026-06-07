@@ -170,7 +170,7 @@ class DocumentService:
             await self._update_status(db, doc_id, DocumentStatus.COMPLETED)
             await self._append_log(db, doc_id, "success", "Graph committed to Neo4j. Pipeline completed.")
             logger.info("[Commit] Completed — doc_id=%s", doc_id)
-            await self._auto_generate_analyses(doc_id)
+            asyncio.create_task(self._auto_generate_analyses(doc_id))
             return True
         except Exception as exc:
             await self._append_log(db, doc_id, "error", f"Cypher commit failed: {exc}")

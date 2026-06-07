@@ -300,6 +300,151 @@ function FilterBar({ graph, hiddenNodeLabels, hiddenEdgeTypes, onToggleNode, onT
   )
 }
 
+// ─── Table view ───────────────────────────────────────────────────────────────
+
+function TableView({ graph, hiddenNodeLabels, hiddenEdgeTypes, tk }: {
+  graph: Graph; hiddenNodeLabels: Set<string>; hiddenEdgeTypes: Set<string>; tk: Tokens
+}) {
+  const { t } = useTranslation()
+  const [search, setSearch] = useState('')
+  const [activeTab, setActiveTab] = useState<'nodes' | 'edges'>('nodes')
+
+  const q = search.toLowerCase()
+
+  const visNodes = useMemo(
+    () => graph.nodes
+      .filter(n => !hiddenNodeLabels.has(n.label))
+      .filter(n => !q || n.id.toLowerCase().includes(q) || (n.detail ?? '').toLowerCase().includes(q) || n.display.toLowerCase().includes(q)),
+    [graph.nodes, hiddenNodeLabels, q]
+  )
+
+  const visEdges = useMemo(
+    () => graph.edges
+      .filter(e => !hiddenEdgeTypes.has(e.type)
+        && !hiddenNodeLabels.has((graph.nodes.find(n => n.id === e.source)?.label ?? ''))
+        && !hiddenNodeLabels.has((graph.nodes.find(n => n.id === e.target)?.label ?? '')))
+      .filter(e => !q || e.type.toLowerCase().includes(q) || e.source.toLowerCase().includes(q) || e.target.toLowerCase().includes(q)),
+    [graph.edges, hiddenEdgeTypes, hiddenNodeLabels, graph.nodes, q]
+  )
+
+  const thStyle: React.CSSProperties = {
+    position: 'sticky', top: 0, padding: '7px 10px', textAlign: 'left',
+    fontSize: 10, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase',
+    color: tk.textMuted, background: tk.filterBg, borderBottom: `1px solid ${tk.filterBorder}`,
+    whiteSpace: 'nowrap',
+  }
+  const tdStyle: React.CSSProperties = {
+    padding: '6px 10px', fontSize: 12, color: tk.textPrimary,
+    borderBottom: `1px solid ${tk.filterBorder}`, verticalAlign: 'top',
+    maxWidth: 260, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+  }
+  const tabBtn = (key: 'nodes' | 'edges'): React.CSSProperties => ({
+    padding: '4px 12px', borderRadius: 6, fontSize: 12, fontWeight: 500, cursor: 'pointer',
+    border: activeTab === key ? `1px solid ${activeTab === key ? '#6366f1' : tk.filterBorder}` : `1px solid ${tk.filterBorder}`,
+    background: activeTab === key ? 'rgba(99,102,241,0.12)' : 'transparent',
+    color: activeTab === key ? '#6366f1' : tk.textSecondary,
+  })
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden', gap: 8 }}>
+      {/* Sub-tab + search row */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+        <button style={tabBtn('nodes')} onClick={() => setActiveTab('nodes')}>
+          {t('documents.graph.tableNodes')}
+          <span style={{ marginLeft: 5, padding: '1px 6px', borderRadius: 10, background: activeTab === 'nodes' ? 'rgba(99,102,241,0.2)' : tk.filterBg, fontSize: 10 }}>{visNodes.length}</span>
+        </button>
+        <button style={tabBtn('edges')} onClick={() => setActiveTab('edges')}>
+          {t('documents.graph.tableRelations')}
+          <span style={{ marginLeft: 5, padding: '1px 6px', borderRadius: 10, background: activeTab === 'edges' ? 'rgba(99,102,241,0.2)' : tk.filterBg, fontSize: 10 }}>{visEdges.length}</span>
+        </button>
+        <input
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          placeholder={t('documents.graph.tableSearch')}
+          style={{
+            marginLeft: 'auto', height: 28, padding: '0 10px', borderRadius: 6,
+            border: `1px solid ${tk.filterBorder}`, background: tk.editorBg,
+            color: tk.textPrimary, fontSize: 12, outline: 'none', width: 160,
+          }}
+        />
+      </div>
+
+      {/* Table */}
+      <div style={{ flex: 1, overflow: 'auto', borderRadius: 8, border: `1px solid ${tk.filterBorder}` }}>
+        {activeTab === 'nodes' ? (
+          <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed' }}>
+            <colgroup>
+              <col style={{ width: 100 }} />
+              <col style={{ width: 180 }} />
+              <col />
+            </colgroup>
+            <thead>
+              <tr>
+                <th style={thStyle}>{t('documents.graph.tableColLabel')}</th>
+                <th style={thStyle}>{t('documents.graph.tableColId')}</th>
+                <th style={thStyle}>{t('documents.graph.tableColDetail')}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {visNodes.length === 0 ? (
+                <tr><td colSpan={3} style={{ ...tdStyle, textAlign: 'center', color: tk.textMuted, padding: '20px 0' }}>{t('documents.graph.tableEmpty')}</td></tr>
+              ) : visNodes.map((n, i) => {
+                const color = NODE_COLORS[n.label] ?? NODE_COLOR_DEFAULT
+                return (
+                  <tr key={n.id} style={{ background: i % 2 === 0 ? 'transparent' : (tk.filterBg) }}>
+                    <td style={tdStyle}>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+                        <span style={{ width: 8, height: 8, borderRadius: '50%', background: color, flexShrink: 0, display: 'inline-block' }} />
+                        <span style={{ color, fontWeight: 600, fontSize: 11 }}>{n.label}</span>
+                      </span>
+                    </td>
+                    <td style={{ ...tdStyle, fontFamily: 'monospace', fontSize: 11 }} title={n.id}>{n.id}</td>
+                    <td style={tdStyle} title={n.detail ?? n.display}>{n.detail || n.display || '—'}</td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        ) : (
+          <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed' }}>
+            <colgroup>
+              <col style={{ width: 130 }} />
+              <col />
+              <col />
+            </colgroup>
+            <thead>
+              <tr>
+                <th style={thStyle}>{t('documents.graph.tableColType')}</th>
+                <th style={thStyle}>{t('documents.graph.tableColSource')}</th>
+                <th style={thStyle}>{t('documents.graph.tableColTarget')}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {visEdges.length === 0 ? (
+                <tr><td colSpan={3} style={{ ...tdStyle, textAlign: 'center', color: tk.textMuted, padding: '20px 0' }}>{t('documents.graph.tableEmpty')}</td></tr>
+              ) : visEdges.map((e, i) => {
+                const color = EDGE_COLORS[e.type] ?? EDGE_COLOR_DEFAULT
+                return (
+                  <tr key={i} style={{ background: i % 2 === 0 ? 'transparent' : tk.filterBg }}>
+                    <td style={tdStyle}>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+                        <span style={{ width: 14, height: 2, background: color, borderRadius: 1, display: 'inline-block', flexShrink: 0 }} />
+                        <span style={{ color, fontWeight: 600, fontSize: 11 }}>{e.type.replace(/_/g, ' ')}</span>
+                      </span>
+                    </td>
+                    <td style={{ ...tdStyle, fontFamily: 'monospace', fontSize: 11 }} title={e.source}>{e.source}</td>
+                    <td style={{ ...tdStyle, fontFamily: 'monospace', fontSize: 11 }} title={e.target}>{e.target}</td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        )}
+      </div>
+    </div>
+  )
+}
+
 // ─── Graph canvas ─────────────────────────────────────────────────────────────
 
 const W = 820, H = 500
@@ -501,6 +646,7 @@ export default function CypherPreviewDialog({ docId, title, initialCypher, onCom
 
   const [hiddenNodeLabels, setHiddenNodeLabels] = useState<Set<string>>(new Set())
   const [hiddenEdgeTypes,  setHiddenEdgeTypes]  = useState<Set<string>>(new Set())
+  const [viewMode, setViewMode] = useState<'graph' | 'table'>('graph')
 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current)
@@ -600,12 +746,31 @@ export default function CypherPreviewDialog({ docId, title, initialCypher, onCom
             />
           </div>
 
-          {/* Right: Filters + Graph */}
+          {/* Right: Filters + Graph/Table */}
           <div style={{ display: 'flex', flexDirection: 'column', flex: 1, padding: '12px 16px', overflow: 'hidden' }}>
-            <div style={{ fontSize: 11, fontWeight: 600, color: tk.textSecondary, marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.05em', flexShrink: 0 }}>
-              {t('documents.graph.graphTitle')}
-              <span style={{ marginLeft: 8, color: tk.textMuted, fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>{t('documents.graph.graphHint')}</span>
+            {/* Panel header: title + view toggle */}
+            <div style={{ display: 'flex', alignItems: 'center', marginBottom: 8, flexShrink: 0 }}>
+              <span style={{ fontSize: 11, fontWeight: 600, color: tk.textSecondary, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                {viewMode === 'graph' ? t('documents.graph.graphTitle') : t('documents.graph.viewTable')}
+              </span>
+              {viewMode === 'graph' && (
+                <span style={{ marginLeft: 8, color: tk.textMuted, fontWeight: 400, fontSize: 11 }}>{t('documents.graph.graphHint')}</span>
+              )}
+              {/* Graph / Table toggle */}
+              <div style={{ marginLeft: 'auto', display: 'flex', borderRadius: 7, border: `1px solid ${tk.filterBorder}`, overflow: 'hidden' }}>
+                {(['graph', 'table'] as const).map(mode => (
+                  <button key={mode} onClick={() => setViewMode(mode)} style={{
+                    padding: '3px 12px', fontSize: 11, fontWeight: 500, cursor: 'pointer', border: 'none',
+                    background: viewMode === mode ? 'rgba(99,102,241,0.15)' : 'transparent',
+                    color: viewMode === mode ? '#6366f1' : tk.textMuted,
+                    borderRight: mode === 'graph' ? `1px solid ${tk.filterBorder}` : 'none',
+                  }}>
+                    {mode === 'graph' ? t('documents.graph.viewGraph') : t('documents.graph.viewTable')}
+                  </button>
+                ))}
+              </div>
             </div>
+
             <FilterBar
               graph={graph}
               hiddenNodeLabels={hiddenNodeLabels}
@@ -615,12 +780,22 @@ export default function CypherPreviewDialog({ docId, title, initialCypher, onCom
               onResetFilters={resetFilters}
               tk={tk}
             />
-            <GraphCanvas
-              graph={graph}
-              hiddenNodeLabels={hiddenNodeLabels}
-              hiddenEdgeTypes={hiddenEdgeTypes}
-              tk={tk}
-            />
+
+            {viewMode === 'graph' ? (
+              <GraphCanvas
+                graph={graph}
+                hiddenNodeLabels={hiddenNodeLabels}
+                hiddenEdgeTypes={hiddenEdgeTypes}
+                tk={tk}
+              />
+            ) : (
+              <TableView
+                graph={graph}
+                hiddenNodeLabels={hiddenNodeLabels}
+                hiddenEdgeTypes={hiddenEdgeTypes}
+                tk={tk}
+              />
+            )}
           </div>
 
         </div>
