@@ -1,7 +1,7 @@
 import { useTranslation } from 'react-i18next'
 import type { ChatConversation } from '../../lib/api'
 import { formatGmt7DateTime } from '../../lib/datetime'
-import { PlusIcon, TrashIcon, RegWatchLogoIcon, MenuIcon, XIcon } from '../Icons'
+import { PlusIcon, TrashIcon, MenuIcon, XIcon } from '../Icons'
 
 interface Props {
   conversations: ChatConversation[]
@@ -37,7 +37,7 @@ export default function ConversationSidebar({
       <aside className={`chat-sidebar ${mobileOpen ? 'chat-sidebar--open' : ''}`}>
         <div className="chat-sidebar-head">
           <div className="chat-sidebar-brand">
-            <RegWatchLogoIcon size={22} />
+            <img src="/regwatch-logo.svg" width={22} height={22} alt="RegWatch" />
             <span>{t('chat.sidebarTitle')}</span>
           </div>
           <button className="chat-new-btn" onClick={onNewChat}>

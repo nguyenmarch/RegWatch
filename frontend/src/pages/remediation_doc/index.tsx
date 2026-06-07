@@ -8,6 +8,7 @@ import {
     ScaleIcon, FileTextIcon, LayersIcon, CheckCircleIcon, CheckIcon,
     SparklesIcon, ClockIcon, SaveIcon, DownloadIcon, EditIcon,
     BookOpenIcon, PenLineIcon, GraduationCapIcon, FileBadgeIcon, SendIcon,
+    ChevronDownIcon,
 } from '../../components/Icons';
 
 type PageTab = 'workspace' | 'signed';
@@ -46,6 +47,10 @@ export default function Remediation() {
     const [isLoading, setIsLoading] = useState(true);
     const [selectedDraftsByDoc, setSelectedDraftsByDoc] = useState<Map<string, number>>(new Map());
     const [signFilter, setSignFilter] = useState<'all' | 'unsigned' | 'partial' | 'signed'>('all');
+    // Task panel collapses by default on mobile (≤640px)
+    const [taskPanelOpen, setTaskPanelOpen] = useState(() =>
+        typeof window !== 'undefined' ? window.innerWidth > 640 : true
+    );
 
     useEffect(() => { fetchActionPlans(); }, []);
 
@@ -528,9 +533,16 @@ export default function Remediation() {
                                 <div className={styles.taskPanelHeader}>
                                     <span className={styles.taskPanelTitle}>{t('remediation.taskListTitle')}</span>
                                     <span className={styles.taskPanelMeta}>{khoiList.length} khối</span>
+                                    <button
+                                        className={`${styles.taskPanelToggle} ${taskPanelOpen ? styles.taskPanelToggleOpen : ''}`}
+                                        onClick={() => setTaskPanelOpen(p => !p)}
+                                        title={taskPanelOpen ? 'Thu gọn' : 'Mở rộng'}
+                                    >
+                                        <ChevronDownIcon size={14} />
+                                    </button>
                                 </div>
 
-                                <div className={styles.taskPanelList}>
+                                {taskPanelOpen && <div className={styles.taskPanelList}>
                                     {/* Sign filter chips */}
                                     <div className={styles.signFilterRow}>
                                         {(['all', 'unsigned', 'partial', 'signed'] as const).map(f => (
@@ -634,14 +646,16 @@ export default function Remediation() {
                                             </div>
                                         );
                                     })}
-                                </div>
+                                </div>}
 
-                                <div className={styles.taskPanelFooter}>
-                                    {someSelected
-                                        ? <span className={styles.selectedCount}><CheckCircleIcon size={13} />{t('remediation.tasksSelected', { count: selectedTaskIds.size })}</span>
-                                        : <span className={styles.selectedCountEmpty}>{t('remediation.noTasksSelected')}</span>
-                                    }
-                                </div>
+                                {taskPanelOpen && (
+                                    <div className={styles.taskPanelFooter}>
+                                        {someSelected
+                                            ? <span className={styles.selectedCount}><CheckCircleIcon size={13} />{t('remediation.tasksSelected', { count: selectedTaskIds.size })}</span>
+                                            : <span className={styles.selectedCountEmpty}>{t('remediation.noTasksSelected')}</span>
+                                        }
+                                    </div>
+                                )}
                             </aside>
 
                             {/* ── RIGHT: Document stack ── */}

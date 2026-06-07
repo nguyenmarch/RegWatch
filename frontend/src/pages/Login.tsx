@@ -2,7 +2,7 @@ import { useState, type FormEvent } from 'react'
 import { useNavigate, useLocation, Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '../context/AuthContext'
-import { RegWatchLogoIcon, LoaderIcon, ArrowRightIcon, EyeIcon, EyeOffIcon, LogInIcon } from '../components/Icons'
+import { LoaderIcon, ArrowRightIcon, EyeIcon, EyeOffIcon, LogInIcon } from '../components/Icons'
 
 export default function Login() {
   const { t } = useTranslation()
@@ -48,7 +48,7 @@ export default function Login() {
       <div className="login-card">
         {/* Logo */}
         <Link to="/" className="login-logo">
-          <RegWatchLogoIcon size={36} />
+          <img src="/regwatch-logo.svg" width={36} height={36} alt="RegWatch" />
           <span className="logo-text" style={{ fontSize: '1.25rem' }}>
             Reg<span className="logo-accent">Watch</span>
           </span>

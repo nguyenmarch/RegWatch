@@ -2,20 +2,30 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { Document } from '../../lib/api'
 import type { Analyses, ReportItem } from '../../types/report'
-import { SparklesIcon } from '../Icons'
+import { SparklesIcon, CheckIcon } from '../Icons'
 import { api } from '../../lib/api'
 import { formatGmt7DateTime } from '../../lib/datetime'
 
 interface LLMRecommendTabProps {
   selectedAnalyses: Analyses | null
   kbDocuments: Document[]
+  onPush?: (items: ReportItem[]) => Promise<void>
+  reportLocked?: boolean
 }
 
-export default function LLMRecommendTab({ selectedAnalyses, kbDocuments }: LLMRecommendTabProps) {
+export default function LLMRecommendTab({
+  selectedAnalyses,
+  kbDocuments,
+  onPush,
+  reportLocked,
+}: LLMRecommendTabProps) {
   const { t } = useTranslation()
   const [prompt, setPrompt] = useState('')
   const [recommendations, setRecommendations] = useState<ReportItem[]>([])
   const [loading, setLoading] = useState(false)
+  const [selectedIndices, setSelectedIndices] = useState<Set<number>>(new Set())
+  const [pushing, setPushing] = useState(false)
+  const [pushedCount, setPushedCount] = useState(0)
 
   const formatDate = (value: string) => {
     if (!value) return '—'
@@ -27,6 +37,8 @@ export default function LLMRecommendTab({ selectedAnalyses, kbDocuments }: LLMRe
   const handleGenerate = async () => {
     if (!selectedAnalyses) return
     setLoading(true)
+    setSelectedIndices(new Set())
+    setPushedCount(0)
     try {
       const kbText = kbDocuments.map(d => `- ${d.title}`).join('\n')
       const finalPrompt = [
@@ -57,6 +69,40 @@ export default function LLMRecommendTab({ selectedAnalyses, kbDocuments }: LLMRe
       window.alert(t('report.toast.llmError') || 'Failed to generate recommendations')
     } finally {
       setLoading(false)
+    }
+  }
+
+  const toggleSelect = (idx: number) => {
+    setSelectedIndices(prev => {
+      const next = new Set(prev)
+      if (next.has(idx)) next.delete(idx)
+      else next.add(idx)
+      return next
+    })
+  }
+
+  const allSelected = recommendations.length > 0 && selectedIndices.size === recommendations.length
+  const someSelected = selectedIndices.size > 0
+
+  const toggleSelectAll = () => {
+    if (allSelected) setSelectedIndices(new Set())
+    else setSelectedIndices(new Set(recommendations.map((_, i) => i)))
+  }
+
+  const handlePush = async () => {
+    if (!onPush || !someSelected || pushing) return
+    const selected = recommendations.filter((_, i) => selectedIndices.has(i))
+    setPushing(true)
+    try {
+      await onPush(selected)
+      const count = selected.length
+      setSelectedIndices(new Set())
+      setPushedCount(count)
+      setTimeout(() => setPushedCount(0), 3500)
+    } catch {
+      // parent handles alert
+    } finally {
+      setPushing(false)
     }
   }
 
@@ -94,11 +140,30 @@ export default function LLMRecommendTab({ selectedAnalyses, kbDocuments }: LLMRe
       {/* Recommendations */}
       {recommendations.length > 0 && (
         <div>
-          <p className="rpt-section-label">{t('report.recommendations') || 'Gợi ý từ AI'}</p>
-          <div className="rpt-table-scroll rpt-ai-table-wrap">
+          <div className="rpt-rec-header">
+            <p className="rpt-section-label" style={{ margin: 0 }}>
+              {t('report.recommendations') || 'Gợi ý từ AI'}
+              <span className="rpt-rec-count">{recommendations.length}</span>
+            </p>
+            {someSelected && (
+              <span className="rpt-sel-badge">{selectedIndices.size} đã chọn</span>
+            )}
+          </div>
+
+          <div className="rpt-table-scroll rpt-ai-table-wrap" style={{ marginTop: 8 }}>
             <table className="rpt-table rpt-ai-table">
               <thead>
                 <tr>
+                  <th className="rpt-check-col">
+                    <label className="rpt-check-wrap">
+                      <input
+                        type="checkbox"
+                        checked={allSelected}
+                        onChange={toggleSelectAll}
+                      />
+                      <span className="rpt-check-box" />
+                    </label>
+                  </th>
                   <th>{t('report.reportDescription') || 'Mô tả'}</th>
                   <th>{t('report.department') || 'Bộ phận'}</th>
                   <th>{t('report.targetDate') || 'Ngày'}</th>
@@ -110,7 +175,22 @@ export default function LLMRecommendTab({ selectedAnalyses, kbDocuments }: LLMRe
               </thead>
               <tbody>
                 {recommendations.map((rec, idx) => (
-                  <tr key={rec.code || idx} style={{ '--d': `${idx * 60}ms` } as React.CSSProperties}>
+                  <tr
+                    key={rec.code || idx}
+                    className={selectedIndices.has(idx) ? 'rpt-ai-row-selected' : ''}
+                    style={{ '--d': `${idx * 60}ms` } as React.CSSProperties}
+                    onClick={() => toggleSelect(idx)}
+                  >
+                    <td className="rpt-check-col" onClick={e => e.stopPropagation()}>
+                      <label className="rpt-check-wrap">
+                        <input
+                          type="checkbox"
+                          checked={selectedIndices.has(idx)}
+                          onChange={() => toggleSelect(idx)}
+                        />
+                        <span className="rpt-check-box" />
+                      </label>
+                    </td>
                     <td>
                       <div className="rpt-desc-scroll">
                         {rec.report_description || <span className="rpt-text-muted">—</span>}
@@ -126,6 +206,29 @@ export default function LLMRecommendTab({ selectedAnalyses, kbDocuments }: LLMRe
                 ))}
               </tbody>
             </table>
+          </div>
+
+          {/* Push bar */}
+          <div className="rpt-push-bar">
+            {pushedCount > 0 && (
+              <span className="rpt-push-success">
+                <CheckIcon size={12} />
+                Đã thêm {pushedCount} mục vào Report
+              </span>
+            )}
+            <div style={{ flex: 1 }} />
+            <button
+              className="rpt-btn rpt-push-btn"
+              onClick={handlePush}
+              disabled={!someSelected || pushing || reportLocked || !onPush}
+              title={reportLocked ? 'Report đã chốt' : undefined}
+            >
+              {pushing
+                ? 'Đang thêm...'
+                : someSelected
+                  ? `Áp dụng ${selectedIndices.size} gợi ý vào Report`
+                  : 'Chọn gợi ý để áp dụng'}
+            </button>
           </div>
         </div>
       )}

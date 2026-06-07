@@ -6798,7 +6798,128 @@ code {
 }
 .rpt-ai-table tbody tr {
   animation: rpt-up .3s var(--ease) var(--d,0ms) both;
+  cursor: pointer;
 }
+
+/* ── Recommendation row selection ────────────────────────── */
+.rpt-check-col {
+  width: 36px;
+  padding: 0 8px !important;
+  text-align: center;
+}
+
+.rpt-check-wrap {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  position: relative;
+  width: 16px;
+  height: 16px;
+}
+.rpt-check-wrap input { position: absolute; opacity: 0; width: 0; height: 0; }
+.rpt-check-box {
+  display: block;
+  width: 15px;
+  height: 15px;
+  border-radius: 4px;
+  border: 1.5px solid var(--border-h);
+  background: var(--bg-glass);
+  transition: all .15s;
+}
+.rpt-check-wrap input:checked ~ .rpt-check-box {
+  background: var(--indigo);
+  border-color: var(--indigo);
+}
+.rpt-check-wrap input:checked ~ .rpt-check-box::after {
+  content: '';
+  display: block;
+  width: 4px;
+  height: 7px;
+  border: 2px solid #fff;
+  border-top: none;
+  border-left: none;
+  transform: rotate(45deg);
+  margin: 1px auto 0;
+}
+.rpt-check-wrap:hover .rpt-check-box { border-color: var(--indigo); }
+
+.rpt-ai-row-selected td { background: rgba(99,102,241,.08) !important; }
+.rpt-ai-row-selected:hover td { background: rgba(99,102,241,.13) !important; }
+
+/* ── Recommendation header row ───────────────────────────── */
+.rpt-rec-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+.rpt-rec-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 9px;
+  background: rgba(99,102,241,.15);
+  color: #818cf8;
+  font-size: 0.68rem;
+  font-weight: 700;
+  margin-left: 6px;
+}
+.rpt-sel-badge {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #818cf8;
+  background: rgba(99,102,241,.1);
+  border: 1px solid rgba(99,102,241,.2);
+  padding: 2px 8px;
+  border-radius: 10px;
+  white-space: nowrap;
+}
+
+/* ── Push bar ────────────────────────────────────────────── */
+.rpt-push-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 0 2px;
+  flex-wrap: wrap;
+}
+.rpt-push-success {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.76rem;
+  font-weight: 600;
+  color: #34d399;
+  background: rgba(16,185,129,.1);
+  border: 1px solid rgba(16,185,129,.22);
+  padding: 4px 10px;
+  border-radius: 8px;
+  animation: rpt-up .25s var(--ease) both;
+}
+.rpt-push-btn {
+  padding: 7px 14px;
+  background: rgba(99,102,241,.12);
+  border-color: rgba(99,102,241,.28);
+  color: #818cf8;
+  font-weight: 700;
+  font-size: 0.8rem;
+  white-space: nowrap;
+}
+.rpt-push-btn:hover:not(:disabled) {
+  background: rgba(99,102,241,.22);
+  border-color: #6366f1;
+  box-shadow: 0 0 12px rgba(99,102,241,.2);
+  color: #a5b4fc;
+}
+.rpt-push-btn:disabled { opacity: .4; }
+
+[data-theme="light"] .rpt-ai-row-selected td { background: rgba(99,102,241,.07) !important; }
+[data-theme="light"] .rpt-push-btn { color: #4338ca; }
+[data-theme="light"] .rpt-check-box { background: #fff; border-color: #d1d5db; }
 
 .rpt-action-plan {
   margin: 14px;

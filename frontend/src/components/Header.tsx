@@ -5,7 +5,7 @@ import { useTheme } from '../context/ThemeContext'
 import { useAuth } from '../context/AuthContext'
 import { canAccessReport } from '../lib/permissions'
 import {
-  RegWatchLogoIcon, SunIcon, MoonIcon, GlobeIcon,
+  SunIcon, MoonIcon, GlobeIcon,
   ActivityIcon, HomeIcon, FileTextIcon, MenuIcon, XIcon,
   UserIcon, LogInIcon, SparklesIcon, CheckCircleIcon,
 } from './Icons'
@@ -35,7 +35,7 @@ export default function Header() {
       <div className="header-inner container">
 
         <Link to="/" className="logo" onClick={closeMenu}>
-          <RegWatchLogoIcon size={28} />
+          <img src="/regwatch-logo.svg" width={28} height={28} alt="RegWatch" />
           <span className="logo-text">
             Reg<span className="logo-accent">Watch</span>
           </span>

@@ -93,6 +93,27 @@ export default function Report() {
     }
   }
 
+  const handlePushRecommendations = async (items: ReportItem[]) => {
+    if (!selectedAnalyses || reportLocked) return
+    setSaving(true)
+    try {
+      const maxId = reportItems.length > 0 ? Math.max(...reportItems.map(i => i.id)) : 0
+      const newItems: ReportItem[] = items.map((item, idx) => ({
+        ...item,
+        id: maxId + idx + 1,
+        analyses_id: selectedAnalyses.id,
+      }))
+      const merged = [...reportItems, ...newItems]
+      await api.report.saveReportItems(selectedAnalyses.id, merged)
+      setReportItems(merged)
+    } catch (err) {
+      console.error('Failed to push recommendations:', err)
+      window.alert(t('report.toast.saveError') || 'Không thể thêm gợi ý vào Report')
+    } finally {
+      setSaving(false)
+    }
+  }
+
   const handleFinalizeReport = async () => {
     if (!selectedAnalyses) return
     if (reportLocked) return
@@ -234,6 +255,8 @@ export default function Report() {
               <LLMRecommendTab
                 selectedAnalyses={selectedAnalyses}
                 kbDocuments={kbDocuments}
+                onPush={handlePushRecommendations}
+                reportLocked={reportLocked}
               />
             </div>
           </div>

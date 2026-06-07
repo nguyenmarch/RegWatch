@@ -4,7 +4,7 @@ import { useTheme } from '../context/ThemeContext'
 import { useAuth } from '../context/AuthContext'
 import { ROLES, hasRole } from '../lib/permissions'
 import {
-  RegWatchLogoIcon, HomeIcon, SparklesIcon, FileTextIcon,
+  HomeIcon, SparklesIcon, FileTextIcon,
   ActivityIcon, ChartIcon, ScrollTextIcon, WorkflowIcon,
   SunIcon, MoonIcon, GlobeIcon, LogInIcon,
   LogOutIcon, ChevronLeftIcon, MenuIcon, XIcon,
@@ -144,7 +144,7 @@ export default function AppSidebar({ collapsed, onToggleCollapse, mobileOpen, on
           <MenuIcon size={20} />
         </button>
         <Link to="/" className="sb-brand">
-          <RegWatchLogoIcon size={26} />
+          <img src="/regwatch-logo.svg" width={26} height={26} alt="RegWatch" />
           <span className="sb-brand-text">Reg<span className="sb-brand-accent">Watch</span></span>
         </Link>
       </header>
@@ -165,7 +165,7 @@ export default function AppSidebar({ collapsed, onToggleCollapse, mobileOpen, on
         ) : (
           <div className="sb-head">
             <Link to="/" className="sb-brand">
-              <RegWatchLogoIcon size={28} />
+              <img src="/regwatch-logo.svg" width={28} height={28} alt="RegWatch" />
               <span className="sb-brand-text">Reg<span className="sb-brand-accent">Watch</span></span>
             </Link>
             <button
@@ -190,7 +190,7 @@ export default function AppSidebar({ collapsed, onToggleCollapse, mobileOpen, on
       <aside className={`app-sidebar app-sidebar--drawer ${mobileOpen ? 'app-sidebar--open' : ''}`}>
         <div className="sb-head sb-head--mobile">
           <Link to="/" className="sb-brand" onClick={onMobileClose}>
-            <RegWatchLogoIcon size={26} />
+            <img src="/regwatch-logo.svg" width={26} height={26} alt="RegWatch" />
             <span className="sb-brand-text">Reg<span className="sb-brand-accent">Watch</span></span>
           </Link>
           <button className="sb-hamburger" onClick={onMobileClose} aria-label="Close menu">

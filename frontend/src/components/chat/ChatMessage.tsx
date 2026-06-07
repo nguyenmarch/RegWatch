@@ -1,6 +1,6 @@
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
-import { RegWatchLogoIcon, UserIcon } from '../Icons'
+import { UserIcon } from '../Icons'
 import { formatGmt7Time } from '../../lib/datetime'
 
 export interface Message {
@@ -24,7 +24,7 @@ export default function ChatMessage({ message, isLatest, isStreaming }: Props) {
     <div className={`chat-message ${isUser ? 'chat-message--user' : 'chat-message--bot'} ${isLatest ? 'chat-message--latest' : ''} ${isStreaming ? 'chat-message--streaming' : ''}`}>
       {!isUser && (
         <div className="chat-avatar chat-avatar--bot">
-          <RegWatchLogoIcon size={22} />
+          <img src="/regwatch-logo.svg" width={22} height={22} alt="RegWatch" />
         </div>
       )}
 
