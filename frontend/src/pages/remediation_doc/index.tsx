@@ -21,7 +21,7 @@ interface DocEntry {
 interface GroupedDocEntry {
     docName: string;
     tasks: any[];
-    taskIds: number[];
+    taskIds: string[];
     doc: any | null;
     parsed: any | null;
     refinementOpen?: boolean;
@@ -35,13 +35,12 @@ export default function Remediation() {
     const { t } = useTranslation();
     const [pageTab, setPageTab] = useState<PageTab>('workspace');
     const [actionPlans, setActionPlans] = useState<any[]>([]);
-    const [selectedApId, setSelectedApId] = useState(() => sessionStorage.getItem('remediation_selectedApId') || '');
-    const [selectedTaskIds, setSelectedTaskIds] = useState<Set<number>>(() => {
+    const [selectedTaskIds, setSelectedTaskIds] = useState<Set<string>>(() => {
         const saved = sessionStorage.getItem('remediation_selectedTaskIds');
         return saved ? new Set(JSON.parse(saved)) : new Set();
     });
-    const [docMap, setDocMap] = useState<Map<number, DocEntry>>(new Map());
-    const [generatingIds, setGeneratingIds] = useState<Set<number>>(new Set());
+    const [docMap, setDocMap] = useState<Map<string, DocEntry>>(new Map());
+    const [generatingIds, setGeneratingIds] = useState<Set<string>>(new Set());
     const [isLoading, setIsLoading] = useState(true);
     const [selectedDraftsByDoc, setSelectedDraftsByDoc] = useState<Map<string, number>>(new Map());
 
@@ -51,66 +50,49 @@ export default function Remediation() {
         setIsLoading(true);
         try {
             const data = await api.remediation.getActionPlans();
-            const plans = Array.isArray(data) ? data : [];
-            setActionPlans(plans);
-            setSelectedApId(prev => {
-                const stillValid = plans.some(p => p.id.toString() === prev);
-                if (stillValid) return prev;
-                return plans.length > 0 ? plans[0].id.toString() : '';
-            });
+            setActionPlans(Array.isArray(data) ? data : []);
         } catch { setActionPlans([]); }
         setIsLoading(false);
     };
 
     useEffect(() => {
-        sessionStorage.setItem('remediation_selectedApId', selectedApId);
-    }, [selectedApId]);
-
-    useEffect(() => {
         sessionStorage.setItem('remediation_selectedTaskIds', JSON.stringify(Array.from(selectedTaskIds)));
     }, [selectedTaskIds]);
 
+    // Gộp toàn bộ task của MỌI action plan, gắn plan_id + uid (= plan_id::task_id)
+    // để định danh duy nhất xuyên nhiều plan. Sắp xếp theo khối (target_department).
+    const allTasks: any[] = [];
+    actionPlans.forEach((plan: any) => {
+        const planId = plan.plan_code || String(plan.id);
+        (plan.tasks ?? []).forEach((task: any) => {
+            const uid = `${planId}::${task.task_id}`;
+            allTasks.push({ ...task, plan_id: planId, uid, id: uid });
+        });
+    });
+    allTasks.sort((a, b) =>
+        (a.target_department || '').localeCompare(b.target_department || '', 'vi'));
+
+    const khoiOf = (task: any) => (task.target_department || '').trim() || 'Chưa phân loại';
+
+    // Dựng docMap từ document đã có sẵn trên mỗi task (key = uid).
     useEffect(() => {
-        if (actionPlans.length > 0 && selectedApId) {
-            const ap = actionPlans.find(a => a.id.toString() === selectedApId);
-            if (ap) {
-                const map = new Map<number, DocEntry>();
-                ap.tasks?.forEach((task: any) => {
-                    if (task.document) {
-                        let parsed = null;
-                        try { parsed = JSON.parse(task.document.content); } catch { }
-                        map.set(task.id, { task, doc: task.document, parsed });
-                    }
-                });
-                setDocMap(map);
-            }
-        }
-    }, [actionPlans, selectedApId]);
-
-    // ── Action Plan change ───────────────────────────────────────────────────
-    const handleApChange = (apId: string) => {
-        setSelectedApId(apId);
-        setSelectedTaskIds(new Set());
-    };
-
-    const handleDeleteAp = async (apId: string) => {
-        if (!confirm(t('remediation.confirmDeletePlan'))) return;
-        try {
-            await api.remediation.deleteActionPlan(Number(apId));
-            if (selectedApId === apId) {
-                setSelectedApId('');
-                setSelectedTaskIds(new Set());
-                setDocMap(new Map());
-            }
-            fetchActionPlans();
-        } catch (e) {
-            alert(t('remediation.deleteError'));
-            console.error(e);
-        }
-    };
+        const map = new Map<string, DocEntry>();
+        actionPlans.forEach((plan: any) => {
+            const planId = plan.plan_code || String(plan.id);
+            (plan.tasks ?? []).forEach((task: any) => {
+                if (task.document) {
+                    let parsed = null;
+                    try { parsed = JSON.parse(task.document.content); } catch { }
+                    const uid = `${planId}::${task.task_id}`;
+                    map.set(uid, { task: { ...task, plan_id: planId, uid, id: uid }, doc: task.document, parsed });
+                }
+            });
+        });
+        setDocMap(map);
+    }, [actionPlans]);
 
     // ── Task selection ───────────────────────────────────────────────────────
-    const toggleTask = (taskId: number) => {
+    const toggleTask = (taskId: string) => {
         setSelectedTaskIds(prev => {
             const next = new Set(prev);
             if (next.has(taskId)) next.delete(taskId); else next.add(taskId);
@@ -118,56 +100,70 @@ export default function Remediation() {
         });
     };
 
-    const selectedAp = actionPlans.find(ap => ap.id.toString() === selectedApId);
-    const allTasks: any[] = selectedAp?.tasks ?? [];
     const allSelected = allTasks.length > 0 && selectedTaskIds.size === allTasks.length;
     const someSelected = selectedTaskIds.size > 0;
 
-    const resolvedTaskNames = new Set<string>();
-    docMap.forEach(entry => {
-        entry.parsed?.comments?.forEach((c: any) => {
-            if (c.resolved && c.task_name) resolvedTaskNames.add(c.task_name);
-        });
+    // Gom task theo KHỐI (target_department). Mỗi khối → 1 văn bản nội bộ.
+    const tasksByKhoi = new Map<string, any[]>();
+    allTasks.forEach((task: any) => {
+        const k = khoiOf(task);
+        if (!tasksByKhoi.has(k)) tasksByKhoi.set(k, []);
+        tasksByKhoi.get(k)!.push(task);
     });
+    const khoiList = Array.from(tasksByKhoi.keys());
 
+    // Nhóm các task ĐANG CHỌN theo khối (phục vụ generate + announcement draft).
     const selectedGroups = new Map<string, any[]>();
     selectedTaskIds.forEach(tid => {
-        const task = allTasks.find((t: any) => t.id === tid);
+        const task = allTasks.find((t: any) => t.uid === tid);
         if (!task) return;
-        const docName = task.impacted_internal_doc || "Văn bản đào tạo / chưa phân loại";
-        if (!selectedGroups.has(docName)) selectedGroups.set(docName, []);
-        selectedGroups.get(docName)!.push(task);
+        const k = khoiOf(task);
+        if (!selectedGroups.has(k)) selectedGroups.set(k, []);
+        selectedGroups.get(k)!.push(task);
     });
 
     const allGroupsHaveDraft = selectedGroups.size === 0 ||
-        Array.from(selectedGroups.keys()).every(docName => selectedDraftsByDoc.has(docName));
+        Array.from(selectedGroups.keys()).every(k => selectedDraftsByDoc.has(k));
 
     const toggleSelectAll = () => {
         if (allSelected) setSelectedTaskIds(new Set());
-        else setSelectedTaskIds(new Set(allTasks.map((t: any) => t.id)));
+        else setSelectedTaskIds(new Set(allTasks.map((t: any) => t.uid)));
+    };
+
+    // Chọn / bỏ chọn toàn bộ alert của 1 khối.
+    const toggleKhoi = (khoi: string) => {
+        const uids = (tasksByKhoi.get(khoi) ?? []).map((t: any) => t.uid);
+        const allOn = uids.length > 0 && uids.every(u => selectedTaskIds.has(u));
+        setSelectedTaskIds(prev => {
+            const next = new Set(prev);
+            if (allOn) uids.forEach(u => next.delete(u));
+            else uids.forEach(u => next.add(u));
+            return next;
+        });
     };
 
     const handleSelectDraft = (docName: string, draftId: number) => {
         setSelectedDraftsByDoc(prev => new Map(prev).set(docName, draftId));
     };
 
-    // ── Batch generate ────────────────────────────────────────────────────────
+    // ── Batch generate (gom theo khối) ─────────────────────────────────────────
     const handleGenerateSelected = async (type: 'document' | 'announcement') => {
-        if (!selectedTaskIds.size || !selectedAp) return;
+        if (!selectedTaskIds.size) return;
 
-        const groups: { [key: string]: number[] } = {};
+        // group key (khối) → danh sách task object đang chọn của khối đó.
+        const groups = new Map<string, any[]>();
         selectedTaskIds.forEach(tid => {
-            const task = allTasks.find((t: any) => t.id === tid);
+            const task = allTasks.find((t: any) => t.uid === tid);
             if (!task) return;
-            const docName = task.impacted_internal_doc || "Văn bản đào tạo / chưa phân loại";
-            if (!groups[docName]) groups[docName] = [];
-            groups[docName].push(tid);
+            const k = khoiOf(task);
+            if (!groups.has(k)) groups.set(k, []);
+            groups.get(k)!.push(task);
         });
 
         if (type === 'announcement') {
-            for (const docName of Object.keys(groups)) {
-                if (!selectedDraftsByDoc.has(docName)) {
-                    alert(t('remediation.selectDraftFirst', { docName }));
+            for (const k of groups.keys()) {
+                if (!selectedDraftsByDoc.has(k)) {
+                    alert(t('remediation.selectDraftFirst', { docName: k }));
                     return;
                 }
             }
@@ -176,11 +172,10 @@ export default function Remediation() {
         setGeneratingIds(new Set(selectedTaskIds));
 
         const results = await Promise.allSettled(
-            Object.keys(groups).map(async (docName) => {
-                const tids = groups[docName];
-                const refinementPrompt = type === 'announcement' ? `Dùng bản nháp ID ${selectedDraftsByDoc.get(docName)}` : undefined;
-                const docs = await api.remediation.generateGroupDocument(selectedApId, tids, refinementPrompt, type);
-                return docs;
+            Array.from(groups.entries()).map(async ([k, tasksInGroup]) => {
+                const refs = tasksInGroup.map((tk: any) => ({ plan_id: tk.plan_id, task_id: tk.task_id }));
+                const refinementPrompt = type === 'announcement' ? `Dùng bản nháp ID ${selectedDraftsByDoc.get(k)}` : undefined;
+                return api.remediation.generateGroupByRefs(refs, refinementPrompt, type);
             })
         );
 
@@ -189,10 +184,11 @@ export default function Remediation() {
             results.forEach(result => {
                 if (result.status === 'fulfilled') {
                     result.value.forEach(doc => {
-                        const task = allTasks.find((t: any) => t.id === doc.task_id);
+                        const uid = `${doc.plan_id}::${doc.task_id}`;
+                        const task = allTasks.find((t: any) => t.uid === uid);
                         let parsed = null;
                         try { parsed = JSON.parse(doc.content); } catch { }
-                        next.set(doc.task_id, { task, doc, parsed });
+                        next.set(uid, { task, doc, parsed });
                     });
                 }
             });
@@ -203,7 +199,7 @@ export default function Remediation() {
     };
 
     // ── Per-document actions ──────────────────────────────────────────────────
-    const handleSaveDoc = async (taskIds: number[], content: any) => {
+    const handleSaveDoc = async (taskIds: string[], content: any) => {
         try {
             const results = await Promise.all(
                 taskIds.map(async (tid) => {
@@ -228,7 +224,7 @@ export default function Remediation() {
         } catch (e) { console.error(e); }
     };
 
-    const handleSaveDraft = async (taskIds: number[], content: any) => {
+    const handleSaveDraft = async (taskIds: string[], content: any) => {
         try {
             let lastDrafts: any[] = [];
             const results = await Promise.all(
@@ -256,7 +252,7 @@ export default function Remediation() {
         } catch (e) { console.error(e); return []; }
     };
 
-    const handleApproveDoc = async (taskIds: number[], role: string) => {
+    const handleApproveDoc = async (taskIds: string[], role: string) => {
         try {
             const results = await Promise.all(
                 taskIds.map(async (tid) => {
@@ -281,18 +277,23 @@ export default function Remediation() {
         } catch (e) { console.error(e); }
     };
 
-    const handleRefineDoc = async (taskIds: number[], refinementPrompt: string) => {
+    const handleRefineDoc = async (taskIds: string[], refinementPrompt: string) => {
         if (!refinementPrompt.trim()) return;
         setGeneratingIds(prev => { const next = new Set(prev); taskIds.forEach(tid => next.add(tid)); return next; });
         try {
-            const docs = await api.remediation.generateGroupDocument(selectedApId, taskIds, refinementPrompt, 'document');
+            const refs = taskIds
+                .map(uid => allTasks.find((t: any) => t.uid === uid))
+                .filter(Boolean)
+                .map((tk: any) => ({ plan_id: tk.plan_id, task_id: tk.task_id }));
+            const docs = await api.remediation.generateGroupByRefs(refs, refinementPrompt, 'document');
             setDocMap(prev => {
                 const next = new Map(prev);
                 docs.forEach(doc => {
-                    const task = allTasks.find((t: any) => t.id === doc.task_id);
+                    const uid = `${doc.plan_id}::${doc.task_id}`;
+                    const task = allTasks.find((t: any) => t.uid === uid);
                     let parsed = null;
                     try { parsed = JSON.parse(doc.content); } catch { }
-                    next.set(doc.task_id, { task, doc, parsed, refinementPrompt: '', refinementOpen: false });
+                    next.set(uid, { task, doc, parsed, refinementPrompt: '', refinementOpen: false });
                 });
                 return next;
             });
@@ -300,7 +301,7 @@ export default function Remediation() {
         setGeneratingIds(prev => { const next = new Set(prev); taskIds.forEach(tid => next.delete(tid)); return next; });
     };
 
-    const toggleRefinement = (taskIds: number[]) => {
+    const toggleRefinement = (taskIds: string[]) => {
         setDocMap(prev => {
             const next = new Map(prev);
             taskIds.forEach(tid => {
@@ -311,7 +312,7 @@ export default function Remediation() {
         });
     };
 
-    const setRefinementPrompt = (taskIds: number[], prompt: string) => {
+    const setRefinementPrompt = (taskIds: string[], prompt: string) => {
         setDocMap(prev => {
             const next = new Map(prev);
             taskIds.forEach(tid => {
@@ -322,7 +323,7 @@ export default function Remediation() {
         });
     };
 
-    const exportDoc = (taskIds: number[]) => {
+    const exportDoc = (taskIds: string[]) => {
         let html = null;
         let docName = "van_ban";
         for (const tid of taskIds) {
@@ -343,23 +344,15 @@ export default function Remediation() {
         URL.revokeObjectURL(url);
     };
 
-    // ── Group rendering entries ───────────────────────────────────────────────
+    // ── Group rendering entries (gom theo KHỐI) ──────────────────────────────
     const renderEntries: GroupedDocEntry[] = [];
-    if (selectedAp) {
-        const selGroups = new Map<string, any[]>();
-        selectedTaskIds.forEach(tid => {
-            const task = allTasks.find((t: any) => t.id === tid);
-            if (!task) return;
-            const docName = task.impacted_internal_doc || "Văn bản đào tạo / chưa phân loại";
-            if (!selGroups.has(docName)) selGroups.set(docName, []);
-            selGroups.get(docName)!.push(task);
-        });
-        selGroups.forEach((tasksInGroup, docName) => {
-            const taskIds = tasksInGroup.map(t => t.id);
+    {
+        selectedGroups.forEach((tasksInGroup, docName) => {
+            const taskIds = tasksInGroup.map(t => t.uid);
             const isGenerating = taskIds.some(tid => generatingIds.has(tid));
             let matchedDoc = null, matchedParsed = null, matchedRefinementOpen = false, matchedRefinementPrompt = '';
             for (const t of tasksInGroup) {
-                const entry = docMap.get(t.id);
+                const entry = docMap.get(t.uid);
                 if (entry?.doc) {
                     matchedDoc = entry.doc;
                     matchedParsed = entry.parsed;
@@ -424,38 +417,6 @@ export default function Remediation() {
                     {/* Workspace-only controls */}
                     {pageTab === 'workspace' && (
                         <>
-                            <div className={styles.selectors}>
-                                <div className={styles.topSelectWrap}>
-                                    <label className={styles.selectLabel}>Action Plan</label>
-                                    <div className={styles.selectWithDelete}>
-                                        <select
-                                            className={styles.planSelect}
-                                            value={selectedApId}
-                                            disabled={isLoading}
-                                            onChange={e => handleApChange(e.target.value)}
-                                        >
-                                            <option value="" disabled>{t('remediation.selectPlanPlaceholder')}</option>
-                                            {actionPlans.map(ap => (
-                                                <option key={ap.id} value={ap.id.toString()}>
-                                                    {ap.plan_code} — {ap.law_id}
-                                                </option>
-                                            ))}
-                                        </select>
-                                        {selectedApId && (
-                                            <button
-                                                className={styles.deleteApBtn}
-                                                onClick={() => handleDeleteAp(selectedApId)}
-                                                title={t('remediation.deletePlanTitle')}
-                                            >
-                                                <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                                </svg>
-                                            </button>
-                                        )}
-                                    </div>
-                                </div>
-                            </div>
-
                             <div className={styles.generateGroup}>
                                 <button
                                     className={styles.generateBtn}
@@ -490,7 +451,7 @@ export default function Remediation() {
             <main className={styles.main}>
                 {pageTab === 'workspace' ? (
                     /* ── WORKSPACE ── */
-                    !selectedAp ? (
+                    allTasks.length === 0 ? (
                         <div className={styles.emptyState}>
                             <div className={styles.emptyIcon}><ScaleIcon size={32} /></div>
                             <h2 className={styles.emptyTitle}>{t('remediation.emptyTitle')}</h2>
@@ -502,7 +463,7 @@ export default function Remediation() {
                             <aside className={styles.taskPanel}>
                                 <div className={styles.taskPanelHeader}>
                                     <span className={styles.taskPanelTitle}>{t('remediation.taskListTitle')}</span>
-                                    <span className={styles.taskPanelMeta}>{selectedAp.law_id}</span>
+                                    <span className={styles.taskPanelMeta}>{khoiList.length} khối</span>
                                 </div>
 
                                 <div className={styles.taskPanelList}>
@@ -522,38 +483,68 @@ export default function Remediation() {
 
                                     <div className={styles.taskDivider} />
 
-                                    {allTasks.map((task: any) => {
-                                        const checked = selectedTaskIds.has(task.id);
-                                        const hasDoc = docMap.has(task.id);
-                                        const isGen = generatingIds.has(task.id);
-                                        const isResolved = resolvedTaskNames.has(task.task_name);
+                                    {khoiList.map((khoi) => {
+                                        const tasks = tasksByKhoi.get(khoi) ?? [];
+                                        const uids = tasks.map((tk: any) => tk.uid);
+                                        const khoiAllOn = uids.length > 0 && uids.every(u => selectedTaskIds.has(u));
                                         return (
-                                            <label
-                                                key={task.id}
-                                                className={`${styles.taskItem} ${checked ? styles.taskItemChecked : ''} ${isGen ? styles.taskItemGenerating : ''} ${isResolved ? styles.taskItemResolved : ''}`}
-                                            >
-                                                <input
-                                                    type="checkbox"
-                                                    className={styles.taskCheckboxInput}
-                                                    checked={checked}
-                                                    onChange={() => toggleTask(task.id)}
-                                                />
-                                                <span className={`${styles.taskCheckboxCustom} ${checked ? styles.taskCheckboxChecked : ''}`} />
-                                                <div className={styles.taskItemBody}>
-                                                    <div className={styles.taskItemTop}>
-                                                        <span className={styles.taskDeptBadge}>{task.target_department}</span>
-                                                        {hasDoc && !isGen && <span className={styles.taskDocDot} title={t('remediation.taskHasDoc')}>✓</span>}
-                                                        {isGen && <span className={styles.taskGenSpinner} />}
-                                                    </div>
-                                                    <p className={styles.taskItemName}>{task.task_name}</p>
-                                                    {task.impacted_internal_doc && (
-                                                        <p className={styles.taskItemDoc}>→ {task.impacted_internal_doc}</p>
-                                                    )}
-                                                    {isResolved && (
-                                                        <p className={styles.taskItemResolvedNote}><CheckIcon size={11} />{t('remediation.taskResolved')}</p>
-                                                    )}
-                                                </div>
-                                            </label>
+                                            <div key={khoi} className={styles.taskKhoiGroup}>
+                                                {/* Header khối: chọn cả khối */}
+                                                <label className={styles.taskKhoiHeader}>
+                                                    <input
+                                                        type="checkbox"
+                                                        className={styles.taskCheckboxInput}
+                                                        checked={khoiAllOn}
+                                                        onChange={() => toggleKhoi(khoi)}
+                                                    />
+                                                    <span className={`${styles.taskCheckboxCustom} ${khoiAllOn ? styles.taskCheckboxChecked : ''}`} />
+                                                    <span className={styles.taskKhoiName}>{khoi}</span>
+                                                    <span className={styles.taskTotalBadge}>{tasks.length}</span>
+                                                </label>
+
+                                                {tasks.map((task: any) => {
+                                                    const checked = selectedTaskIds.has(task.uid);
+                                                    const isGen = generatingIds.has(task.uid);
+                                                    const entry = docMap.get(task.uid);
+                                                    const comments = entry?.parsed?.comments ?? [];
+                                                    const total = comments.length;
+                                                    const done = comments.filter((c: any) => c.resolved).length;
+                                                    const hasDoc = !!entry?.doc;
+                                                    const allResolved = total > 0 && done === total;
+                                                    return (
+                                                        <label
+                                                            key={task.uid}
+                                                            className={`${styles.taskItem} ${checked ? styles.taskItemChecked : ''} ${isGen ? styles.taskItemGenerating : ''} ${allResolved ? styles.taskItemResolved : ''}`}
+                                                        >
+                                                            <input
+                                                                type="checkbox"
+                                                                className={styles.taskCheckboxInput}
+                                                                checked={checked}
+                                                                onChange={() => toggleTask(task.uid)}
+                                                            />
+                                                            <span className={`${styles.taskCheckboxCustom} ${checked ? styles.taskCheckboxChecked : ''}`} />
+                                                            <div className={styles.taskItemBody}>
+                                                                <div className={styles.taskItemTop}>
+                                                                    {task.code && <span className={styles.taskDeptBadge}>{task.code}</span>}
+                                                                    {isGen && <span className={styles.taskGenSpinner} />}
+                                                                </div>
+                                                                <p className={styles.taskItemName}>{task.task_name}</p>
+                                                                {hasDoc && total > 0 && (
+                                                                    <p className={styles.taskItemResolvedNote}>
+                                                                        <CheckIcon size={11} />
+                                                                        {allResolved
+                                                                            ? t('remediation.taskResolved')
+                                                                            : `Đã xử lý ${done}/${total} thay đổi`}
+                                                                    </p>
+                                                                )}
+                                                                {hasDoc && total === 0 && (
+                                                                    <p className={styles.taskItemDoc}>✓ Đã sinh văn bản (không có thay đổi)</p>
+                                                                )}
+                                                            </div>
+                                                        </label>
+                                                    );
+                                                })}
+                                            </div>
                                         );
                                     })}
                                 </div>
@@ -705,13 +696,13 @@ function SignedDocumentsPage({ docs, isLoading }: { docs: SignedDoc[]; isLoading
 // ── DocSection ────────────────────────────────────────────────────────────────
 interface DocSectionProps {
     group: GroupedDocEntry;
-    onSave: (taskIds: number[], content: any) => void;
-    onSaveDraft: (taskIds: number[], content: any) => Promise<any[]>;
-    onApprove: (taskIds: number[], role: string) => void;
-    onRefine: (taskIds: number[], prompt: string) => void;
-    onExport: (taskIds: number[]) => void;
-    onToggleRefinement: (taskIds: number[]) => void;
-    onSetRefinementPrompt: (taskIds: number[], prompt: string) => void;
+    onSave: (taskIds: string[], content: any) => void;
+    onSaveDraft: (taskIds: string[], content: any) => Promise<any[]>;
+    onApprove: (taskIds: string[], role: string) => void;
+    onRefine: (taskIds: string[], prompt: string) => void;
+    onExport: (taskIds: string[]) => void;
+    onToggleRefinement: (taskIds: string[]) => void;
+    onSetRefinementPrompt: (taskIds: string[], prompt: string) => void;
     onSelectDraft: (docName: string, draftId: number) => void;
 }
 

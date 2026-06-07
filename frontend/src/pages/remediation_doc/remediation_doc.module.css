@@ -402,6 +402,35 @@
   margin: 2px 0;
 }
 
+/* Nhóm theo khối */
+.taskKhoiGroup {
+  border-bottom: 1px solid #F3F4F6;
+}
+
+.taskKhoiHeader {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 16px;
+  cursor: pointer;
+  user-select: none;
+  background: #FAFAFA;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.taskKhoiHeader:hover { background: #F3F4F6; }
+
+.taskKhoiName {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #B45309;
+  flex: 1;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
 /* Individual task item */
 .taskItem {
   display: flex;

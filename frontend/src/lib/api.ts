@@ -255,6 +255,13 @@ export const api = {
         body: JSON.stringify({ tasks: task_ids.map(id => ({ plan_id, task_id: String(id) })), refinement_prompt, generation_type }),
       }),
 
+    // Gộp theo danh sách (plan_id, task_id) — dùng khi 1 nhóm (khối) trải nhiều action plan.
+    generateGroupByRefs: (refs: { plan_id: string; task_id: string }[], refinement_prompt?: string, generation_type: string = 'document') =>
+      request<any[]>('/remediation/generate-group', {
+        method: 'POST',
+        body: JSON.stringify({ tasks: refs, refinement_prompt, generation_type }),
+      }),
+
     updateDocument: (doc_id: number, content: string) =>
       request<any>(`/remediation/documents/${doc_id}`, {
         method: 'PUT',

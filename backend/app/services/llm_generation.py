@@ -1,8 +1,55 @@
 import os
+import re
+
 from google import genai
 
 from app.core.config import settings
 from app.core.gemini_client import get_gemini_client
+
+
+def _reconcile_marks_and_comments(html: str, comments: list) -> tuple[str, list]:
+    """Đảm bảo mỗi <mark data-id> trong văn bản khớp đúng 1 comment (1:1, đúng thứ tự).
+
+    - Đánh số lại data-id theo thứ tự xuất hiện trong văn bản: comment_1, comment_2...
+    - Comment KHÔNG có <mark> tương ứng → loại bỏ (tránh card lơ lửng không có chỗ bôi vàng).
+    - <mark> không có comment → tạo comment rỗng để vẫn hiển thị được.
+    Nhờ vậy phần bôi vàng ở văn bản và danh sách comment luôn đi đôi với nhau.
+    """
+    if not html:
+        return html or "", []
+
+    comments = comments or []
+    by_id = {str(c.get("id")): c for c in comments if isinstance(c, dict)}
+
+    # Thứ tự xuất hiện (duy nhất) của các data-id trong HTML.
+    seen_order: list[str] = []
+    for m in re.finditer(r'data-id=["\']([^"\']+)["\']', html):
+        old = m.group(1)
+        if old not in seen_order:
+            seen_order.append(old)
+
+    if not seen_order:
+        # Không có mark nào để neo → trả comments rỗng cho nhất quán.
+        return html, []
+
+    id_map = {old: f"comment_{i}" for i, old in enumerate(seen_order, start=1)}
+
+    new_html = re.sub(
+        r'data-id=["\']([^"\']+)["\']',
+        lambda mt: f'data-id="{id_map.get(mt.group(1), mt.group(1))}"',
+        html,
+    )
+
+    new_comments = []
+    for old, new_id in id_map.items():
+        src = by_id.get(old, {})
+        new_comments.append({
+            "id": new_id,
+            "reason": src.get("reason", ""),
+            "task_name": src.get("task_name", ""),
+            "resolved": bool(src.get("resolved", False)),
+        })
+    return new_html, new_comments
 
 async def _format_plain_text_to_html(plain_text: str) -> str:
     """
@@ -61,56 +108,42 @@ Trả về: {{"html": "..."}}
 
 
 def _resolve_internal_doc(db, task):
-    """Xác định văn bản nội bộ (bản cũ) liên quan tới một task.
+    """Xác định văn bản nội bộ (bản cũ) của KHỐI phụ trách một task.
 
-    Ưu tiên `task.impacted_internal_doc` (khớp theo title). Nếu task không nêu
-    rõ (phase 2 không cung cấp field này), thì SEMANTIC SEARCH trong
-    internal_collection bằng nội dung task để tìm văn bản cũ phù hợp nhất.
+    Mỗi khối sở hữu đúng 1 văn bản quy chế trong internal KB. Ánh xạ theo bảng
+    cố định: `task.target_department` → title (xem app.core.departments).
 
-    Trả về (Document | None). Nếu tìm thấy qua search, backfill luôn
-    `task.impacted_internal_doc = doc.title` để bước approve → upsert KB dùng
-    đúng tên văn bản.
+    Thứ tự ưu tiên:
+      1. `task.impacted_internal_doc` nếu đã nêu rõ (tra theo title).
+      2. Map từ `target_department` → title của khối.
+
+    Trả về Document | None. Nếu resolve được, backfill `task.impacted_internal_doc`
+    = doc.title để downstream (FE grouping / approve → upsert KB) dùng đúng tên.
     """
     from app.core.enums import KbType  # noqa: PLC0415
+    from app.core.departments import resolve_internal_doc_title
     from app.models.document import Document
-    import importlib
-    qs = importlib.import_module("app.services.qdrant_service")
 
-    # 1. Nếu task đã nêu rõ văn bản bị ảnh hưởng → tra theo title.
-    title = (getattr(task, "impacted_internal_doc", None) or "").strip()
-    if title:
-        doc = db.query(Document).filter(
+    def _lookup(title: str):
+        return db.query(Document).filter(
             Document.title == title,
             Document.kb_type == KbType.INTERNAL.value,
         ).first()
+
+    # 1. Văn bản đã nêu rõ trên task.
+    explicit = (getattr(task, "impacted_internal_doc", None) or "").strip()
+    if explicit:
+        doc = _lookup(explicit)
         if doc:
             return doc
 
-    # 2. Ngược lại → semantic search internal_collection bằng nội dung task.
-    query = " ".join(filter(None, [
-        str(getattr(task, "task_name", "") or ""),
-        str(getattr(task, "action_required", "") or ""),
-    ])).strip()
-    if not query:
+    # 2. Map từ khối phụ trách → title văn bản của khối.
+    mapped_title = resolve_internal_doc_title(getattr(task, "target_department", "") or "")
+    if not mapped_title:
         return None
 
-    try:
-        hits = qs.search_chunks(query, KbType.INTERNAL.collection_name, top_k=5)
-    except Exception as e:
-        import logging
-        logging.error(f"Internal KB search failed: {e}")
-        return None
-
-    if not hits:
-        return None
-
-    best_doc_id = hits[0].get("document_id")
-    if best_doc_id is None:
-        return None
-
-    doc = db.query(Document).filter(Document.id == best_doc_id).first()
+    doc = _lookup(mapped_title)
     if doc:
-        # Backfill để downstream (FE grouping / approve upsert) có tên văn bản.
         try:
             task.impacted_internal_doc = doc.title
         except Exception:
@@ -201,10 +234,12 @@ async def generate_remediation_html(task, mode: str, old_doc: str, refinement_pr
            - Danh sách có thứ tự (a, b, c hoặc 1, 2, 3) → <ol><li>...</li></ol>
            - Danh sách không thứ tự → <ul><li>...</li></ul>
            - TUYỆT ĐỐI không dùng dấu gạch đầu dòng (-) trong thẻ <p> — nếu là danh sách thì phải dùng <ul> hoặc <ol>
-        3. Đối với các thay đổi:
-           - Nội dung BỊ XÓA: bọc trong <del>...</del>
-           - Nội dung THÊM MỚI hoặc SỬA ĐỔI: bọc trong <ins>...</ins>
-           - Các thay đổi đáng chú ý cần comment: bọc thêm trong <mark data-id="comment_1">...</mark>
+        3. ĐÁNH DẤU THAY ĐỔI (BẮT BUỘC):
+           - PHẢI thực hiện ÍT NHẤT 1 thay đổi thực sự (sửa/thêm/xóa) theo yêu cầu — KHÔNG được chép y nguyên.
+           - Nội dung BỊ XÓA: bọc trong <del>...</del>; nội dung THÊM/SỬA: bọc trong <ins>...</ins>.
+           - MỖI thay đổi đáng chú ý PHẢI bọc trong <mark data-id="comment_N">...</mark> với N = 1, 2, 3... tăng dần theo thứ tự xuất hiện trong văn bản.
+           - SỐ LƯỢNG thẻ <mark> PHẢI BẰNG số phần tử "comments", và data-id của <mark> PHẢI TRÙNG "id" của comment tương ứng.
+           - KHÔNG tạo comment nếu không có <mark> tương ứng, và ngược lại.
         4. Số liệu, thời hạn, tên đơn vị phải chính xác theo văn bản gốc và yêu cầu sửa đổi.
         5. Văn phong trang trọng, pháp lý — giữ nguyên từ ngữ gốc trừ phần cần sửa.
 
@@ -214,7 +249,7 @@ async def generate_remediation_html(task, mode: str, old_doc: str, refinement_pr
           "comments": [
             {{
               "id": "comment_1",
-              "reason": "Giải thích ngắn gọn tại sao thay đổi này cần thiết",
+              "reason": "Nói RÕ đã sửa GÌ THÀNH GÌ, ví dụ: Sửa '<nội dung cũ>' thành '<nội dung mới>' (hoặc: Xóa '<...>' / Thêm '<...>') vì <lý do>. PHẢI trích nội dung cụ thể trong văn bản, KHÔNG chép lại mô tả task.",
               "task_name": "{task.task_name}"
             }}
           ]
@@ -300,8 +335,14 @@ async def generate_remediation_html(task, mode: str, old_doc: str, refinement_pr
         
         text = response.text.strip()
         result = json.loads(text)
+        if mode == "document":
+            html, cmts = _reconcile_marks_and_comments(
+                result.get("modified_document_html", ""), result.get("comments", [])
+            )
+            result["modified_document_html"] = html
+            result["comments"] = cmts
         return json.dumps(result, ensure_ascii=False)
-        
+
     except json.JSONDecodeError as e:
         import logging
         logging.error(f"JSON parse error in generate_remediation_html: {e}, text: {text[:500] if 'text' in locals() else 'N/A'}")
@@ -416,10 +457,12 @@ async def generate_remediation_html_group(tasks: list, mode: str, old_doc: str, 
            - Danh sách có thứ tự (a, b, c hoặc 1, 2, 3) → <ol><li>...</li></ol>
            - Danh sách không thứ tự → <ul><li>...</li></ul>
            - TUYỆT ĐỐI không dùng dấu gạch đầu dòng (-) trong thẻ <p> — nếu là danh sách thì phải dùng <ul> hoặc <ol>
-        3. Đối với các thay đổi:
-           - Nội dung BỊ XÓA: bọc trong <del>...</del>
-           - Nội dung THÊM MỚI hoặc SỬA ĐỔI: bọc trong <ins>...</ins>
-           - Các thay đổi ĐÁng chú ý cần comment: bọc thêm trong <mark data-id="comment_1">...</mark> (tăng số ID theo thứ tự)
+        3. ĐÁNH DẤU THAY ĐỔI (BẮT BUỘC):
+           - PHẢI thực hiện ÍT NHẤT 1 thay đổi thực sự (sửa/thêm/xóa) cho MỖI yêu cầu — KHÔNG được chép y nguyên.
+           - Nội dung BỊ XÓA: bọc trong <del>...</del>; nội dung THÊM/SỬA: bọc trong <ins>...</ins>.
+           - MỖI thay đổi đáng chú ý PHẢI bọc trong <mark data-id="comment_N">...</mark> với N = 1, 2, 3... tăng dần theo thứ tự xuất hiện.
+           - SỐ LƯỢNG thẻ <mark> PHẢI BẰNG số phần tử "comments", và data-id của <mark> PHẢI TRÙNG "id" của comment tương ứng.
+           - KHÔNG tạo comment nếu không có <mark> tương ứng, và ngược lại.
         4. Số liệu, thời hạn, tên đơn vị phải chính xác theo văn bản gốc và yêu cầu sửa đổi.
         5. Văn phong trang trọng, pháp lý — giữ nguyên từ ngữ gốc trừ phần cần sửa.
 
@@ -429,7 +472,7 @@ async def generate_remediation_html_group(tasks: list, mode: str, old_doc: str, 
           "comments": [
             {{
               "id": "comment_1",
-              "reason": "Giải thích ngắn gọn tại sao thay đổi này cần thiết",
+              "reason": "Nói RÕ đã sửa GÌ THÀNH GÌ, ví dụ: Sửa '<nội dung cũ>' thành '<nội dung mới>' (hoặc: Xóa '<...>' / Thêm '<...>') vì <lý do>. PHẢI trích nội dung cụ thể trong văn bản, KHÔNG chép lại mô tả task.",
               "task_name": "Tên Task liên quan"
             }}
           ]
@@ -542,8 +585,14 @@ async def generate_remediation_html_group(tasks: list, mode: str, old_doc: str, 
         text = response.text.strip()
         # Đảm bảo response là JSON hợp lệ
         result = json.loads(text)
+        if mode == "document":
+            html, cmts = _reconcile_marks_and_comments(
+                result.get("modified_document_html", ""), result.get("comments", [])
+            )
+            result["modified_document_html"] = html
+            result["comments"] = cmts
         return json.dumps(result, ensure_ascii=False)
-        
+
     except json.JSONDecodeError as e:
         import logging
         logging.error(f"JSON parse error: {e}, text: {text[:500]}")
